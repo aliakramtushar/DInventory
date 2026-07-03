@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
+using DInventory.Application.Customers;
 using DInventory.Application.Sales;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -16,17 +17,20 @@ public class SalesController : Controller
 {
     private readonly ISalesService _salesService;
     private readonly IProductVariantService _productVariantService;
+    private readonly ILoyaltyService _loyaltyService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
 
     public SalesController(
         ISalesService salesService,
         IProductVariantService productVariantService,
+        ILoyaltyService loyaltyService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService)
     {
         _salesService = salesService;
         _productVariantService = productVariantService;
+        _loyaltyService = loyaltyService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
     }
@@ -65,7 +69,7 @@ public class SalesController : Controller
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("SALES", PermissionAction.Create)]
     public async Task<IActionResult> Create(int? customerId, string? newCustomerName, string? discountType, decimal discountValue,
-        decimal taxAmount, string paymentStatus, string? paymentMethod, string? remarks, string itemsJson)
+        decimal taxAmount, string paymentStatus, string? paymentMethod, string? remarks, int redeemPoints, string itemsJson)
     {
         var request = new CreateSaleRequest
         {
@@ -76,7 +80,8 @@ public class SalesController : Controller
             TaxAmount = taxAmount,
             PaymentStatus = string.IsNullOrWhiteSpace(paymentStatus) ? "PAID" : paymentStatus,
             PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "CASH" : paymentMethod,
-            Remarks = remarks
+            Remarks = remarks,
+            RedeemPoints = redeemPoints
         };
 
         try
@@ -146,6 +151,23 @@ public class SalesController : Controller
             barcode = variant.Barcode,
             price = variant.SellingPrice ?? 0,
             stock = variant.QuantityOnHand ?? 0
+        });
+    }
+
+    /// <summary>AJAX lookup for the "Redeem Points" box on Sales/Create - returns the selected
+    /// customer's current loyalty balance and the shop's current redeem rate, so the screen can
+    /// show/validate a redemption before the sale is actually submitted.</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetCustomerLoyalty(int customerId)
+    {
+        var settings = await _loyaltyService.GetSettingsAsync();
+        var balance = await _loyaltyService.GetBalanceAsync(customerId);
+
+        return Json(new
+        {
+            balance,
+            isEnabled = settings.IsEnabled && settings.PointValueOnRedeem > 0,
+            pointValueOnRedeem = settings.PointValueOnRedeem
         });
     }
 

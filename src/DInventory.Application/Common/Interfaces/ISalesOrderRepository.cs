@@ -15,6 +15,10 @@ public interface ISalesOrderRepository
 {
     Task<SalesOrder?> GetByIdAsync(int salesOrderId);
     Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null);
+
+    /// <summary>All completed-or-not sales for one customer, newest first - feeds the Customer
+    /// Details "Sales History" panel, mirrors IPurchaseRepository.GetForSupplierAsync.</summary>
+    Task<IEnumerable<SalesOrder>> GetForCustomerAsync(int customerId);
     Task<int> CreateAsync(SalesOrder order);
     Task<string> GenerateNextInvoiceNoAsync();
     Task<decimal> GetSalesTotalAsync(DateTime fromDate, DateTime toDateExclusive);

@@ -20,6 +20,17 @@ public class SalesOrder
     public string PaymentMethod { get; set; } = "CASH"; // CASH, CARD, MOBILE_BANKING, DUE
     public string Status { get; set; } = "COMPLETED";   // COMPLETED, CANCELLED
     public string? Remarks { get; set; }
+
+    /// <summary>Loyalty points awarded to the customer for this sale (0 for walk-in sales or
+    /// while the loyalty program is off/unconfigured).</summary>
+    public int LoyaltyPointsEarned { get; set; }
+
+    /// <summary>Loyalty points the customer redeemed against this sale's bill.</summary>
+    public int LoyaltyPointsRedeemed { get; set; }
+
+    /// <summary>Money value of LoyaltyPointsRedeemed (already netted into DiscountAmount/NetAmount
+    /// above) - kept separately purely so Sales/Details can show it as its own line.</summary>
+    public decimal LoyaltyRedeemAmount { get; set; }
     public DateTime CreatedAt { get; set; }
     public int CreatedBy { get; set; }
 

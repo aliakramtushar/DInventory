@@ -8,7 +8,18 @@
             <div>
                 <h4>Invoice @Model.InvoiceNo</h4>
                 <p class="text-muted mb-0">@Model.SaleDate.ToString("f")</p>
-                <p class="text-muted">Customer: @(Model.CustomerName ?? "Walk-in") &middot; Served by: @Model.CreatedByName</p>
+                <p class="text-muted">
+                    Customer:
+                    @if (Model.CustomerId.HasValue)
+                    {
+                        <a asp-controller="Customers" asp-action="Details" asp-route-id="@Model.CustomerId">@(Model.CustomerName ?? "Walk-in")</a>
+                    }
+                    else
+                    {
+                        @:Walk-in
+                    }
+                    &middot; Served by: @Model.CreatedByName
+                </p>
             </div>
             <div class="text-end">
                 <span class="badge fs-6 @(Model.Status == "COMPLETED" ? "text-bg-success" : "text-bg-danger")">@Model.Status</span>
@@ -50,6 +61,14 @@
                 <tr><td colspan="6" class="text-end">Discount @(Model.DiscountType == "PERCENT" && Model.DiscountValue > 0 ? $"(incl. {Model.DiscountValue:0.##}% on bill)" : "")</td><td class="text-end">-@Model.DiscountAmount.ToMoney()</td></tr>
                 <tr><td colspan="6" class="text-end">Tax</td><td class="text-end">@Model.TaxAmount.ToMoney()</td></tr>
                 <tr class="fw-bold"><td colspan="6" class="text-end">Net Total</td><td class="text-end">@Model.NetAmount.ToMoney()</td></tr>
+                @if (Model.LoyaltyPointsRedeemed > 0)
+                {
+                    <tr class="small text-muted"><td colspan="6" class="text-end">(incl. @Model.LoyaltyPointsRedeemed loyalty point(s) redeemed)</td><td class="text-end">-@Model.LoyaltyRedeemAmount.ToMoney()</td></tr>
+                }
+                @if (Model.LoyaltyPointsEarned > 0)
+                {
+                    <tr class="small text-success"><td colspan="6" class="text-end">Loyalty points earned</td><td class="text-end">+@Model.LoyaltyPointsEarned</td></tr>
+                }
                 @if (Model.ReturnedAmount > 0)
                 {
                     <tr class="text-danger"><td colspan="6" class="text-end">Returned</td><td class="text-end">-@Model.ReturnedAmount.ToMoney()</td></tr>

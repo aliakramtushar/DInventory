@@ -62,7 +62,7 @@
                     <input type="hidden" name="itemsJson" id="itemsJson" value="[]" />
                     <div class="mb-3">
                         <label class="form-label">Customer</label>
-                        <select name="customerId" class="form-select">
+                        <select name="customerId" id="customerIdSelect" class="form-select">
                             <option value="">-- Walk-in customer --</option>
                             @foreach (var c in customers)
                             {
@@ -72,7 +72,12 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Or new customer name</label>
-                        <input name="newCustomerName" class="form-control" placeholder="Optional" />
+                        <input name="newCustomerName" id="newCustomerNameInput" class="form-control" placeholder="Optional" />
+                    </div>
+                    <div id="loyaltyBox" class="mb-3 d-none">
+                        <label class="form-label">Redeem Loyalty Points <span id="loyaltyBalanceLabel" class="text-muted small"></span></label>
+                        <input type="number" id="redeemPointsInput" name="redeemPoints" min="0" value="0" class="form-control" />
+                        <div class="form-text" id="redeemValueHint"></div>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-7">
@@ -118,6 +123,7 @@
                         <tr><td>Subtotal</td><td class="text-end" id="subtotalDisplay">৳0.00</td></tr>
                         <tr><td>Line Discounts</td><td class="text-end" id="lineDiscountDisplay">-৳0.00</td></tr>
                         <tr><td>Bill Discount</td><td class="text-end" id="billDiscountDisplay">-৳0.00</td></tr>
+                        <tr id="redeemRow" class="d-none"><td>Loyalty Redeem</td><td class="text-end" id="redeemDisplay">-৳0.00</td></tr>
                         <tr><td>Tax</td><td class="text-end" id="taxDisplay">৳0.00</td></tr>
                         <tr><td>Net Total</td><td class="text-end fw-bold" id="netTotalDisplay">৳0.00</td></tr>
                     </table>
@@ -186,8 +192,12 @@
         recalculateTotals();
     }
 
+    // Loyalty: current customer's balance/rate, fetched on demand when a registered customer
+    // is picked (walk-ins and brand-new quick-add customers never have anything to redeem).
+    let loyaltyInfo = { balance: 0, isEnabled: false, pointValueOnRedeem: 0 };
+
     // Recomputes subtotal/net + the itemsJson hidden field from the current cart array, without
-    // touching any DOM input elements - safe to call on every quantity/discount keystroke.
+    // touching any DOM input elements - safe to call on every quantity/discount/redeem keystroke.
     function recalculateTotals() {
         const grossSubtotal = cart.reduce((sum, i) => sum + lineGross(i), 0);
         const lineDiscountTotal = cart.reduce((sum, i) => sum + lineDiscount(i), 0);
@@ -198,13 +208,36 @@
         const billDiscount = computeDiscountAmount(postLineSubtotal, billDiscountType, billDiscountValue);
 
         const tax = parseFloat(document.getElementById('taxAmount').value) || 0;
-        const net = Math.max(0, grossSubtotal - lineDiscountTotal - billDiscount + tax);
+        const preRedeemNet = Math.max(0, grossSubtotal - lineDiscountTotal - billDiscount + tax);
+
+        // Redeem value can never exceed the bill (mirrors SalesService's server-side check) and
+        // never exceeds the customer's balance (the input's max= already prevents that, but a
+        // stale value from switching customers is clamped here too).
+        let redeemPoints = parseInt(document.getElementById('redeemPointsInput').value, 10) || 0;
+        if (redeemPoints < 0) redeemPoints = 0;
+        if (redeemPoints > loyaltyInfo.balance) redeemPoints = loyaltyInfo.balance;
+        let redeemAmount = loyaltyInfo.isEnabled ? redeemPoints * loyaltyInfo.pointValueOnRedeem : 0;
+        if (redeemAmount > preRedeemNet) {
+            redeemAmount = preRedeemNet;
+        }
+        document.getElementById('redeemPointsInput').value = redeemPoints;
+
+        const net = Math.max(0, preRedeemNet - redeemAmount);
 
         document.getElementById('subtotalDisplay').textContent = dinvMoney(grossSubtotal);
         document.getElementById('lineDiscountDisplay').textContent = '-' + dinvMoney(lineDiscountTotal);
         document.getElementById('billDiscountDisplay').textContent = '-' + dinvMoney(billDiscount);
         document.getElementById('taxDisplay').textContent = dinvMoney(tax);
         document.getElementById('netTotalDisplay').textContent = dinvMoney(net);
+
+        const redeemRow = document.getElementById('redeemRow');
+        if (redeemPoints > 0) {
+            redeemRow.classList.remove('d-none');
+            document.getElementById('redeemDisplay').textContent = '-' + dinvMoney(redeemAmount);
+        } else {
+            redeemRow.classList.add('d-none');
+        }
+
         document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({
             productVariantId: i.productVariantId,
             quantity: i.quantity,
@@ -214,6 +247,53 @@
         })));
         document.getElementById('submitSaleBtn').disabled = cart.length === 0;
     }
+
+    // ---- Loyalty box: show/hide + fetch balance when a registered customer is (de)selected ----
+    async function refreshLoyaltyBox() {
+        const customerId = document.getElementById('customerIdSelect').value;
+        const loyaltyBox = document.getElementById('loyaltyBox');
+        const redeemInput = document.getElementById('redeemPointsInput');
+
+        if (!customerId) {
+            loyaltyInfo = { balance: 0, isEnabled: false, pointValueOnRedeem: 0 };
+            redeemInput.value = 0;
+            loyaltyBox.classList.add('d-none');
+            recalculateTotals();
+            return;
+        }
+
+        try {
+            const response = await fetch('@Url.Action("GetCustomerLoyalty", "Sales")?customerId=' + encodeURIComponent(customerId));
+            const data = await response.json();
+            loyaltyInfo = data;
+
+            if (data.isEnabled && data.balance > 0) {
+                document.getElementById('loyaltyBalanceLabel').textContent = `(${data.balance} point(s) available)`;
+                document.getElementById('redeemValueHint').textContent = `1 point = ৳${Number(data.pointValueOnRedeem).toFixed(2)}`;
+                redeemInput.max = data.balance;
+                loyaltyBox.classList.remove('d-none');
+            } else {
+                redeemInput.value = 0;
+                loyaltyBox.classList.add('d-none');
+            }
+        } catch (err) {
+            loyaltyInfo = { balance: 0, isEnabled: false, pointValueOnRedeem: 0 };
+            loyaltyBox.classList.add('d-none');
+        }
+
+        recalculateTotals();
+    }
+
+    document.getElementById('customerIdSelect').addEventListener('change', refreshLoyaltyBox);
+    document.getElementById('redeemPointsInput').addEventListener('input', recalculateTotals);
+
+    // Typing a brand-new walk-in customer name means there's no existing balance to redeem -
+    // clear the customer picker and hide the loyalty box.
+    document.getElementById('newCustomerNameInput').addEventListener('input', (e) => {
+        if (e.target.value.trim() === '') return;
+        document.getElementById('customerIdSelect').value = '';
+        refreshLoyaltyBox();
+    });
 
     function removeItem(idx) {
         cart.splice(idx, 1);

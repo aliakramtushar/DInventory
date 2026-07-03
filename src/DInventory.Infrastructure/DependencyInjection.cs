@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IPriceRepository, PriceRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<ISalesOrderRepository, SalesOrderRepository>();
         services.AddScoped<ISalesReturnRepository, SalesReturnRepository>();
         services.AddScoped<IColorRepository, ColorRepository>();

@@ -1,0 +1,126 @@
+@model DInventory.Domain.Entities.Customer
+@{
+    ViewData["Title"] = Model.CustomerName;
+    var salesHistory = (IEnumerable<DInventory.Domain.Entities.SalesOrder>)ViewBag.SalesHistory;
+    var loyaltyHistory = (IEnumerable<DInventory.Domain.Entities.LoyaltyTransaction>)ViewBag.LoyaltyHistory;
+}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Customer Details</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5">Name</dt>
+                    <dd class="col-7">@Model.CustomerName</dd>
+                    <dt class="col-5">Mobile</dt>
+                    <dd class="col-7">@(Model.Phone ?? "-")</dd>
+                    <dt class="col-5">Email</dt>
+                    <dd class="col-7">@(Model.Email ?? "-")</dd>
+                    <dt class="col-5">Address</dt>
+                    <dd class="col-7">@(Model.Address ?? "-")</dd>
+                    <dt class="col-5">Status</dt>
+                    <dd class="col-7">@(Model.IsActive ? "Active" : "Inactive")</dd>
+                </dl>
+                <a asp-action="Edit" asp-route-id="@Model.CustomerId" class="btn btn-outline-secondary btn-sm mt-2">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Account Summary</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-7">Orders</dt>
+                    <dd class="col-5 text-end">@(Model.OrderCount ?? 0)</dd>
+                    <dt class="col-7">Total Spend</dt>
+                    <dd class="col-5 text-end">@((Model.TotalSpend ?? 0).ToMoney())</dd>
+                    <dt class="col-7 fw-semibold">Loyalty Points</dt>
+                    <dd class="col-5 text-end fw-semibold text-success">@Model.LoyaltyPointsBalance</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Adjust Loyalty Points</div>
+            <div class="card-body">
+                <form asp-action="AdjustPoints" method="post">
+                    <input type="hidden" name="customerId" value="@Model.CustomerId" />
+                    <div class="mb-2">
+                        <label class="form-label small">Points (negative to subtract)</label>
+                        <input name="points" type="number" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Reason</label>
+                        <input name="remarks" class="form-control form-control-sm" placeholder="e.g. Goodwill bonus, correction" />
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Apply</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span>Sales History</span>
+                <a asp-controller="Sales" asp-action="Create" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>New Sale
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Invoice</th><th>Date</th><th class="text-end">Net Amount</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                        @if (!salesHistory.Any())
+                        {
+                            <tr><td colspan="5" class="text-center text-muted py-4">No sales recorded yet.</td></tr>
+                        }
+                        @foreach (var order in salesHistory)
+                        {
+                            <tr>
+                                <td>@order.InvoiceNo</td>
+                                <td class="small">@order.SaleDate.ToString("g")</td>
+                                <td class="text-end">@order.NetAmount.ToMoney()</td>
+                                <td><span class="badge @(order.Status == "COMPLETED" ? "text-bg-success" : "text-bg-danger")">@order.Status</span></td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Sales" asp-action="Details" asp-route-id="@order.SalesOrderId">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Loyalty History</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Date</th><th>Type</th><th class="text-end">Points</th><th>Reference</th><th>Remarks</th><th>By</th></tr></thead>
+                    <tbody>
+                        @if (!loyaltyHistory.Any())
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">No loyalty activity yet.</td></tr>
+                        }
+                        @foreach (var tx in loyaltyHistory)
+                        {
+                            <tr>
+                                <td class="small">@tx.CreatedAt.ToString("g")</td>
+                                <td><span class="badge text-bg-light text-dark border">@tx.TransactionType</span></td>
+                                <td class="text-end fw-semibold @(tx.Points >= 0 ? "text-success" : "text-danger")">@(tx.Points >= 0 ? "+" : "")@tx.Points</td>
+                                <td class="small text-muted">@tx.ReferenceType@(tx.ReferenceId.HasValue ? " #" + tx.ReferenceId : "")</td>
+                                <td class="small">@tx.Remarks</td>
+                                <td class="small text-muted">@tx.CreatedByName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm mt-3">Back to Customers</a>
+    </div>
+</div>

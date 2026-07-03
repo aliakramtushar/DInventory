@@ -55,7 +55,9 @@ public class CustomerReportRow
     public int OrderCount { get; set; }
     public decimal TotalSpend { get; set; }
 
-    /// <summary>Same simple static formula as Customer.LoyaltyPoints (1 point per ৳100 spent).</summary>
+    /// <summary>Rough estimate only (1 point per ৳100 of all-time spend) for a quick glance on
+    /// this report - the real, persisted loyalty balance (earn/redeem/adjust ledger, configurable
+    /// rate) lives on Customer.LoyaltyPointsBalance and the Customers module.</summary>
     public int LoyaltyPoints => (int)(TotalSpend / 100m);
 }
 

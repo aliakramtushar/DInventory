@@ -3,6 +3,7 @@ using DInventory.Application.Auth;
 using DInventory.Application.Barcoding;
 using DInventory.Application.Catalog;
 using DInventory.Application.Content;
+using DInventory.Application.Customers;
 using DInventory.Application.Dashboard;
 using DInventory.Application.Expenses;
 using DInventory.Application.Inventory;
@@ -37,6 +38,8 @@ public static class DependencyInjection
         services.AddScoped<IBarcodeNumberGenerator, BarcodeNumberGenerator>();
         services.AddScoped<IGeneratedBarcodeLabelService, GeneratedBarcodeLabelService>();
         services.AddScoped<IStockService, StockService>();
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<ILoyaltyService, LoyaltyService>();
         services.AddScoped<ISalesService, SalesService>();
         services.AddScoped<ISalesReturnService, SalesReturnService>();
         services.AddScoped<ISupplierService, SupplierService>();

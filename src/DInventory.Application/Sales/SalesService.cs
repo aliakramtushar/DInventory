@@ -1,5 +1,6 @@
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
+using DInventory.Application.Customers;
 using DInventory.Domain.Entities;
 
 namespace DInventory.Application.Sales;
@@ -10,17 +11,20 @@ public class SalesService : ISalesService
     private readonly IProductVariantRepository _variantRepository;
     private readonly IStockRepository _stockRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly ILoyaltyService _loyaltyService;
 
     public SalesService(
         ISalesOrderRepository salesOrderRepository,
         IProductVariantRepository variantRepository,
         IStockRepository stockRepository,
-        ICustomerRepository customerRepository)
+        ICustomerRepository customerRepository,
+        ILoyaltyService loyaltyService)
     {
         _salesOrderRepository = salesOrderRepository;
         _variantRepository = variantRepository;
         _stockRepository = stockRepository;
         _customerRepository = customerRepository;
+        _loyaltyService = loyaltyService;
     }
 
     public Task<SalesOrder?> GetByIdAsync(int salesOrderId) => _salesOrderRepository.GetByIdAsync(salesOrderId);
@@ -127,6 +131,41 @@ public class SalesService : ISalesService
         var netAmount = grossSubTotal - totalDiscountAmount + request.TaxAmount;
         if (netAmount < 0) netAmount = 0;
 
+        // ---- Loyalty: redeem points against this bill, then earn points on what's actually paid ----
+        // Only a resolved, existing customer can redeem (a brand-new quick-add customer always has
+        // a zero balance anyway, so this naturally does nothing for them). Redeeming reduces
+        // NetAmount further, on top of any line/bill discount already applied; earning is
+        // calculated on the final, post-redeem NetAmount so points are never awarded on money the
+        // customer didn't actually pay.
+        var loyaltySettings = await _loyaltyService.GetSettingsAsync();
+        var redeemPoints = 0;
+        var redeemAmount = 0m;
+        if (customerId.HasValue && request.RedeemPoints > 0)
+        {
+            if (!loyaltySettings.IsEnabled || loyaltySettings.PointValueOnRedeem <= 0)
+            {
+                return Result<int>.Failure("Loyalty point redemption isn't enabled.");
+            }
+
+            var balance = await _loyaltyService.GetBalanceAsync(customerId.Value);
+            if (request.RedeemPoints > balance)
+            {
+                return Result<int>.Failure($"This customer only has {balance} loyalty point(s) available.");
+            }
+
+            var wouldBeAmount = _loyaltyService.ComputeRedeemValue(request.RedeemPoints, loyaltySettings);
+            if (wouldBeAmount > netAmount)
+            {
+                return Result<int>.Failure("Cannot redeem that many points - their value is more than this bill's total.");
+            }
+
+            redeemPoints = request.RedeemPoints;
+            redeemAmount = wouldBeAmount;
+            netAmount -= redeemAmount;
+        }
+
+        var pointsEarned = customerId.HasValue ? _loyaltyService.ComputeEarnedPoints(netAmount, loyaltySettings) : 0;
+
         var order = new SalesOrder
         {
             InvoiceNo = await _salesOrderRepository.GenerateNextInvoiceNoAsync(),
@@ -135,9 +174,12 @@ public class SalesService : ISalesService
             SubTotal = grossSubTotal,
             DiscountType = NormalizeDiscountType(request.DiscountType),
             DiscountValue = request.DiscountValue < 0 ? 0 : request.DiscountValue,
-            DiscountAmount = totalDiscountAmount,
+            DiscountAmount = totalDiscountAmount + redeemAmount,
             TaxAmount = request.TaxAmount,
             NetAmount = netAmount,
+            LoyaltyPointsEarned = pointsEarned,
+            LoyaltyPointsRedeemed = redeemPoints,
+            LoyaltyRedeemAmount = redeemAmount,
             PaymentStatus = string.IsNullOrWhiteSpace(request.PaymentStatus) ? "PAID" : request.PaymentStatus,
             PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "CASH" : request.PaymentMethod,
             Status = "COMPLETED",
@@ -163,6 +205,16 @@ public class SalesService : ISalesService
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = actingUserId
             });
+        }
+
+        if (customerId.HasValue && redeemPoints > 0)
+        {
+            await _loyaltyService.RedeemAsync(customerId.Value, redeemPoints, "SALE", salesOrderId, $"Redeemed on sale {order.InvoiceNo}", actingUserId);
+        }
+
+        if (customerId.HasValue && pointsEarned > 0)
+        {
+            await _loyaltyService.EarnAsync(customerId.Value, pointsEarned, "SALE", salesOrderId, $"Earned from sale {order.InvoiceNo}", actingUserId);
         }
 
         return Result<int>.Success(salesOrderId);
@@ -218,6 +270,26 @@ public class SalesService : ISalesService
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = actingUserId
             });
+        }
+
+        // Reverse whatever loyalty effect this sale had: take back any points it earned, and
+        // hand back any points it redeemed. Uses enforceBalanceFloor: false because this is a
+        // system-initiated reversal, not a staff-entered adjustment - it must go through even if
+        // the customer's balance has moved since (e.g. they've already redeemed the earned points
+        // elsewhere), same reasoning as CancelSaleAsync unconditionally restoring stock above.
+        if (order.CustomerId.HasValue)
+        {
+            if (order.LoyaltyPointsEarned > 0)
+            {
+                await _loyaltyService.AdjustAsync(order.CustomerId.Value, -order.LoyaltyPointsEarned,
+                    $"Reversal: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
+            }
+
+            if (order.LoyaltyPointsRedeemed > 0)
+            {
+                await _loyaltyService.AdjustAsync(order.CustomerId.Value, order.LoyaltyPointsRedeemed,
+                    $"Refund: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
+            }
         }
 
         var ok = await _salesOrderRepository.CancelAsync(salesOrderId);

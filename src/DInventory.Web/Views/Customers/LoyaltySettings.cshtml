@@ -1,0 +1,45 @@
+@model DInventory.Domain.Entities.LoyaltySettings
+@{
+    ViewData["Title"] = "Loyalty Settings";
+}
+<div class="card shadow-sm" style="max-width: 640px;">
+    <div class="card-header bg-white fw-semibold">Loyalty Settings</div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <p class="text-muted small">
+            These two numbers control the whole loyalty program. Leave a rate at 0 to turn that
+            side off (e.g. a redeem rate of 0 means points can be earned but not yet spent).
+        </p>
+        <form method="post">
+            <input asp-for="LoyaltySettingsId" type="hidden" />
+            <div class="mb-3">
+                <div class="form-check">
+                    <input asp-for="IsEnabled" class="form-check-input" />
+                    <label asp-for="IsEnabled" class="form-check-label fw-semibold">Loyalty program enabled</label>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Points earned per amount spent</label>
+                    <div class="input-group">
+                        <span class="input-group-text">1 point per ৳</span>
+                        <input asp-for="PointsPerAmountSpent" type="number" step="0.01" min="0" class="form-control" />
+                    </div>
+                    <div class="form-text">e.g. 100 means a customer earns 1 point for every ৳100 of a sale's net total.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Value of 1 point when redeemed</label>
+                    <div class="input-group">
+                        <span class="input-group-text">৳</span>
+                        <input asp-for="PointValueOnRedeem" type="number" step="0.0001" min="0" class="form-control" />
+                    </div>
+                    <div class="form-text">e.g. 1 means 10 redeemed points take ৳10 off a bill.</div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Back to Customers</a>
+            </div>
+        </form>
+    </div>
+</div>

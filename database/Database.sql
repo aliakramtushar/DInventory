@@ -731,6 +731,82 @@ BEGIN
 END
 GO
 
+/* =====================================================================
+   24. CUSTOMERS - audit columns  (Customers originally had no
+       CreatedBy/UpdatedAt/UpdatedBy, unlike Suppliers - adding them now
+       for a real Customer management module, same additive-upgrade
+       pattern used everywhere else in this script.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.Customers', 'U') IS NOT NULL AND COL_LENGTH('dbo.Customers', 'CreatedBy') IS NULL
+BEGIN
+    ALTER TABLE dbo.Customers ADD CreatedBy INT NULL;
+    ALTER TABLE dbo.Customers ADD UpdatedAt DATETIME2 NULL;
+    ALTER TABLE dbo.Customers ADD UpdatedBy INT NULL;
+END
+GO
+
+/* =====================================================================
+   25. LOYALTY PROGRAM  (basic setup: one editable settings row -
+       "points earned per amount spent" and "money value of 1 point when
+       redeemed" - plus a ledger of every earn/redeem/manual-adjust so a
+       customer's balance is always SUM(Points) rather than a single
+       column that can drift out of sync, same ledger+balance pattern as
+       dbo.Stock/dbo.StockTransactions.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.LoyaltySettings', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LoyaltySettings
+    (
+        LoyaltySettingsId     INT IDENTITY(1,1) PRIMARY KEY,
+        IsEnabled              BIT NOT NULL DEFAULT (1),
+        PointsPerAmountSpent   DECIMAL(18,2) NOT NULL DEFAULT (0), -- earn 1 point per this many currency units of NetAmount (0 = earning off)
+        PointValueOnRedeem     DECIMAL(18,4) NOT NULL DEFAULT (0), -- 1 point is worth this many currency units when redeemed (0 = redeeming off)
+        UpdatedAt              DATETIME2 NULL,
+        UpdatedBy              INT NULL
+    );
+END
+GO
+
+-- Exactly one settings row to edit, ever - seeded disabled-by-default (rate 0) until the shop
+-- owner sets real numbers on the Loyalty Settings screen, so no points get silently issued/valued
+-- before that happens.
+IF NOT EXISTS (SELECT 1 FROM dbo.LoyaltySettings)
+BEGIN
+    INSERT INTO dbo.LoyaltySettings (IsEnabled, PointsPerAmountSpent, PointValueOnRedeem) VALUES (0, 0, 0);
+END
+GO
+
+IF OBJECT_ID('dbo.LoyaltyTransactions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LoyaltyTransactions
+    (
+        LoyaltyTransactionId  INT IDENTITY(1,1) PRIMARY KEY,
+        CustomerId             INT NOT NULL,
+        TransactionType         NVARCHAR(10) NOT NULL
+            CONSTRAINT CK_LoyaltyTx_Type CHECK (TransactionType IN (N'EARN', N'REDEEM', N'ADJUST')),
+        Points                   INT NOT NULL, -- positive for EARN/positive ADJUST, negative for REDEEM/negative ADJUST
+        ReferenceType            NVARCHAR(30) NULL, -- SALE, MANUAL
+        ReferenceId               INT NULL,
+        Remarks                   NVARCHAR(255) NULL,
+        CreatedAt                 DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy                 INT NULL,
+        CONSTRAINT FK_LoyaltyTx_Customers FOREIGN KEY (CustomerId) REFERENCES dbo.Customers(CustomerId),
+        CONSTRAINT FK_LoyaltyTx_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+-- Denormalized onto the sale itself purely so Sales/Details can show "Points Earned"/"Points
+-- Redeemed" without an extra join - dbo.LoyaltyTransactions (ReferenceType='SALE') stays the
+-- source of truth for the customer's actual point balance.
+IF OBJECT_ID('dbo.SalesOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrders', 'LoyaltyPointsEarned') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyPointsEarned INT NOT NULL CONSTRAINT DF_SO_LoyaltyPointsEarned DEFAULT (0);
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyPointsRedeemed INT NOT NULL CONSTRAINT DF_SO_LoyaltyPointsRedeemed DEFAULT (0);
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyRedeemAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_SO_LoyaltyRedeemAmount DEFAULT (0);
+END
+GO
+
 PRINT 'Schema check complete.';
 GO
 
@@ -969,6 +1045,27 @@ BEGIN
     FROM dbo.Roles r
     CROSS JOIN dbo.Menus m
     WHERE m.MenuKey = N'PURCHASE_RETURNS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
+-- Menu grouping (round 4): Customers under Sales (own outer guard, same reasoning as round 3).
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'CUSTOMERS')
+BEGIN
+    DECLARE @GSales4 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_SALES');
+    IF @GSales4 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'CUSTOMERS', N'Customers', N'bi-person-vcard', N'/Customers', @GSales4, 1, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'CUSTOMERS'
       AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
 END
 GO

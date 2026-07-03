@@ -1,0 +1,33 @@
+@model DInventory.Domain.Entities.Customer
+@{
+    ViewData["Title"] = "New Customer";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Customer Name</label>
+                    <input asp-for="CustomerName" class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Mobile</label>
+                    <input asp-for="Phone" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input asp-for="Email" type="email" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Create Customer</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

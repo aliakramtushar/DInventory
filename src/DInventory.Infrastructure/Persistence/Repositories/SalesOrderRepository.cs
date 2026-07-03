@@ -18,7 +18,9 @@ public class SalesOrderRepository : ISalesOrderRepository
     private const string HeaderSelect = @"
         SELECT so.SalesOrderId, so.InvoiceNo, so.CustomerId, so.SaleDate, so.SubTotal,
                so.DiscountType, so.DiscountValue, so.DiscountAmount,
-               so.TaxAmount, so.NetAmount, so.PaymentStatus, so.PaymentMethod, so.Status, so.Remarks, so.CreatedAt, so.CreatedBy,
+               so.TaxAmount, so.NetAmount, so.PaymentStatus, so.PaymentMethod, so.Status, so.Remarks,
+               so.LoyaltyPointsEarned, so.LoyaltyPointsRedeemed, so.LoyaltyRedeemAmount,
+               so.CreatedAt, so.CreatedBy,
                c.CustomerName, u.FullName AS CreatedByName,
                ISNULL(sr.ReturnedAmount, 0) AS ReturnedAmount
         FROM dbo.SalesOrders so
@@ -27,6 +29,13 @@ public class SalesOrderRepository : ISalesOrderRepository
         OUTER APPLY (
             SELECT SUM(r.NetAmount) AS ReturnedAmount FROM dbo.SalesReturns r WHERE r.SalesOrderId = so.SalesOrderId
         ) sr";
+
+    public async Task<IEnumerable<SalesOrder>> GetForCustomerAsync(int customerId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var sql = $"{HeaderSelect} WHERE so.CustomerId = @customerId ORDER BY so.SaleDate DESC";
+        return await connection.QueryAsync<SalesOrder>(sql, new { customerId });
+    }
 
     public async Task<SalesOrder?> GetByIdAsync(int salesOrderId)
     {
@@ -128,10 +137,12 @@ public class SalesOrderRepository : ISalesOrderRepository
     {
         const string headerSql = @"
             INSERT INTO dbo.SalesOrders (InvoiceNo, CustomerId, SaleDate, SubTotal, DiscountType, DiscountValue, DiscountAmount, TaxAmount,
-                                          NetAmount, PaymentStatus, PaymentMethod, Status, Remarks, CreatedAt, CreatedBy)
+                                          NetAmount, PaymentStatus, PaymentMethod, Status, Remarks,
+                                          LoyaltyPointsEarned, LoyaltyPointsRedeemed, LoyaltyRedeemAmount, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SalesOrderId
             VALUES (@InvoiceNo, @CustomerId, @SaleDate, @SubTotal, @DiscountType, @DiscountValue, @DiscountAmount, @TaxAmount,
-                    @NetAmount, @PaymentStatus, @PaymentMethod, @Status, @Remarks, @CreatedAt, @CreatedBy)";
+                    @NetAmount, @PaymentStatus, @PaymentMethod, @Status, @Remarks,
+                    @LoyaltyPointsEarned, @LoyaltyPointsRedeemed, @LoyaltyRedeemAmount, @CreatedAt, @CreatedBy)";
 
         var salesOrderId = await connection.ExecuteScalarAsync<int>(headerSql, order, transaction);
 

@@ -14,6 +14,10 @@ public class CreateSaleRequest
     public string PaymentStatus { get; set; } = "PAID";
     public string PaymentMethod { get; set; } = "CASH";
     public string? Remarks { get; set; }
+
+    /// <summary>Loyalty points the (registered, existing) customer wants to redeem against this
+    /// sale's bill. Ignored for walk-in sales or a brand-new quick-add customer.</summary>
+    public int RedeemPoints { get; set; }
     public List<CreateSaleItem> Items { get; set; } = new();
 }
 
