@@ -1,6 +1,20 @@
 # DInventory — Inventory + Sales Management System
 
-ASP.NET Core 8 MVC (Razor/.cshtml) + Dapper + SQL Server LocalDB. Clean Architecture, JWT auth with refresh/revoke, role + menu-level permissions, dashboard, reporting, and a small public website with editable content.
+ASP.NET Core 8 MVC (Razor/.cshtml) + Dapper + SQL Server LocalDB. Clean Architecture, full sales/purchase workflow with returns and discounts, a configurable customer loyalty program, JWT auth with refresh/revoke, role + menu-level permissions, dashboard, reporting, and a small public website with editable content.
+
+## Features
+
+- **Products & stock** — categories, subcategories, brands, colors/sizes, product variants, barcode generation, low-stock alerts, and a stock ledger where every change is recorded as a transaction (balance is always computed, never a mutated running total).
+- **Sales** — cart-style checkout, per-line discount (percent or fixed amount) plus an overall bill discount, walk-in or registered customers, multiple payment methods, printable invoices.
+- **Purchases** — supplier-linked purchase orders that receive stock in automatically.
+- **Sale Returns / Purchase Returns** — always linked back to the original invoice/PO, partial or full returns per line item, stock adjusts automatically, and the net amount owed is reduced accordingly.
+- **Customers & Loyalty** — customer records (name, address, email, mobile) with order history; a configurable loyalty program (points earned per amount spent, point value on redeem — no hardcoded rates, editable from Loyalty Settings); points can be redeemed as a bill discount at checkout; full earn/redeem/adjust ledger with automatic reversal if a sale is cancelled.
+- **Expenses** — expense tracking that feeds into the dashboard's cash-in-hand figure.
+- **Dashboard & Reports** — today/week/month/year sales, low-stock count, Chart.js trend charts (daily/weekly/monthly/yearly), Sales/Stock reports with CSV export.
+- **Roles & permissions** — database-driven menu + per-role permission system (View/Create/Edit/Delete), enforced server-side on every controller action.
+- **Auth** — JWT access + refresh tokens with cookie auth for the MVC pages, session revoke and admin-triggered force-logout.
+- **Public website** — a small content-managed storefront alongside the admin app.
+- **Pagination** — every admin list view (Products, Sales, Purchases, Customers, Suppliers, Returns, Expenses, Audit Log, etc.) is paginated and searchable via a shared `PagedResult<T>`/`PagedRequest` and a shared pagination partial view.
 
 ## 1. Prerequisites
 
@@ -66,4 +80,4 @@ Adding a new module (e.g. "Suppliers") means: add the entity to `Domain`, an int
 
 ## 8. API docs (Swagger)
 
-The JWT-secured JSON endpoints (`/api/dashboard/trend`, `/api/auth/refresh`) are documented at **http://localhost:5080/swagger**. The MVC/Razor page routes are intentionally excluded from the doc. Click **Authorize** and paste an access token (log in via the UI first, then copy the `dinv_access_token` cookie value from your brows
+The JWT-secured JSON endpoints (`/api/dashboard/trend`, `/api/auth/refresh`) are documented at **http://localhost:5080/swagger**. The MVC/Razor page routes are intentionally excluded from the doc. Click **Authorize** and paste an access token (log in via the UI first, then copy the `dinv_access_token` cookie value from your browser's dev tools) to try the endpoints directly.
