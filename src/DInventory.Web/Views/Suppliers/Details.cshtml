@@ -1,0 +1,81 @@
+@model DInventory.Domain.Entities.Supplier
+@{
+    ViewData["Title"] = Model.SupplierName;
+    var history = (IEnumerable<DInventory.Domain.Entities.Purchase>)ViewBag.PurchaseHistory;
+}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Supplier Details</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5">Name</dt>
+                    <dd class="col-7">@Model.SupplierName</dd>
+                    <dt class="col-5">Phone</dt>
+                    <dd class="col-7">@(Model.Phone ?? "-")</dd>
+                    <dt class="col-5">Address</dt>
+                    <dd class="col-7">@(Model.Address ?? "-")</dd>
+                    <dt class="col-5">Status</dt>
+                    <dd class="col-7">@(Model.IsActive ? "Active" : "Inactive")</dd>
+                </dl>
+                <a asp-action="Edit" asp-route-id="@Model.SupplierId" class="btn btn-outline-secondary btn-sm mt-2">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Account Summary</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-7">Total Purchased</dt>
+                    <dd class="col-5 text-end">@((Model.TotalPurchased ?? 0).ToMoney())</dd>
+                    <dt class="col-7">Total Paid</dt>
+                    <dd class="col-5 text-end">@((Model.TotalPaid ?? 0).ToMoney())</dd>
+                    <dt class="col-7 fw-semibold">Due</dt>
+                    <dd class="col-5 text-end fw-semibold @((Model.DueAmount ?? 0) > 0 ? "text-danger" : "text-success")">
+                        @((Model.DueAmount ?? 0).ToMoney())
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span>Purchase History</span>
+                <a asp-controller="Purchases" asp-action="Create" asp-route-supplierId="@Model.SupplierId" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>New Purchase
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Invoice No</th><th>Date</th><th class="text-end">Total</th><th class="text-end">Paid</th><th class="text-end">Due</th><th></th></tr></thead>
+                    <tbody>
+                        @if (!history.Any())
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">No purchases recorded yet.</td></tr>
+                        }
+                        @foreach (var purchase in history)
+                        {
+                            <tr>
+                                <td>@purchase.PurchaseInvoiceNo</td>
+                                <td class="small">@purchase.PurchaseDate.ToString("g")</td>
+                                <td class="text-end">@purchase.TotalAmount.ToMoney()</td>
+                                <td class="text-end">@purchase.PaidAmount.ToMoney()</td>
+                                <td class="text-end @(purchase.DueAmount > 0 ? "text-danger" : "")">@purchase.DueAmount.ToMoney()</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Purchases" asp-action="Details" asp-route-id="@purchase.PurchaseId">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm mt-3">Back to Suppliers</a>
+    </div>
+</div>

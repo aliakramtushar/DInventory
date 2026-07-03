@@ -1,0 +1,32 @@
+@model DInventory.Domain.Entities.Size
+@{
+    ViewData["Title"] = "Edit Size";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <input asp-for="SizeId" type="hidden" />
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label">Size Name</label>
+                    <input asp-for="SizeName" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Display Order</label>
+                    <input asp-for="DisplayOrder" type="number" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label">Active</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

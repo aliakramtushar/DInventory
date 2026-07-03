@@ -1,0 +1,190 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.Stock>
+@{
+    ViewData["Title"] = "Stock";
+}
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <form class="d-flex gap-2" method="get">
+            <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search product, size or barcode..." />
+            <div class="form-check form-switch d-flex align-items-center text-nowrap">
+                <input class="form-check-input me-1" type="checkbox" name="onlyLowStock" value="true" onchange="this.form.submit()" checked="@((bool)ViewData["OnlyLowStock"]!)" />
+                <label class="form-check-label small">Low stock only</label>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body py-2">
+                <form id="barcodeAdjustForm" class="row g-2 align-items-end">
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Scan / enter barcode to adjust stock</label>
+                        <input id="stockBarcodeInput" class="form-control form-control-sm barcode-scan-input" placeholder="Scan barcode..." autofocus />
+                    </div>
+                    <div class="col-6">
+                        <div id="barcodeMatchInfo" class="small text-muted">Waiting for a scan...</div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Product</th><th>Size</th><th>Barcode</th><th>Qty On Hand</th><th>Reorder Level</th><th>Updated</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No stock records found.</td></tr>
+                }
+                @foreach (var stock in Model.Items)
+                {
+                    var isLow = stock.QuantityOnHand <= (stock.ReorderLevel ?? 0);
+                    <tr class="@(isLow ? "table-danger" : "")">
+                        <td>@stock.ProductName <span class="text-muted small">(@stock.ProductCode)</span></td>
+                        <td><span class="badge text-bg-light text-dark">@stock.SizeName</span></td>
+                        <td><code>@stock.Barcode</code></td>
+                        <td>@stock.QuantityOnHand</td>
+                        <td>@stock.ReorderLevel</td>
+                        <td class="text-muted small">@stock.UpdatedAt.ToString("g")</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-secondary" asp-action="History" asp-route-productVariantId="@stock.ProductVariantId"><i class="bi bi-clock-history"></i></a>
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#adjust@(stock.ProductVariantId)"><i class="bi bi-sliders"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="adjust@(stock.ProductVariantId)" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form asp-action="Adjust" method="post">
+                                    <input type="hidden" name="productVariantId" value="@stock.ProductVariantId" />
+                                    <div class="modal-header">
+                                        <h6 class="modal-title">Adjust Stock &mdash; @stock.ProductName (@stock.SizeName)</h6>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-2">
+                                            <label class="form-label small">Type</label>
+                                            <select name="transactionType" class="form-select">
+                                                <option value="IN">Stock In (+)</option>
+                                                <option value="OUT">Stock Out (-)</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Quantity</label>
+                                            <input type="number" name="quantity" min="1" class="form-control" required />
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Remarks</label>
+                                            <input type="text" name="remarks" class="form-control" />
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white">
+            @await Html.PartialAsync("_Pagination", new PaginationViewModel
+            {
+                PageNumber = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                HasPreviousPage = Model.HasPreviousPage,
+                HasNextPage = Model.HasNextPage,
+                RouteValues = PaginationViewModel.Filters(
+                    ("search", ViewData["Search"]?.ToString()),
+                    ("onlyLowStock", ((bool)ViewData["OnlyLowStock"]!) ? "true" : null))
+            })
+        </div>
+    }
+</div>
+
+<div class="modal fade" id="barcodeAdjustModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AdjustByBarcode" method="post" id="barcodeAdjustSubmitForm">
+                <input type="hidden" name="barcode" id="barcodeAdjustBarcodeField" />
+                <div class="modal-header">
+                    <h6 class="modal-title" id="barcodeAdjustModalTitle">Adjust Stock</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small">Type</label>
+                        <select name="transactionType" class="form-select">
+                            <option value="IN">Stock In (+)</option>
+                            <option value="OUT">Stock Out (-)</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Quantity</label>
+                        <input type="number" name="quantity" min="1" value="1" class="form-control" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Remarks</label>
+                        <input type="text" name="remarks" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const input = document.getElementById('stockBarcodeInput');
+    const infoBox = document.getElementById('barcodeMatchInfo');
+    const modalEl = document.getElementById('barcodeAdjustModal');
+    const modalTitle = document.getElementById('barcodeAdjustModalTitle');
+    const modalBarcodeField = document.getElementById('barcodeAdjustBarcodeField');
+    const modal = new bootstrap.Modal(modalEl);
+
+    if (!input) return;
+
+    input.addEventListener('dinv:barcode-scanned', async (e) => {
+        const barcode = e.detail.barcode;
+        infoBox.textContent = 'Looking up ' + barcode + '...';
+
+        try {
+            const response = await fetch('@Url.Action("LookupByBarcode", "Stock")?barcode=' + encodeURIComponent(barcode));
+            const data = await response.json();
+
+            if (!response.ok) {
+                infoBox.innerHTML = '<span class="text-danger">' + (data.message || 'Not found') + '</span>';
+                input.value = '';
+                input.focus();
+                return;
+            }
+
+            infoBox.innerHTML = `<span class="text-success">${data.productName} (${data.sizeName})</span> &mdash; on hand: ${data.quantityOnHand}`;
+            modalTitle.textContent = `Adjust Stock — ${data.productName} (${data.sizeName})`;
+            modalBarcodeField.value = data.barcode;
+            modal.show();
+            input.value = '';
+        } catch (err) {
+            infoBox.innerHTML = '<span class="text-danger">Network error during lookup.</span>';
+            input.value = '';
+        }
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', () => input.focus());
+    input.focus();
+})();
+</script>
+}

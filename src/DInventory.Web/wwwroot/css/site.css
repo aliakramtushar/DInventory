@@ -1,0 +1,302 @@
+:root {
+    --erp-sidebar-width: 260px;
+    --erp-sidebar-bg: #101828;
+    --erp-sidebar-bg-hover: #1d2939;
+    --erp-primary: #0d6efd;
+}
+
+body {
+    background-color: #f4f6f9;
+}
+
+/* ---------- ERP admin shell ---------- */
+.erp-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.erp-sidebar {
+    width: var(--erp-sidebar-width);
+    flex-shrink: 0;
+    background: var(--erp-sidebar-bg);
+    color: #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1030;
+    transition: transform 0.2s ease-in-out;
+}
+
+.erp-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.1rem 1.25rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.erp-brand i {
+    color: var(--erp-primary);
+    font-size: 1.4rem;
+}
+
+.erp-nav {
+    padding: 0.75rem 0;
+}
+
+.erp-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.erp-nav-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.92rem;
+    border-left: 3px solid transparent;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.erp-nav-list li a:hover {
+    background-color: var(--erp-sidebar-bg-hover);
+    color: #fff;
+}
+
+.erp-nav-list li.active a {
+    background-color: var(--erp-sidebar-bg-hover);
+    color: #fff;
+    border-left-color: var(--erp-primary);
+    font-weight: 600;
+}
+
+.erp-nav-list i {
+    font-size: 1.05rem;
+    width: 1.2rem;
+    text-align: center;
+}
+
+.erp-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.erp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.erp-topbar-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    flex: 1;
+}
+
+.erp-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.erp-content {
+    padding: 1.5rem;
+    flex: 1;
+}
+
+.kpi-card {
+    transition: transform 0.15s ease-in-out;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+}
+
+.setup-tile {
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    color: inherit;
+}
+
+.setup-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
+}
+
+@media (max-width: 991.98px) {
+    .erp-sidebar {
+        position: fixed;
+        left: 0;
+        transform: translateX(-100%);
+    }
+
+    .erp-sidebar.show {
+        transform: translateX(0);
+    }
+}
+
+/* ---------- Auth pages ---------- */
+.auth-body {
+    background: linear-gradient(135deg, #0d6efd 0%, #101828 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+}
+
+.auth-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    border: none;
+    border-radius: 1rem;
+}
+
+/* ---------- Grouped / collapsible sidebar nav (Admin / Sales / Reports / Catalog) ---------- */
+/* Explicit show/hide (doesn't lean on bootstrap.min.css's .collapse rules alone - the group toggle
+   in site.js flips this "show" class itself with plain classList APIs, no Bootstrap JS involved). */
+.erp-nav-sublist-wrap.collapse:not(.show),
+.erp-nav-group > .collapse:not(.show) {
+    display: none;
+}
+
+.erp-nav-group > .collapse.show {
+    display: block;
+}
+
+.erp-nav-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 600;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.erp-nav-group-toggle:hover {
+    background-color: var(--erp-sidebar-bg-hover);
+    color: #fff;
+}
+
+.erp-nav-group.active > .erp-nav-group-toggle {
+    color: #fff;
+}
+
+.erp-nav-group-toggle i.bi:first-child {
+    font-size: 1.05rem;
+    width: 1.2rem;
+    text-align: center;
+}
+
+.erp-nav-chevron {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.erp-nav-group-toggle.collapsed .erp-nav-chevron {
+    transform: rotate(-90deg);
+}
+
+.erp-nav-sublist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+.erp-nav-sublist li a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 1.25rem 0.55rem 2.75rem;
+    color: #a8b3c5;
+    text-decoration: none;
+    font-size: 0.88rem;
+    border-left: 3px solid transparent;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.erp-nav-sublist li a:hover {
+    background-color: var(--erp-sidebar-bg-hover);
+    color: #fff;
+}
+
+.erp-nav-sublist li.active a {
+    background-color: var(--erp-sidebar-bg-hover);
+    color: #fff;
+    border-left-color: var(--erp-primary);
+    font-weight: 600;
+}
+
+.erp-nav-sublist i {
+    font-size: 0.95rem;
+    width: 1.1rem;
+    text-align: center;
+}
+
+/* ---------- Barcode label rendering (Barcode Generator page) ---------- */
+/* The SVG's intrinsic width grows with the barcode's character count (CODE128), which can
+   exceed the fixed-width label card. Scale it down to fit while keeping its aspect ratio
+   (the viewBox makes this a clean proportional shrink, bars and text scale together). */
+.print-label svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.25rem auto;
+}
+
+@media print {
+    .no-print, .erp-sidebar, .erp-topbar, #__afTokenForm {
+        display: none !important;
+    }
+
+    .erp-main, .erp-content {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    #labelsContainer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25in;
+    }
+
+    .print-label {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px dashed #999 !important;
+        box-shadow: none !important;
+        width: 2.5in !important;
+    }
+
+    .print-label .btn {
+        display: none !important;
+    }
+}

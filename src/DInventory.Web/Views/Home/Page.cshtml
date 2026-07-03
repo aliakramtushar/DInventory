@@ -1,0 +1,13 @@
+@model DInventory.Domain.Entities.ContentPage
+@{
+    ViewData["Title"] = Model.Title;
+    Layout = "_PublicLayout";
+}
+<h1 class="mb-4">@Model.Title</h1>
+@if (!string.IsNullOrWhiteSpace(Model.ImagePath))
+{
+    <img src="@Model.ImagePath" class="img-fluid rounded mb-4" />
+}
+<div>
+    @Html.Raw(Model.Body)
+</div>

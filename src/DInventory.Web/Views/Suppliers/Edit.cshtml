@@ -1,0 +1,36 @@
+@model DInventory.Domain.Entities.Supplier
+@{
+    ViewData["Title"] = "Edit Supplier";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <input asp-for="SupplierId" type="hidden" />
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Supplier Name</label>
+                    <input asp-for="SupplierName" class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Phone</label>
+                    <input asp-for="Phone" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label">Active</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

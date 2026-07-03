@@ -1,0 +1,205 @@
+@model DInventory.Domain.Entities.Product
+@{
+    ViewData["Title"] = "Edit Product";
+    var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
+    var sizes = (IEnumerable<DInventory.Domain.Entities.Size>)ViewBag.Sizes;
+    var colors = (IEnumerable<DInventory.Domain.Entities.Color>)ViewBag.Colors;
+}
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post" enctype="multipart/form-data">
+            <input asp-for="ProductId" type="hidden" />
+            <input asp-for="ImagePath" type="hidden" />
+            <h6 class="text-muted text-uppercase small mb-3">Style Details</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Product Code</label>
+                    <input asp-for="ProductCode" class="form-control" required />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Product Name</label>
+                    <input asp-for="ProductName" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Category</label>
+                    <select asp-for="CategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Categories, "CategoryId", "CategoryName", Model.CategoryId))" required></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Subcategory</label>
+                    <select asp-for="SubcategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Subcategories, "SubcategoryId", "SubcategoryName", Model.SubcategoryId))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Brand</label>
+                    <select asp-for="BrandId" class="form-select" asp-items="@(new SelectList(ViewBag.Brands, "BrandId", "BrandName", Model.BrandId))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Unit</label>
+                    <input asp-for="Unit" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Cost Price</label>
+                    <input name="costPrice" type="number" step="0.01" min="0" class="form-control" value="@Model.CostPrice" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Selling Price</label>
+                    <input name="sellingPrice" type="number" step="0.01" min="0" class="form-control" value="@Model.SellingPrice" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Reorder Level</label>
+                    <input asp-for="ReorderLevel" type="number" min="0" class="form-control" />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Product Image</label>
+                    @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
+                    {
+                        <div class="mb-2"><img src="@Model.ImagePath" width="60" class="rounded" /></div>
+                    }
+                    <input name="imageFile" type="file" accept="image/*" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input asp-for="IsShowOnWebsite" class="form-check-input" />
+                        <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input asp-for="ShowPriceOnWebsite" class="form-check-input" />
+                        <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label">Active</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                <a asp-action="Details" asp-route-id="@Model.ProductId" class="btn btn-outline-secondary">View</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">Sizes / Variants</div>
+    <div class="card-body">
+        @* Each variant row posts via the HTML5 form="..." attribute so every input/select/button can
+           live inside a normal <tr>/<td> table row (a <form> cannot legally wrap <td> elements
+           directly). Save and Delete are two distinct hidden forms per row, targeted by id. *@
+        @foreach (var variant in variants)
+        {
+            <form asp-action="UpdateVariant" method="post" id="updateVariantForm@(variant.ProductVariantId)"></form>
+            <form asp-action="DeleteVariant" method="post" id="deleteVariantForm@(variant.ProductVariantId)" onsubmit="return confirm('Remove this size/variant?');">
+                <input type="hidden" name="productVariantId" value="@variant.ProductVariantId" />
+                <input type="hidden" name="productId" value="@Model.ProductId" />
+            </form>
+        }
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light"><tr><th>Size</th><th>Color</th><th>Barcode</th><th>SKU</th><th>Reorder Level</th><th>Stock</th><th>Active</th><th class="text-end">Actions</th></tr></thead>
+                <tbody>
+                    @if (!variants.Any())
+                    {
+                        <tr><td colspan="8" class="text-center text-muted py-3">No sizes yet - add one below.</td></tr>
+                    }
+                    @foreach (var variant in variants)
+                    {
+                        var formId = $"updateVariantForm{variant.ProductVariantId}";
+                        <tr>
+                            <td style="min-width:110px;">
+                                <input type="hidden" form="@formId" name="productVariantId" value="@variant.ProductVariantId" />
+                                <input type="hidden" form="@formId" name="productId" value="@Model.ProductId" />
+                                <select form="@formId" name="sizeId" class="form-select form-select-sm">
+                                    @foreach (var size in sizes)
+                                    {
+                                        <option value="@size.SizeId" selected="@(size.SizeId == variant.SizeId)">@size.SizeName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td style="min-width:130px;">
+                                <select form="@formId" name="colorId" class="form-select form-select-sm">
+                                    <option value="">-- No color --</option>
+                                    @foreach (var color in colors)
+                                    {
+                                        <option value="@color.ColorId" selected="@(color.ColorId == variant.ColorId)">@color.ColorName</option>
+                                    }
+                                </select>
+                            </td>
+                            <td style="min-width:150px;"><input form="@formId" name="barcode" class="form-control form-control-sm" value="@variant.Barcode" required /></td>
+                            <td style="min-width:110px;"><input form="@formId" name="sku" class="form-control form-control-sm" value="@variant.SKU" placeholder="Auto-generated if blank" /></td>
+                            <td style="min-width:100px;"><input form="@formId" name="reorderLevel" type="number" min="0" class="form-control form-control-sm" value="@variant.ReorderLevel" /></td>
+                            <td>@(variant.QuantityOnHand ?? 0)</td>
+                            <td><input form="@formId" type="checkbox" name="isActive" value="true" class="form-check-input" checked="@variant.IsActive" /></td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="submit" form="@formId" class="btn btn-outline-primary" title="Save"><i class="bi bi-check-lg"></i></button>
+                                    <button type="submit" form="deleteVariantForm@(variant.ProductVariantId)" class="btn btn-outline-danger" title="Remove size"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <hr />
+        <h6 class="text-muted text-uppercase small mb-3">Add a new size to this product</h6>
+        <form asp-action="AddVariant" method="post">
+            <input type="hidden" name="productId" value="@Model.ProductId" />
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small">Size</label>
+                    <select name="sizeId" class="form-select form-select-sm" required>
+                        <option value="">-- Size --</option>
+                        @foreach (var size in sizes)
+                        {
+                            <option value="@size.SizeId">@size.SizeName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Color (optional)</label>
+                    <select name="colorId" class="form-select form-select-sm">
+                        <option value="">-- No color --</option>
+                        @foreach (var color in colors)
+                        {
+                            <option value="@color.ColorId">@color.ColorName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Barcode (blank = auto-generate)</label>
+                    <input name="barcode" class="form-control form-control-sm barcode-scan-input" placeholder="Scan or type barcode" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">SKU (optional)</label>
+                    <input name="sku" class="form-control form-control-sm" placeholder="Auto-generated if blank" />
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small">Reorder</label>
+                    <input name="reorderLevel" type="number" min="0" value="5" class="form-control form-control-sm" />
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small">Qty</label>
+                    <input name="initialQuantity" type="number" min="0" value="0" class="form-control form-control-sm" />
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i></button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

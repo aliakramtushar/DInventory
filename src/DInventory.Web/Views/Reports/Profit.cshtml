@@ -1,0 +1,45 @@
+@model IEnumerable<DInventory.Application.Common.Models.ProductProfitRow>
+@{
+    ViewData["Title"] = "Product Profit Report";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
+        <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-filter"></i> Filter</button>
+    </form>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Product</th><th class="text-end">Qty Sold</th><th class="text-end">Revenue</th><th class="text-end">Cost</th><th class="text-end">Profit</th></tr></thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-4">No sales in this date range.</td></tr>
+                }
+                @{ decimal totalRevenue = 0; decimal totalCost = 0; }
+                @foreach (var row in Model)
+                {
+                    totalRevenue += row.Revenue;
+                    totalCost += row.Cost;
+                    <tr>
+                        <td>@row.ProductName</td>
+                        <td class="text-end">@row.QuantitySold</td>
+                        <td class="text-end">@row.Revenue.ToMoney()</td>
+                        <td class="text-end">@row.Cost.ToMoney()</td>
+                        <td class="text-end @(row.Profit >= 0 ? "text-success" : "text-danger")">@row.Profit.ToMoney()</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td class="text-end" colspan="2">Total</td>
+                    <td class="text-end">@totalRevenue.ToMoney()</td>
+                    <td class="text-end">@totalCost.ToMoney()</td>
+                    <td class="text-end">@((totalRevenue - totalCost).ToMoney())</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Reports";
+}
+<div class="row g-3">
+    <div class="col-md-4">
+        <a asp-action="Sales" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-receipt display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Sales Report</div>
+                    <div class="text-muted small">Daily / date-range sales, exportable to CSV</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a asp-action="Stock" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-boxes display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Stock Report</div>
+                    <div class="text-muted small">Stock value, low-stock and reorder levels</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a asp-action="Profit" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-graph-up-arrow display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Product Profit Report</div>
+                    <div class="text-muted small">Revenue, cost and profit per product</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a asp-action="CategorySales" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-pie-chart display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Category Sales Report</div>
+                    <div class="text-muted small">Quantity sold and revenue by category</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a asp-action="Customers" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-person-lines-fill display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Customer Report</div>
+                    <div class="text-muted small">Orders, total spend and loyalty points (all-time)</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a asp-action="Expenses" class="text-decoration-none">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-cash-stack display-6 text-primary"></i>
+                    <div class="fw-semibold mt-2">Expense Report</div>
+                    <div class="text-muted small">Expenses by date range with category summary</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>

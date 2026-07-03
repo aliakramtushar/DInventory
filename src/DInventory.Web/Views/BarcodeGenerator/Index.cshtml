@@ -1,0 +1,235 @@
+@{
+    ViewData["Title"] = "Barcode Generator";
+}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <p class="text-muted mb-0">
+        Generate a barcode label now, print &amp; stick it on the item, and formally enter it into
+        inventory later on the Products screen (paste this barcode into the variant's barcode field).
+    </p>
+    <a asp-action="History" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clock-history me-1"></i>Label History</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5 no-print">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">New Label</div>
+            <div class="card-body">
+                <div id="generateError" class="alert alert-danger d-none"></div>
+                <div id="generateWarning" class="alert alert-warning d-none"></div>
+                <div class="mb-3">
+                    <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                    <input id="productName" class="form-control" placeholder="e.g. Classic Crew T-Shirt" required />
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Brand (optional)</label>
+                        <input id="brandName" class="form-control" placeholder="e.g. Urban Edge" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Size (optional)</label>
+                        <input id="sizeName" class="form-control" placeholder="e.g. M" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price (optional)</label>
+                    <input id="price" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Barcode</label>
+                    <input id="manualBarcode" class="form-control" placeholder="Leave blank to auto-generate, or type/scan an existing one" />
+                    <div class="form-text">
+                        Scan with a barcode scanner (it types the digits and presses Enter) or type your own.
+                        Leave blank and DInventory will generate a fresh unique barcode.
+                    </div>
+                </div>
+                <button type="button" id="generateBtn" class="btn btn-primary w-100">
+                    <i class="bi bi-upc-scan me-1"></i>Generate Label
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="d-flex justify-content-between align-items-center mb-2 no-print">
+            <h6 class="mb-0">Labels in this session (<span id="labelCount">0</span>)</h6>
+            <div class="d-flex gap-2">
+                <button type="button" id="clearAllBtn" class="btn btn-outline-danger btn-sm" disabled>
+                    <i class="bi bi-trash me-1"></i>Clear All
+                </button>
+                <button type="button" id="printAllBtn" class="btn btn-success btn-sm" disabled>
+                    <i class="bi bi-printer me-1"></i>Print All
+                </button>
+            </div>
+        </div>
+        <div id="labelsContainer" class="d-flex flex-wrap gap-3">
+            <div id="noLabelsMsg" class="text-muted small no-print">No labels generated yet this session.</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/dinv-barcode128.js" asp-append-version="true"></script>
+<script>
+(function () {
+    let labelSeq = 0;
+    const labelsContainer = document.getElementById('labelsContainer');
+    const noLabelsMsg = document.getElementById('noLabelsMsg');
+    const labelCountEl = document.getElementById('labelCount');
+    const printAllBtn = document.getElementById('printAllBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const errorBox = document.getElementById('generateError');
+    const warningBox = document.getElementById('generateWarning');
+
+    function updateCounters() {
+        const count = labelsContainer.querySelectorAll('.print-label').length;
+        labelCountEl.textContent = count;
+        printAllBtn.disabled = count === 0;
+        clearAllBtn.disabled = count === 0;
+        noLabelsMsg.classList.toggle('d-none', count > 0);
+    }
+
+    // Renders one generated label as a card. The label was already saved server-side by the time
+    // this runs (the AJAX call already succeeded) - this function only draws it on screen, so any
+    // failure in here (e.g. an unencodable character) must NEVER be reported as a
+    // "network error", since the network call already worked. Instead it falls back to showing the
+    // barcode as plain printable text so the label is still usable even without the scannable graphic.
+    function addLabelCard(data) {
+        labelSeq++;
+        const cardId = 'label-card-' + labelSeq;
+        const svgId = 'label-svg-' + labelSeq;
+
+        const card = document.createElement('div');
+        card.className = 'card shadow-sm print-label';
+        card.id = cardId;
+        card.style.width = '260px';
+        card.innerHTML = `
+            <div class="card-body text-center p-2">
+                <button type="button" class="btn btn-sm btn-outline-danger float-end no-print" onclick="document.getElementById('${cardId}').remove(); window.dinvUpdateBarcodeCounters();">
+                    <i class="bi bi-x"></i>
+                </button>
+                <div class="fw-semibold small text-truncate">${data.productName}</div>
+                <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
+                <svg id="${svgId}" class="my-1"></svg>
+                <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
+            </div>
+        `;
+        labelsContainer.appendChild(card);
+
+        renderBarcodeGraphic(svgId, data.barcode);
+        updateCounters();
+    }
+
+    // Isolated on purpose: a rendering failure here (e.g. an invalid character for CODE128)
+    // falls back to plain text instead of losing the label entirely.
+    function renderBarcodeGraphic(svgId, barcodeValue) {
+        const svgEl = document.getElementById(svgId);
+        if (typeof DinvBarcode === 'undefined') {
+            replaceWithTextFallback(svgEl, barcodeValue, 'Barcode drawing script did not load - showing the code as text instead.');
+            return;
+        }
+
+        try {
+            DinvBarcode.render(svgId, barcodeValue, {
+                width: 2,
+                height: 50,
+                displayValue: true,
+                fontSize: 14,
+                margin: 4
+            });
+        } catch (err) {
+            replaceWithTextFallback(svgEl, barcodeValue, 'Could not draw this barcode - showing the code as text instead.');
+        }
+    }
+
+    function replaceWithTextFallback(svgEl, barcodeValue, note) {
+        if (!svgEl) return;
+        const fallback = document.createElement('div');
+        fallback.className = 'border rounded py-2 my-1';
+        fallback.innerHTML = `<div class="fs-5 fw-bold font-monospace">${barcodeValue}</div><div class="text-muted small no-print">${note}</div>`;
+        svgEl.replaceWith(fallback);
+    }
+
+    window.dinvUpdateBarcodeCounters = updateCounters;
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+        errorBox.classList.add('d-none');
+        warningBox.classList.add('d-none');
+        const productName = document.getElementById('productName').value.trim();
+        if (!productName) {
+            errorBox.textContent = 'Product name is required.';
+            errorBox.classList.remove('d-none');
+            return;
+        }
+
+        const payload = {
+            manualBarcode: document.getElementById('manualBarcode').value.trim() || null,
+            productName: productName,
+            brandName: document.getElementById('brandName').value.trim() || null,
+            sizeName: document.getElementById('sizeName').value.trim() || null,
+            price: document.getElementById('price').value ? parseFloat(document.getElementById('price').value) : null
+        };
+
+        const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+
+        // Step 1: save the label server-side. Only this part counts as "network error" territory.
+        let data;
+        try {
+            const response = await fetch('@Url.Action("Generate", "BarcodeGenerator")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': tokenInput ? tokenInput.value : ''
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                let message = 'Unable to generate barcode label.';
+                try {
+                    const errorData = await response.json();
+                    message = errorData.message || message;
+                } catch { /* response wasn't JSON (e.g. a server error page) - keep the default message */ }
+                errorBox.textContent = message;
+                errorBox.classList.remove('d-none');
+                return;
+            }
+
+            data = await response.json();
+        } catch (err) {
+            errorBox.textContent = 'Network error while generating the label. Please check your connection and try again.';
+            errorBox.classList.remove('d-none');
+            return;
+        }
+
+        // Step 2: the label is now saved. Drawing it on screen is a separate concern - if this part
+        // fails (e.g. the local barcode script didn't load), the label still exists (see Label History)
+        // and the code is shown as plain text below, so nothing is silently lost.
+        if (typeof DinvBarcode === 'undefined') {
+            warningBox.textContent = 'Label saved (code: ' + data.barcode + '), but the barcode drawing script failed to load - showing it as text. Find it later in Label History.';
+            warningBox.classList.remove('d-none');
+        }
+
+        addLabelCard(data);
+
+        // Reset the manual barcode field only - keep product/brand/size/price so the user can
+        // quickly generate the next size of the same style.
+        document.getElementById('manualBarcode').value = '';
+    });
+
+    document.getElementById('printAllBtn').addEventListener('click', () => window.print());
+
+    document.getElementById('clearAllBtn').addEventListener('click', () => {
+        labelsContainer.querySelectorAll('.print-label').forEach(el => el.remove());
+        updateCounters();
+    });
+
+    // Barcode-scanner-friendly: pressing Enter in the manual barcode field should not submit any form.
+    document.getElementById('manualBarcode').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+<form id="__afTokenForm">@Html.AntiForgeryToken()</form>
+}

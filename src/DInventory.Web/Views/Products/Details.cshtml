@@ -1,0 +1,81 @@
+@model DInventory.Domain.Entities.Product
+@{
+    ViewData["Title"] = Model.ProductName;
+    var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
+}
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 text-center">
+                @if (!string.IsNullOrWhiteSpace(Model.ImagePath))
+                {
+                    <img src="@Model.ImagePath" class="img-fluid rounded" />
+                }
+                else
+                {
+                    <i class="bi bi-box-seam display-1 text-muted"></i>
+                }
+            </div>
+            <div class="col-md-9">
+                <h4>@Model.ProductName <span class="badge text-bg-secondary">@Model.ProductCode</span></h4>
+                <p class="text-muted">
+                    @Model.CategoryName @(Model.SubcategoryName != null ? " / " + Model.SubcategoryName : "")
+                    @(Model.BrandName != null ? " · " + Model.BrandName : "")
+                </p>
+                <dl class="row">
+                    <dt class="col-sm-3">Selling Price</dt><dd class="col-sm-9">@((Model.SellingPrice ?? 0).ToMoney())</dd>
+                    <dt class="col-sm-3">Cost Price</dt><dd class="col-sm-9">@((Model.CostPrice ?? 0).ToMoney())</dd>
+                    <dt class="col-sm-3">Total Stock on Hand</dt><dd class="col-sm-9">@(Model.TotalQuantityOnHand ?? 0) @Model.Unit across @Model.VariantCount size(s)</dd>
+                    <dt class="col-sm-3">Reorder Level</dt><dd class="col-sm-9">@Model.ReorderLevel</dd>
+                    <dt class="col-sm-3">Website</dt>
+                    <dd class="col-sm-9">
+                        @if (Model.IsShowOnWebsite)
+                        {
+                            <span class="badge text-bg-info">Visible on website</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-light text-dark">Not shown on website</span>
+                        }
+                        @if (Model.IsShowOnWebsite)
+                        {
+                            <span class="text-muted small ms-2">@(Model.ShowPriceOnWebsite ? "Price shown" : "Price hidden (\"Contact us for price\")")</span>
+                        }
+                    </dd>
+                    <dt class="col-sm-3">Description</dt><dd class="col-sm-9">@Model.Description</dd>
+                </dl>
+                <a asp-action="Edit" asp-route-id="@Model.ProductId" class="btn btn-primary btn-sm">Edit</a>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">Sizes / Variants</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Size</th><th>Barcode</th><th>SKU</th><th>Stock on Hand</th><th>Reorder Level</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                @if (!variants.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-3">No sizes recorded for this product yet.</td></tr>
+                }
+                @foreach (var variant in variants)
+                {
+                    <tr>
+                        <td>@variant.SizeName</td>
+                        <td><code>@variant.Barcode</code></td>
+                        <td class="small text-muted">@variant.SKU</td>
+                        <td>@(variant.QuantityOnHand ?? 0)</td>
+                        <td>@variant.ReorderLevel</td>
+                        <td>@(variant.IsActive ? "Active" : "Inactive")</td>
+                        <td class="text-end">
+                            <a class="btn btn-outline-secondary btn-sm" asp-controller="Stock" asp-action="History" asp-route-productVariantId="@variant.ProductVariantId"><i class="bi bi-clock-history"></i></a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

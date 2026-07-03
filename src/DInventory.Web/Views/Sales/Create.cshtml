@@ -1,0 +1,265 @@
+@{
+    ViewData["Title"] = "New Sale";
+    var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
+    var customers = (IEnumerable<DInventory.Domain.Entities.Customer>)ViewBag.Customers;
+}
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span>Scan to Add</span>
+                <span id="scanStatusBadge" class="badge text-bg-light text-dark">Ready to scan</span>
+            </div>
+            <div class="card-body">
+                <div id="scanError" class="alert alert-danger d-none py-2"></div>
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                    <input id="scanInput" class="form-control form-control-lg barcode-scan-input" placeholder="Scan barcode here..." autofocus />
+                </div>
+                <p class="text-muted small mb-4">
+                    Point the scanner at the item's barcode - it will be added to the cart automatically with quantity 1.
+                    The scan box refocuses itself after every scan, but you're free to click into the customer,
+                    discount, tax, or quantity fields at any other time - it won't steal focus back from you.
+                </p>
+
+                <hr />
+                <h6 class="text-muted text-uppercase small mb-2">Manual product/size picker (fallback)</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-8">
+                        <select id="variantSelect" class="form-select">
+                            <option value="">-- Select a product/size --</option>
+                            @foreach (var v in variants)
+                            {
+                                <option value="@v.ProductVariantId" data-price="@v.SellingPrice" data-stock="@v.QuantityOnHand"
+                                        data-name="@v.ProductName" data-size="@v.SizeName" data-barcode="@v.Barcode">
+                                    @v.ProductName (@v.SizeName) &mdash; @(v.QuantityOnHand ?? 0) in stock
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-2">
+                        <input id="variantQty" type="number" min="1" value="1" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <button type="button" id="addVariantBtn" class="btn btn-primary w-100">Add</button>
+                    </div>
+                </div>
+
+                <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>Product</th><th>Size</th><th style="width:90px">Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+                    <tbody id="cartBody">
+                        <tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Checkout</div>
+            <div class="card-body">
+                <form asp-action="Create" method="post" id="saleForm">
+                    <input type="hidden" name="itemsJson" id="itemsJson" value="[]" />
+                    <div class="mb-3">
+                        <label class="form-label">Customer</label>
+                        <select name="customerId" class="form-select">
+                            <option value="">-- Walk-in customer --</option>
+                            @foreach (var c in customers)
+                            {
+                                <option value="@c.CustomerId">@c.CustomerName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Or new customer name</label>
+                        <input name="newCustomerName" class="form-control" placeholder="Optional" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Discount</label>
+                            <input name="discountAmount" id="discountAmount" type="number" step="0.01" min="0" value="0" class="form-control" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Tax</label>
+                            <input name="taxAmount" id="taxAmount" type="number" step="0.01" min="0" value="0" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Payment Status</label>
+                            <select name="paymentStatus" class="form-select">
+                                <option value="PAID">Paid</option>
+                                <option value="DUE">Due</option>
+                                <option value="PARTIAL">Partial</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Payment Method</label>
+                            <select name="paymentMethod" class="form-select">
+                                <option value="CASH">Cash</option>
+                                <option value="CARD">Card</option>
+                                <option value="MOBILE_BANKING">Mobile Banking</option>
+                                <option value="DUE">Due</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Remarks</label>
+                        <input name="remarks" class="form-control" />
+                    </div>
+
+                    <table class="table table-sm">
+                        <tr><td>Subtotal</td><td class="text-end" id="subtotalDisplay">৳0.00</td></tr>
+                        <tr><td>Net Total</td><td class="text-end fw-bold" id="netTotalDisplay">৳0.00</td></tr>
+                    </table>
+
+                    <button type="submit" id="submitSaleBtn" class="btn btn-success w-100" disabled>Complete Sale</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const cart = [];
+    const scanInput = document.getElementById('scanInput');
+    const scanError = document.getElementById('scanError');
+    const scanStatusBadge = document.getElementById('scanStatusBadge');
+
+    // Full rebuild of the cart table - only called when the SET of line items changes (add/remove),
+    // never on every keystroke of the quantity box (that would destroy the input mid-typing and kick
+    // focus out, which is exactly the "can't change the qty" bug this replaces).
+    function renderCart() {
+        const body = document.getElementById('cartBody');
+        if (cart.length === 0) {
+            body.innerHTML = '<tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>';
+        } else {
+            body.innerHTML = cart.map((item, idx) => `
+                <tr>
+                    <td>${item.productName}</td>
+                    <td><span class="badge text-bg-light text-dark">${item.sizeName || ''}</span></td>
+                    <td>
+                        <input type="number" min="1" ${item.stock ? `max="${item.stock}"` : ''} value="${item.quantity}"
+                               class="form-control form-control-sm cart-qty-input" data-idx="${idx}" />
+                    </td>
+                    <td>${dinvMoney(item.unitPrice)}</td>
+                    <td class="cart-line-total" data-idx="${idx}">${dinvMoney(item.quantity * item.unitPrice)}</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        recalculateTotals();
+    }
+
+    // Recomputes subtotal/net + the itemsJson hidden field from the current cart array, without
+    // touching any DOM input elements - safe to call on every quantity keystroke.
+    function recalculateTotals() {
+        const subtotal = cart.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+        const discount = parseFloat(document.getElementById('discountAmount').value) || 0;
+        const tax = parseFloat(document.getElementById('taxAmount').value) || 0;
+        const net = Math.max(0, subtotal - discount + tax);
+
+        document.getElementById('subtotalDisplay').textContent = dinvMoney(subtotal);
+        document.getElementById('netTotalDisplay').textContent = dinvMoney(net);
+        document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({ productVariantId: i.productVariantId, quantity: i.quantity, unitPrice: i.unitPrice })));
+        document.getElementById('submitSaleBtn').disabled = cart.length === 0;
+    }
+
+    function removeItem(idx) {
+        cart.splice(idx, 1);
+        renderCart();
+    }
+
+    function addOrIncrementCartLine(productVariantId, productName, sizeName, unitPrice, qty, stock) {
+        const existing = cart.find(i => i.productVariantId === productVariantId);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            cart.push({ productVariantId, productName, sizeName, quantity: qty, unitPrice, stock: stock || 0 });
+        }
+        renderCart();
+    }
+
+    // Editing the quantity of an already-added line: update the line total + footer totals in place
+    // (no full table rebuild) so the input never loses focus while the cashier is typing a new qty.
+    document.getElementById('cartBody').addEventListener('input', (e) => {
+        if (!e.target.classList.contains('cart-qty-input')) return;
+
+        const idx = parseInt(e.target.dataset.idx, 10);
+        let qty = parseInt(e.target.value, 10);
+        if (!Number.isFinite(qty) || qty < 1) {
+            qty = 1;
+        }
+        cart[idx].quantity = qty;
+
+        const lineTotalCell = document.querySelector(`.cart-line-total[data-idx="${idx}"]`);
+        if (lineTotalCell) {
+            lineTotalCell.textContent = dinvMoney(cart[idx].quantity * cart[idx].unitPrice);
+        }
+        recalculateTotals();
+    });
+
+    // ---- Scan-to-cart -------------------------------------------------------
+    scanInput.addEventListener('dinv:barcode-scanned', async (e) => {
+        const barcode = e.detail.barcode;
+        scanError.classList.add('d-none');
+        scanStatusBadge.textContent = 'Looking up ' + barcode + '...';
+        scanStatusBadge.className = 'badge text-bg-warning';
+
+        try {
+            const response = await fetch('@Url.Action("ScanForSale", "Sales")?barcode=' + encodeURIComponent(barcode));
+            const data = await response.json();
+
+            if (!response.ok) {
+                scanError.textContent = data.message || 'No product found for that barcode.';
+                scanError.classList.remove('d-none');
+                scanStatusBadge.textContent = 'Not found';
+                scanStatusBadge.className = 'badge text-bg-danger';
+                scanInput.value = '';
+                scanInput.focus();
+                return;
+            }
+
+            addOrIncrementCartLine(data.productVariantId, data.productName, data.sizeName, data.price, 1, data.stock);
+            scanStatusBadge.textContent = `Added: ${data.productName} (${data.sizeName})`;
+            scanStatusBadge.className = 'badge text-bg-success';
+        } catch (err) {
+            scanError.textContent = 'Network error while looking up the barcode.';
+            scanError.classList.remove('d-none');
+            scanStatusBadge.textContent = 'Error';
+            scanStatusBadge.className = 'badge text-bg-danger';
+        }
+
+        scanInput.value = '';
+        scanInput.focus();
+    });
+
+    // Note: the scan box only re-focuses itself right after a scan is processed (above) and on
+    // initial page load (autofocus attribute) - it does NOT grab focus back on every click anywhere
+    // on the page. That old behavior (dinvKeepFocused) made it impossible to use the customer picker,
+    // discount/tax fields, quantity boxes, or the Complete Sale button, which is exactly what was
+    // reported as "always focus on barcode scan" / "can't create new sale".
+
+    // ---- Manual dropdown fallback ------------------------------------------
+    document.getElementById('addVariantBtn').addEventListener('click', () => {
+        const select = document.getElementById('variantSelect');
+        const option = select.options[select.selectedIndex];
+        if (!select.value) return;
+
+        const qty = parseInt(document.getElementById('variantQty').value, 10) || 1;
+        const variantId = parseInt(select.value, 10);
+
+        addOrIncrementCartLine(variantId, option.dataset.name, option.dataset.size, parseFloat(option.dataset.price) || 0, qty, parseInt(option.dataset.stock, 10) || 0);
+
+        select.value = '';
+        document.getElementById('variantQty').value = 1;
+    });
+
+    document.getElementById('discountAmount').addEventListener('input', recalculateTotals);
+    document.getElementById('taxAmount').addEventListener('input', recalculateTotals);
+
+    renderCart();
+</script>
+}

@@ -1,0 +1,120 @@
+using DInventory.Application.Common.Interfaces;
+using DInventory.Application.Common.Models;
+using DInventory.Domain.Entities;
+using Dapper;
+
+namespace DInventory.Infrastructure.Persistence.Repositories;
+
+public class ExpenseRepository : IExpenseRepository
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+
+    public ExpenseRepository(IDbConnectionFactory connectionFactory)
+    {
+        _connectionFactory = connectionFactory;
+    }
+
+    private const string SelectBase = @"
+        SELECT e.ExpenseId, e.ExpenseDate, e.Category, e.Amount, e.Remarks, e.CreatedAt, e.CreatedBy,
+               u.FullName AS CreatedByName
+        FROM dbo.Expenses e
+        LEFT JOIN dbo.Users u ON u.UserId = e.CreatedBy";
+
+    public async Task<Expense?> GetByIdAsync(int expenseId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<Expense>(
+            $"{SelectBase} WHERE e.ExpenseId = @expenseId", new { expenseId });
+    }
+
+    public async Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var whereClause = @"
+            WHERE (@search IS NULL OR e.Remarks LIKE @pattern OR e.Category LIKE @pattern)
+              AND (@fromDate IS NULL OR e.ExpenseDate >= @fromDate)
+              AND (@toDate IS NULL OR e.ExpenseDate < @toDate)
+              AND (@category IS NULL OR e.Category = @category)";
+
+        var countSql = $@"
+            SELECT COUNT(1) FROM dbo.Expenses e
+            {whereClause}";
+
+        var pagedSql = $@"{SelectBase}
+            {whereClause}
+            ORDER BY e.ExpenseDate DESC, e.ExpenseId DESC
+            OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+
+        var parameters = new
+        {
+            search = request.Search,
+            pattern = $"%{request.Search}%",
+            fromDate,
+            toDate,
+            category,
+            offset = (request.PageNumber - 1) * request.PageSize,
+            pageSize = request.PageSize
+        };
+
+        var totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = (await connection.QueryAsync<Expense>(pagedSql, parameters)).ToList();
+
+        return new PagedResult<Expense>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
+    }
+
+    public async Task<int> CreateAsync(Expense expense)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            INSERT INTO dbo.Expenses (ExpenseDate, Category, Amount, Remarks, CreatedAt, CreatedBy)
+            OUTPUT INSERTED.ExpenseId
+            VALUES (@ExpenseDate, @Category, @Amount, @Remarks, @CreatedAt, @CreatedBy)";
+        return await connection.ExecuteScalarAsync<int>(sql, expense);
+    }
+
+    public async Task<bool> UpdateAsync(Expense expense)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            UPDATE dbo.Expenses
+            SET ExpenseDate = @ExpenseDate, Category = @Category, Amount = @Amount, Remarks = @Remarks
+            WHERE ExpenseId = @ExpenseId";
+        var rows = await connection.ExecuteAsync(sql, expense);
+        return rows > 0;
+    }
+
+    public async Task<bool> DeleteAsync(int expenseId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var rows = await connection.ExecuteAsync("DELETE FROM dbo.Expenses WHERE ExpenseId = @expenseId", new { expenseId });
+        return rows > 0;
+    }
+
+    public async Task<decimal> GetTotalAsync(DateTime fromDate, DateTime toDateExclusive)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT ISNULL(SUM(Amount), 0) FROM dbo.Expenses
+            WHERE ExpenseDate >= @fromDate AND ExpenseDate < @toDateExclusive";
+        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive });
+    }
+
+    public async Task<IEnumerable<ExpenseCategoryTotal>> GetSummaryByCategoryAsync(DateTime fromDate, DateTime toDateExclusive)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT Category, SUM(Amount) AS Total
+            FROM dbo.Expenses
+            WHERE ExpenseDate >= @fromDate AND ExpenseDate < @toDateExclusive
+            GROUP BY Category
+            ORDER BY SUM(Amount) DESC";
+        return await connection.QueryAsync<ExpenseCategoryTotal>(sql, new { fromDate, toDateExclusive });
+    }
+}

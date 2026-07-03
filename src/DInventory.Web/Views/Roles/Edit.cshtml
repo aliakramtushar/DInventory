@@ -1,0 +1,34 @@
+@model DInventory.Domain.Entities.Role
+@{
+    ViewData["Title"] = "Edit Role";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <input asp-for="RoleId" type="hidden" />
+            <div class="mb-3">
+                <label class="form-label">Role Name</label>
+                <input asp-for="RoleName" class="form-control" required readonly="@Model.IsSystemRole" />
+                @if (Model.IsSystemRole)
+                {
+                    <div class="form-text">System roles cannot be renamed.</div>
+                }
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-check mb-3">
+                <input asp-for="IsActive" class="form-check-input" disabled="@Model.IsSystemRole" />
+                <label asp-for="IsActive" class="form-check-label">Active</label>
+                @if (Model.IsSystemRole)
+                {
+                    <div class="form-text">System roles are always active.</div>
+                }
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

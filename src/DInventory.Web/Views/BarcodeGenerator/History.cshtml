@@ -1,0 +1,58 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.GeneratedBarcodeLabel>
+@{
+    ViewData["Title"] = "Barcode Labels";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search by barcode/product..." />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+    </form>
+    <a asp-action="Index" class="btn btn-primary btn-sm"><i class="bi bi-upc-scan me-1"></i>Generate Labels</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Barcode</th><th>Product Name</th><th>Brand</th><th>Size</th><th>Price</th><th>Linked?</th><th>Generated</th></tr></thead>
+            <tbody>
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No labels generated yet.</td></tr>
+                }
+                @foreach (var label in Model.Items)
+                {
+                    <tr>
+                        <td><code>@label.Barcode</code></td>
+                        <td>@label.ProductName</td>
+                        <td class="small text-muted">@label.BrandName</td>
+                        <td class="small text-muted">@label.SizeName</td>
+                        <td>@(label.Price.HasValue ? label.Price.Value.ToMoney() : "-")</td>
+                        <td>
+                            @if (label.IsLinked)
+                            {
+                                <span class="badge text-bg-success">Linked</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">Unlinked</span>
+                            }
+                        </td>
+                        <td class="small text-muted">@label.CreatedAt.ToString("g")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white">
+            @await Html.PartialAsync("_Pagination", new PaginationViewModel
+            {
+                PageNumber = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                HasPreviousPage = Model.HasPreviousPage,
+                HasNextPage = Model.HasNextPage,
+                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()))
+            })
+        </div>
+    }
+</div>

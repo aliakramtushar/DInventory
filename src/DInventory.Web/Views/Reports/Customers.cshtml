@@ -1,0 +1,28 @@
+@model IEnumerable<DInventory.Application.Common.Models.CustomerReportRow>
+@{
+    ViewData["Title"] = "Customer Report";
+}
+<p class="text-muted">All-time customer summary (orders, spend and loyalty points since their first purchase).</p>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Customer</th><th>Phone</th><th class="text-end">Orders</th><th class="text-end">Total Spend</th><th class="text-end">Loyalty Points</th></tr></thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-4">No customers found.</td></tr>
+                }
+                @foreach (var row in Model)
+                {
+                    <tr>
+                        <td>@row.CustomerName</td>
+                        <td>@(row.Phone ?? "-")</td>
+                        <td class="text-end">@row.OrderCount</td>
+                        <td class="text-end">@row.TotalSpend.ToMoney()</td>
+                        <td class="text-end"><span class="badge text-bg-warning text-dark">@row.LoyaltyPoints</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

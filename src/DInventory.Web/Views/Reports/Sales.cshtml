@@ -1,0 +1,40 @@
+@model IEnumerable<DInventory.Application.Common.Models.SalesReportRow>
+@{
+    ViewData["Title"] = "Sales Report";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
+        <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-filter"></i> Filter</button>
+    </form>
+    <a asp-action="SalesExport" asp-route-fromDate="@ViewData["FromDate"]" asp-route-toDate="@ViewData["ToDate"]" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Date</th><th>Invoice</th><th>Customer</th><th class="text-end">Subtotal</th><th class="text-end">Discount</th><th class="text-end">Tax</th><th class="text-end">Net</th><th>Status</th><th>By</th></tr></thead>
+            <tbody>
+                @{ decimal totalNet = 0; }
+                @foreach (var row in Model)
+                {
+                    totalNet += row.Status == "COMPLETED" ? row.NetAmount : 0;
+                    <tr>
+                        <td class="small">@row.SaleDate.ToString("g")</td>
+                        <td>@row.InvoiceNo</td>
+                        <td>@(row.CustomerName ?? "Walk-in")</td>
+                        <td class="text-end">@row.SubTotal.ToMoney()</td>
+                        <td class="text-end">@row.DiscountAmount.ToMoney()</td>
+                        <td class="text-end">@row.TaxAmount.ToMoney()</td>
+                        <td class="text-end">@row.NetAmount.ToMoney()</td>
+                        <td><span class="badge @(row.Status == "COMPLETED" ? "text-bg-success" : "text-bg-danger")">@row.Status</span></td>
+                        <td class="small">@row.CreatedByName</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold"><td colspan="6" class="text-end">Total (Completed)</td><td class="text-end">@totalNet.ToMoney()</td><td colspan="2"></td></tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

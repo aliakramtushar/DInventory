@@ -1,0 +1,86 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.Product>
+@{
+    ViewData["Title"] = "Our Products";
+    Layout = "_PublicLayout";
+}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="display-6 mb-1">Our Products</h1>
+        <p class="text-muted mb-0">Browse our latest styles.</p>
+    </div>
+    <form class="d-flex gap-2" method="get">
+        <select name="categoryId" class="form-select" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            @foreach (var cat in (IEnumerable<DInventory.Domain.Entities.Category>)ViewBag.Categories)
+            {
+                <option value="@cat.CategoryId" selected="@(ViewData["CategoryId"]?.ToString() == cat.CategoryId.ToString())">@cat.CategoryName</option>
+            }
+        </select>
+        <input type="text" name="search" value="@ViewData["Search"]" class="form-control" placeholder="Search products..." />
+        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+    </form>
+</div>
+
+@if (!Model.Items.Any())
+{
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-box-seam display-1 d-block mb-3"></i>
+        No products found.
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var product in Model.Items)
+        {
+            <div class="col-sm-6 col-lg-4 col-xl-3">
+                <div class="card h-100 shadow-sm">
+                    <div class="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center">
+                        @if (!string.IsNullOrWhiteSpace(product.ImagePath))
+                        {
+                            <img src="@product.ImagePath" class="w-100 h-100" style="object-fit:cover;" alt="@product.ProductName" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-image text-muted display-4"></i>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <h6 class="mb-1">@product.ProductName</h6>
+                        <p class="text-muted small mb-2">
+                            @product.BrandName
+                            @if (!string.IsNullOrWhiteSpace(product.BrandName) && !string.IsNullOrWhiteSpace(product.CategoryName))
+                            {
+                                @:&middot;
+                            }
+                            @product.CategoryName
+                        </p>
+                        @if (product.ShowPriceOnWebsite)
+                        {
+                            <div class="fw-bold text-primary">@((product.SellingPrice ?? 0).ToMoney())</div>
+                        }
+                        else
+                        {
+                            <div class="fw-semibold text-muted small"><i class="bi bi-telephone me-1"></i>Contact us for price</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    <li class="page-item @(pageNumber == Model.PageNumber ? "active" : "")">
+                        <a class="page-link" asp-action="Products" asp-route-page="@pageNumber"
+                           asp-route-categoryId="@ViewData["CategoryId"]" asp-route-search="@ViewData["Search"]">@pageNumber</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}

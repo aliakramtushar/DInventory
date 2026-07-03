@@ -1,0 +1,49 @@
+@model DInventory.Domain.Entities.Menu
+@{
+    ViewData["Title"] = "New Menu";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Menu Key (unique, uppercase)</label>
+                    <input asp-for="MenuKey" class="form-control text-uppercase" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Menu Name</label>
+                    <input asp-for="MenuName" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Icon (Bootstrap Icons class)</label>
+                    <input asp-for="Icon" class="form-control" placeholder="bi-box-seam" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Url</label>
+                    <input asp-for="Url" class="form-control" placeholder="/Products" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Display Order</label>
+                    <input asp-for="DisplayOrder" type="number" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Parent Menu (optional)</label>
+                    <select asp-for="ParentId" class="form-select" asp-items="@(new SelectList(ViewBag.ParentMenus, "MenuId", "MenuName"))">
+                        <option value="">-- Top level --</option>
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" checked />
+                        <label asp-for="IsActive" class="form-check-label">Active</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Create Menu</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

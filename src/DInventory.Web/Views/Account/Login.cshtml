@@ -1,0 +1,30 @@
+@model DInventory.Application.Common.Models.LoginRequest
+@{
+    ViewData["Title"] = "Login";
+    Layout = "_LoginLayout";
+}
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+<form asp-controller="Account" asp-action="Login" asp-route-returnUrl="@ViewData["ReturnUrl"]" method="post">
+    <div class="mb-3">
+        <label asp-for="Username" class="form-label">Username</label>
+        <input asp-for="Username" class="form-control" autofocus autocomplete="username" placeholder="superadmin or admin" />
+        <span asp-validation-for="Username" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label">Password</label>
+        <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="12345" />
+        <span asp-validation-for="Password" class="text-danger small"></span>
+    </div>
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <div class="form-check">
+            <input asp-for="RememberMe" class="form-check-input" />
+            <label asp-for="RememberMe" class="form-check-label">Remember me</label>
+        </div>
+        <a asp-controller="Account" asp-action="ForgotPassword" class="small">Forgot password?</a>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Sign In</button>
+</form>
+<p class="text-center text-muted small mt-4 mb-0">Default accounts: <code>superadmin</code> / <code>admin</code> &mdash; password <code>12345</code></p>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,39 @@
+## .NET build output
+bin/
+obj/
+**/bin/
+**/obj/
+out/
+publish/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Test / coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+## User secrets / local overrides (never commit real credentials)
+appsettings.*.local.json
+*.pfx
+
+## App runtime data (auto-generated)
+App_Data/outbox/
+
+## Logs
+*.log
+logs/
+
+## OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

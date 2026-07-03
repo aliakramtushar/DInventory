@@ -1,0 +1,155 @@
+@model DInventory.Domain.Entities.Product
+@{
+    ViewData["Title"] = "New Product";
+    var sizes = (IEnumerable<DInventory.Domain.Entities.Size>)ViewBag.Sizes;
+    var colors = (IEnumerable<DInventory.Domain.Entities.Color>)ViewBag.Colors;
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post" enctype="multipart/form-data" id="productForm">
+            <h6 class="text-muted text-uppercase small mb-3">Style Details</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Product Code (leave blank to auto-generate)</label>
+                    <input asp-for="ProductCode" class="form-control" placeholder="PRD-0001" />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Product Name</label>
+                    <input asp-for="ProductName" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Category</label>
+                    <select asp-for="CategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Categories, "CategoryId", "CategoryName"))" required></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Subcategory</label>
+                    <select asp-for="SubcategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Subcategories, "SubcategoryId", "SubcategoryName"))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Brand</label>
+                    <select asp-for="BrandId" class="form-select" asp-items="@(new SelectList(ViewBag.Brands, "BrandId", "BrandName"))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Unit</label>
+                    <input asp-for="Unit" class="form-control" placeholder="pcs" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Cost Price</label>
+                    <input name="costPrice" type="number" step="0.01" min="0" class="form-control" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Selling Price</label>
+                    <input name="sellingPrice" type="number" step="0.01" min="0" class="form-control" required />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Product Image</label>
+                    <input name="imageFile" type="file" accept="image/*" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input asp-for="IsShowOnWebsite" class="form-check-input" />
+                        <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input asp-for="ShowPriceOnWebsite" class="form-check-input" checked />
+                        <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website (otherwise "Contact us for price")</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-muted text-uppercase small mb-0">Sizes / Variants <span class="text-danger">*</span></h6>
+                <button type="button" id="addVariantRowBtn" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Add another size
+                </button>
+            </div>
+            <p class="text-muted small">Every size gets its own barcode and stock row. Leave the barcode blank to auto-generate a new one, or type/scan a barcode you already printed on the Barcode Generator page.</p>
+
+            <div id="variantRows"></div>
+
+            <template id="variantRowTemplate">
+                <div class="row g-2 align-items-end variant-row border-bottom pb-3 mb-3">
+                    <div class="col-md-2">
+                        <label class="form-label small">Size</label>
+                        <select name="variantSizeId" class="form-select form-select-sm" required>
+                            <option value="">-- Size --</option>
+                            @foreach (var size in sizes)
+                            {
+                                <option value="@size.SizeId">@size.SizeName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Color (optional)</label>
+                        <select name="variantColorId" class="form-select form-select-sm">
+                            <option value="">-- No color --</option>
+                            @foreach (var color in colors)
+                            {
+                                <option value="@color.ColorId">@color.ColorName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Barcode (blank = auto-generate)</label>
+                        <input name="variantBarcode" class="form-control form-control-sm barcode-scan-input" placeholder="Scan or type barcode" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">SKU (optional)</label>
+                        <input name="variantSku" class="form-control form-control-sm" placeholder="Auto-generated if blank" />
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small">Reorder</label>
+                        <input name="variantReorderLevel" type="number" min="0" value="5" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small">Qty</label>
+                        <input name="variantInitialQuantity" type="number" min="0" value="0" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-variant-row-btn"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+            </template>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Create Product</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const container = document.getElementById('variantRows');
+    const template = document.getElementById('variantRowTemplate');
+
+    function addRow() {
+        const clone = template.content.cloneNode(true);
+        clone.querySelector('.remove-variant-row-btn').addEventListener('click', (e) => {
+            e.target.closest('.variant-row').remove();
+        });
+        container.appendChild(clone);
+    }
+
+    document.getElementById('addVariantRowBtn').addEventListener('click', addRow);
+
+    // Start with one row so a brand-new product only needs one click to add a second size.
+    addRow();
+})();
+</script>
+}

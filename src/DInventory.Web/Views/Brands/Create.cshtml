@@ -1,0 +1,21 @@
+@model DInventory.Domain.Entities.Brand
+@{
+    ViewData["Title"] = "New Brand";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Brand Name</label>
+                <input asp-for="BrandName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Brand</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,244 @@
+@{
+    ViewData["Title"] = "New Purchase";
+    var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
+    var suppliers = (IEnumerable<DInventory.Domain.Entities.Supplier>)ViewBag.Suppliers;
+    var preselectedSupplierId = ViewData["SupplierId"] as int?;
+}
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                <span>Scan to Receive</span>
+                <span id="scanStatusBadge" class="badge text-bg-light text-dark">Ready to scan</span>
+            </div>
+            <div class="card-body">
+                <div id="scanError" class="alert alert-danger d-none py-2"></div>
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                    <input id="scanInput" class="form-control form-control-lg barcode-scan-input" placeholder="Scan barcode here..." autofocus />
+                </div>
+                <p class="text-muted small mb-4">
+                    Scan the item's existing barcode to add it to the receiving list with quantity 1 - use this to
+                    restock a size/color that already exists in the catalog. To add a brand-new size/color, create it
+                    first on the Products screen.
+                </p>
+
+                <hr />
+                <h6 class="text-muted text-uppercase small mb-2">Manual product/size/color picker (fallback)</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-7">
+                        <select id="variantSelect" class="form-select">
+                            <option value="">-- Select a product/size/color --</option>
+                            @foreach (var v in variants)
+                            {
+                                <option value="@v.ProductVariantId" data-cost="@v.CostPrice" data-name="@v.ProductName"
+                                        data-size="@v.SizeName" data-color="@v.ColorName" data-barcode="@v.Barcode">
+                                    @v.ProductName (@v.SizeName@(!string.IsNullOrWhiteSpace(v.ColorName) ? " / " + v.ColorName : ""))
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-2">
+                        <input id="variantQty" type="number" min="1" value="1" class="form-control" placeholder="Qty" />
+                    </div>
+                    <div class="col-3">
+                        <button type="button" id="addVariantBtn" class="btn btn-primary w-100">Add</button>
+                    </div>
+                </div>
+
+                <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>Product</th><th>Size/Color</th><th style="width:90px">Qty</th><th style="width:130px">Buying Price</th><th>Total</th><th></th></tr></thead>
+                    <tbody id="cartBody">
+                        <tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Receiving Summary</div>
+            <div class="card-body">
+                <form asp-action="Create" method="post" id="purchaseForm">
+                    <input type="hidden" name="itemsJson" id="itemsJson" value="[]" />
+                    <div class="mb-3">
+                        <label class="form-label">Supplier</label>
+                        <select name="supplierId" class="form-select" required>
+                            <option value="">-- Select supplier --</option>
+                            @foreach (var s in suppliers)
+                            {
+                                <option value="@s.SupplierId" selected="@(preselectedSupplierId.HasValue && preselectedSupplierId.Value == s.SupplierId)">@s.SupplierName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Paid Amount</label>
+                        <input name="paidAmount" id="paidAmount" type="number" step="0.01" min="0" value="0" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Remarks</label>
+                        <input name="remarks" class="form-control" />
+                    </div>
+
+                    <table class="table table-sm">
+                        <tr><td>Total Amount</td><td class="text-end" id="totalDisplay">৳0.00</td></tr>
+                        <tr><td>Paid</td><td class="text-end" id="paidDisplay">৳0.00</td></tr>
+                        <tr class="fw-bold"><td>Due</td><td class="text-end" id="dueDisplay">৳0.00</td></tr>
+                    </table>
+
+                    <button type="submit" id="submitPurchaseBtn" class="btn btn-success w-100" disabled>Receive Purchase</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const cart = [];
+    const scanInput = document.getElementById('scanInput');
+    const scanError = document.getElementById('scanError');
+    const scanStatusBadge = document.getElementById('scanStatusBadge');
+
+    function sizeColorLabel(sizeName, colorName) {
+        const parts = [];
+        if (sizeName) parts.push(sizeName);
+        if (colorName) parts.push(colorName);
+        return parts.join(' / ');
+    }
+
+    // Full rebuild of the cart table - only on add/remove, never on every keystroke of a price/qty
+    // box (mirrors the same pattern used on Sales/Create to avoid focus loss while typing).
+    function renderCart() {
+        const body = document.getElementById('cartBody');
+        if (cart.length === 0) {
+            body.innerHTML = '<tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>';
+        } else {
+            body.innerHTML = cart.map((item, idx) => `
+                <tr>
+                    <td>${item.productName}</td>
+                    <td><span class="badge text-bg-light text-dark">${sizeColorLabel(item.sizeName, item.colorName)}</span></td>
+                    <td>
+                        <input type="number" min="1" value="${item.quantity}"
+                               class="form-control form-control-sm cart-qty-input" data-idx="${idx}" />
+                    </td>
+                    <td>
+                        <input type="number" min="0" step="0.01" value="${item.buyingPrice}"
+                               class="form-control form-control-sm cart-price-input" data-idx="${idx}" />
+                    </td>
+                    <td class="cart-line-total" data-idx="${idx}">${dinvMoney(item.quantity * item.buyingPrice)}</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        recalculateTotals();
+    }
+
+    function recalculateTotals() {
+        const total = cart.reduce((sum, i) => sum + i.quantity * i.buyingPrice, 0);
+        const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+        const due = Math.max(0, total - paid);
+
+        document.getElementById('totalDisplay').textContent = dinvMoney(total);
+        document.getElementById('paidDisplay').textContent = dinvMoney(paid);
+        document.getElementById('dueDisplay').textContent = dinvMoney(due);
+        document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({ productVariantId: i.productVariantId, quantity: i.quantity, buyingPrice: i.buyingPrice })));
+        document.getElementById('submitPurchaseBtn').disabled = cart.length === 0;
+    }
+
+    function removeItem(idx) {
+        cart.splice(idx, 1);
+        renderCart();
+    }
+
+    function addOrIncrementCartLine(productVariantId, productName, sizeName, colorName, buyingPrice, qty) {
+        const existing = cart.find(i => i.productVariantId === productVariantId);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            cart.push({ productVariantId, productName, sizeName, colorName, quantity: qty, buyingPrice: buyingPrice || 0 });
+        }
+        renderCart();
+    }
+
+    // In-place update of qty/price on a line, mirrors Sales/Create's cart-qty-input handler so
+    // neither field loses focus while the user is typing.
+    document.getElementById('cartBody').addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.idx, 10);
+        if (Number.isNaN(idx)) return;
+
+        if (e.target.classList.contains('cart-qty-input')) {
+            let qty = parseInt(e.target.value, 10);
+            if (!Number.isFinite(qty) || qty < 1) qty = 1;
+            cart[idx].quantity = qty;
+        } else if (e.target.classList.contains('cart-price-input')) {
+            let price = parseFloat(e.target.value);
+            if (!Number.isFinite(price) || price < 0) price = 0;
+            cart[idx].buyingPrice = price;
+        } else {
+            return;
+        }
+
+        const lineTotalCell = document.querySelector(`.cart-line-total[data-idx="${idx}"]`);
+        if (lineTotalCell) {
+            lineTotalCell.textContent = dinvMoney(cart[idx].quantity * cart[idx].buyingPrice);
+        }
+        recalculateTotals();
+    });
+
+    // ---- Scan-to-receive -------------------------------------------------------
+    scanInput.addEventListener('dinv:barcode-scanned', async (e) => {
+        const barcode = e.detail.barcode;
+        scanError.classList.add('d-none');
+        scanStatusBadge.textContent = 'Looking up ' + barcode + '...';
+        scanStatusBadge.className = 'badge text-bg-warning';
+
+        try {
+            const response = await fetch('@Url.Action("ScanForPurchase", "Purchases")?barcode=' + encodeURIComponent(barcode));
+            const data = await response.json();
+
+            if (!response.ok) {
+                scanError.textContent = data.message || 'No product found for that barcode.';
+                scanError.classList.remove('d-none');
+                scanStatusBadge.textContent = 'Not found';
+                scanStatusBadge.className = 'badge text-bg-danger';
+                scanInput.value = '';
+                scanInput.focus();
+                return;
+            }
+
+            addOrIncrementCartLine(data.productVariantId, data.productName, data.sizeName, data.colorName, data.costPrice, 1);
+            scanStatusBadge.textContent = `Added: ${data.productName} (${sizeColorLabel(data.sizeName, data.colorName)})`;
+            scanStatusBadge.className = 'badge text-bg-success';
+        } catch (err) {
+            scanError.textContent = 'Network error while looking up the barcode.';
+            scanError.classList.remove('d-none');
+            scanStatusBadge.textContent = 'Error';
+            scanStatusBadge.className = 'badge text-bg-danger';
+        }
+
+        scanInput.value = '';
+        scanInput.focus();
+    });
+
+    // ---- Manual dropdown fallback ------------------------------------------
+    document.getElementById('addVariantBtn').addEventListener('click', () => {
+        const select = document.getElementById('variantSelect');
+        const option = select.options[select.selectedIndex];
+        if (!select.value) return;
+
+        const qty = parseInt(document.getElementById('variantQty').value, 10) || 1;
+        const variantId = parseInt(select.value, 10);
+
+        addOrIncrementCartLine(variantId, option.dataset.name, option.dataset.size, option.dataset.color, parseFloat(option.dataset.cost) || 0, qty);
+
+        select.value = '';
+        document.getElementById('variantQty').value = 1;
+    });
+
+    document.getElementById('paidAmount').addEventListener('input', recalculateTotals);
+
+    renderCart();
+</script>
+}

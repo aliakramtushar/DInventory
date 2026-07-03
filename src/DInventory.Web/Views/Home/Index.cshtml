@@ -1,0 +1,19 @@
+@model DInventory.Domain.Entities.ContentPage?
+@{
+    ViewData["Title"] = "Welcome";
+    Layout = "_PublicLayout";
+}
+<div class="text-center mb-5">
+    @if (Model != null)
+    {
+        @Html.Raw(Model.Body)
+    }
+    else
+    {
+        <h1 class="display-6">Welcome to DInventory</h1>
+        <p class="lead text-muted">Inventory and sales management, made simple.</p>
+    }
+</div>
+<div class="text-center">
+    <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg"><i class="bi bi-box-arrow-in-right me-2"></i>Staff Login</a>
+</div>

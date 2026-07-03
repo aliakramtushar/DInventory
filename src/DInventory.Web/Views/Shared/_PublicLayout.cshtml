@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - DInventory</title>
+    <link rel="stylesheet" href="~/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bootstrap-icons.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                <i class="bi bi-boxes text-primary"></i> DInventory
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="publicNav">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Products">Products</a></li>
+                    @if (ViewBag.Pages != null)
+                    {
+                        @foreach (var contentPage in (IEnumerable<DInventory.Domain.Entities.ContentPage>)ViewBag.Pages)
+                        {
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Page" asp-route-slug="@contentPage.Slug">@contentPage.Title</a></li>
+                        }
+                    }
+                    <li class="nav-item">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <a class="btn btn-primary btn-sm" asp-controller="Dashboard" asp-action="Index">Go to Dashboard</a>
+                        }
+                        else
+                        {
+                            <a class="btn btn-outline-primary btn-sm" asp-controller="Account" asp-action="Login">Staff Login</a>
+                        }
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-5">
+        @RenderBody()
+    </main>
+
+    <footer class="text-center text-muted small py-4 border-top">
+        &copy; @DateTime.UtcNow.Year DInventory &mdash; Inventory &amp; Sales Management
+    </footer>
+
+    <script src="~/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+</body>
+</html>

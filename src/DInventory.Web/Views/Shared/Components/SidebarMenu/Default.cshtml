@@ -1,0 +1,42 @@
+@model List<DInventory.Web.Models.SidebarMenuNode>
+<ul class="erp-nav-list">
+    @foreach (var node in Model)
+    {
+        if (node.HasChildren)
+        {
+            var collapseId = $"nav-group-{node.Menu.MenuId}";
+            <li class="erp-nav-group @(node.IsActive ? "active" : "")">
+                <a href="#" class="erp-nav-group-toggle @(node.IsActive ? "" : "collapsed")" data-nav-target="@collapseId"
+                   aria-expanded="@(node.IsActive ? "true" : "false")" aria-controls="@collapseId">
+                    <i class="bi @(string.IsNullOrWhiteSpace(node.Menu.Icon) ? "bi-dot" : node.Menu.Icon)"></i>
+                    <span>@node.Menu.MenuName</span>
+                    <i class="bi bi-chevron-down erp-nav-chevron ms-auto"></i>
+                </a>
+                <div class="collapse @(node.IsActive ? "show" : "")" id="@collapseId">
+                    <ul class="erp-nav-sublist">
+                        @foreach (var child in node.Children)
+                        {
+                            var isChildActive = string.Equals(child.Url?.Trim('/'), ViewContext.RouteData.Values["controller"]?.ToString(), StringComparison.OrdinalIgnoreCase);
+                            <li class="@(isChildActive ? "active" : "")">
+                                <a href="@child.Url">
+                                    <i class="bi @(string.IsNullOrWhiteSpace(child.Icon) ? "bi-dot" : child.Icon)"></i>
+                                    <span>@child.MenuName</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </li>
+        }
+        else
+        {
+            var isActive = string.Equals(node.Menu.Url?.Trim('/'), ViewContext.RouteData.Values["controller"]?.ToString(), StringComparison.OrdinalIgnoreCase);
+            <li class="@(isActive ? "active" : "")">
+                <a href="@node.Menu.Url">
+                    <i class="bi @(string.IsNullOrWhiteSpace(node.Menu.Icon) ? "bi-dot" : node.Menu.Icon)"></i>
+                    <span>@node.Menu.MenuName</span>
+                </a>
+            </li>
+        }
+    }
+</ul>

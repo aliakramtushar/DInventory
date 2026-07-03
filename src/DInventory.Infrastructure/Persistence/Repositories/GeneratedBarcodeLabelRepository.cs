@@ -1,0 +1,92 @@
+using DInventory.Application.Common.Interfaces;
+using DInventory.Application.Common.Models;
+using DInventory.Domain.Entities;
+using Dapper;
+
+namespace DInventory.Infrastructure.Persistence.Repositories;
+
+public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+
+    public GeneratedBarcodeLabelRepository(IDbConnectionFactory connectionFactory)
+    {
+        _connectionFactory = connectionFactory;
+    }
+
+    public async Task<GeneratedBarcodeLabel?> GetByBarcodeAsync(string barcode)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<GeneratedBarcodeLabel>(
+            "SELECT * FROM dbo.GeneratedBarcodeLabels WHERE Barcode = @barcode", new { barcode });
+    }
+
+    public async Task<PagedResult<GeneratedBarcodeLabel>> GetPagedAsync(PagedRequest request)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var whereClause = @"
+            WHERE (@search IS NULL OR Barcode LIKE @pattern OR ProductName LIKE @pattern)";
+
+        var countSql = $"SELECT COUNT(1) FROM dbo.GeneratedBarcodeLabels {whereClause}";
+        var pagedSql = $@"
+            SELECT * FROM dbo.GeneratedBarcodeLabels
+            {whereClause}
+            ORDER BY CreatedAt DESC
+            OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+
+        var parameters = new
+        {
+            search = request.Search,
+            pattern = $"%{request.Search}%",
+            offset = (request.PageNumber - 1) * request.PageSize,
+            pageSize = request.PageSize
+        };
+
+        var totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
+        var items = (await connection.QueryAsync<GeneratedBarcodeLabel>(pagedSql, parameters)).ToList();
+
+        return new PagedResult<GeneratedBarcodeLabel>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
+    }
+
+    public async Task<int> CreateAsync(GeneratedBarcodeLabel label)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            INSERT INTO dbo.GeneratedBarcodeLabels (Barcode, ProductName, BrandName, SizeName, Price, IsLinked, LinkedProductVariantId, CreatedAt, CreatedBy)
+            OUTPUT INSERTED.LabelId
+            VALUES (@Barcode, @ProductName, @BrandName, @SizeName, @Price, @IsLinked, @LinkedProductVariantId, @CreatedAt, @CreatedBy)";
+        return await connection.ExecuteScalarAsync<int>(sql, label);
+    }
+
+    public async Task<bool> MarkLinkedAsync(string barcode, int productVariantId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            UPDATE dbo.GeneratedBarcodeLabels
+            SET IsLinked = 1, LinkedProductVariantId = @productVariantId
+            WHERE Barcode = @barcode";
+        var rows = await connection.ExecuteAsync(sql, new { barcode, productVariantId });
+        return rows > 0;
+    }
+
+    public async Task<bool> BarcodeExistsAsync(string barcode)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM dbo.GeneratedBarcodeLabels WHERE Barcode = @barcode", new { barcode });
+        return count > 0;
+    }
+
+    public async Task<string> GetLastBarcodeAsync()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = "SELECT TOP 1 Barcode FROM dbo.GeneratedBarcodeLabels ORDER BY LabelId DESC";
+        return await connection.QuerySingleOrDefaultAsync<string>(sql) ?? string.Empty;
+    }
+}

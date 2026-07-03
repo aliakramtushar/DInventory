@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Setup";
+    var tiles = new (string Title, string Icon, string Controller, string Description)[]
+    {
+        ("Users", "bi-people", "Users", "Manage system users and their assigned roles."),
+        ("Roles", "bi-shield-lock", "Roles", "Create roles and configure menu-level permissions."),
+        ("Menus", "bi-list-nested", "Menus", "Manage the navigation menu entries shown across the app."),
+        ("Categories", "bi-tags", "Categories", "Top-level product categories."),
+        ("Subcategories", "bi-tag", "Subcategories", "Subcategories grouped under a category."),
+        ("Brands", "bi-award", "Brands", "Manage the clothing brands carried in the catalog."),
+        ("Sizes", "bi-rulers", "Sizes", "Manage the size list (XS/S/M/L/XL/... or Free Size)."),
+        ("Colors", "bi-palette", "Colors", "Manage the color list used alongside sizes on variants."),
+        ("Products", "bi-box-seam", "Products", "Product catalog, pricing, images and size variants."),
+        ("Stock", "bi-boxes", "Stock", "Stock on hand and stock adjustments."),
+        ("Barcode Labels", "bi-upc-scan", "BarcodeGenerator", "Print barcode labels ahead of formal product entry."),
+        ("Suppliers", "bi-people-fill", "Suppliers", "Manage suppliers and review purchase history/due."),
+        ("Purchases", "bi-bag-plus", "Purchases", "Receive stock from suppliers (purchase invoices)."),
+        ("Expenses", "bi-cash-stack", "Expenses", "Record and review shop expenses by category."),
+        ("Website Content", "bi-globe", "Content", "Edit the pages shown on the public website."),
+        ("Audit Log", "bi-journal-text", "AuditLog", "Review who did what and when."),
+        ("Reports", "bi-graph-up", "Reports", "Sales, stock, profit, category, customer and expense reports."),
+    };
+}
+<p class="text-muted">Central entry point for all configuration and master-data pages. Only Admin and SuperAdmin can reach this hub.</p>
+<div class="row g-3">
+    @foreach (var tile in tiles)
+    {
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <a class="text-decoration-none" asp-controller="@tile.Controller" asp-action="Index">
+                <div class="card h-100 shadow-sm setup-tile">
+                    <div class="card-body">
+                        <i class="bi @tile.Icon fs-2 text-primary"></i>
+                        <h6 class="mt-3 mb-1">@tile.Title</h6>
+                        <div class="text-muted small">@tile.Description</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    }
+</div>

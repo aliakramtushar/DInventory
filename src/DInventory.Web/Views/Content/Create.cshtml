@@ -1,0 +1,43 @@
+@model DInventory.Domain.Entities.ContentPage
+@{
+    ViewData["Title"] = "New Page";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label">Title</label>
+                <input asp-for="Title" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">URL Slug (leave blank to auto-generate from title)</label>
+                <input asp-for="Slug" class="form-control" placeholder="about-us" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Image</label>
+                <input name="imageFile" type="file" accept="image/*" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Body (HTML allowed)</label>
+                <textarea asp-for="Body" class="form-control" rows="8"></textarea>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Display Order</label>
+                    <input asp-for="DisplayOrder" type="number" class="form-control" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="IsPublished" class="form-check-input" />
+                        <label asp-for="IsPublished" class="form-check-label">Published</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Create Page</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

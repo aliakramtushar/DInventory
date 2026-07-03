@@ -1,0 +1,96 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.User>
+@{
+    ViewData["Title"] = "Users";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search users..." />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+    </form>
+    <a asp-action="Create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New User</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No users found.</td></tr>
+                }
+                @foreach (var user in Model.Items)
+                {
+                    <tr>
+                        <td>@user.FullName</td>
+                        <td>@user.Username</td>
+                        <td>@user.Email</td>
+                        <td><span class="badge text-bg-secondary">@user.RoleName</span></td>
+                        <td>
+                            @if (user.IsActive)
+                            {
+                                <span class="badge text-bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-danger">Inactive</span>
+                            }
+                        </td>
+                        <td class="small text-muted">@(user.LastLoginAt?.ToString("g") ?? "Never")</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@user.UserId"><i class="bi bi-pencil"></i></a>
+                                <button class="btn btn-outline-warning" type="button" data-bs-toggle="modal" data-bs-target="#resetPwd@(user.UserId)"><i class="bi bi-key"></i></button>
+                                <form asp-action="ToggleActive" asp-route-id="@user.UserId" asp-route-isActive="@(!user.IsActive)" method="post" class="d-inline">
+                                    <button class="btn btn-outline-secondary" type="submit"><i class="bi @(user.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i></button>
+                                </form>
+                                <form asp-action="RevokeSessions" asp-route-id="@user.UserId" method="post" class="d-inline" onsubmit="return confirm('Force logout this user from all sessions?');">
+                                    <button class="btn btn-outline-dark" type="submit" title="Force logout"><i class="bi bi-slash-circle"></i></button>
+                                </form>
+                                <form asp-action="Delete" asp-route-id="@user.UserId" method="post" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                                    <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="resetPwd@(user.UserId)" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form asp-action="ResetPassword" asp-route-id="@user.UserId" method="post">
+                                    <div class="modal-header">
+                                        <h6 class="modal-title">Reset password for @user.Username</h6>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <label class="form-label">New Password</label>
+                                        <input type="text" name="newPassword" class="form-control" required minlength="5" />
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="submit" class="btn btn-primary btn-sm">Reset</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white">
+            @await Html.PartialAsync("_Pagination", new PaginationViewModel
+            {
+                PageNumber = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                HasPreviousPage = Model.HasPreviousPage,
+                HasNextPage = Model.HasNextPage,
+                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()))
+            })
+        </div>
+    }
+</div>

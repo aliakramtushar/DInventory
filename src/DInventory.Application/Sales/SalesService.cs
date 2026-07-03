@@ -1,0 +1,176 @@
+using DInventory.Application.Common.Interfaces;
+using DInventory.Application.Common.Models;
+using DInventory.Domain.Entities;
+
+namespace DInventory.Application.Sales;
+
+public class SalesService : ISalesService
+{
+    private readonly ISalesOrderRepository _salesOrderRepository;
+    private readonly IProductVariantRepository _variantRepository;
+    private readonly IStockRepository _stockRepository;
+    private readonly ICustomerRepository _customerRepository;
+
+    public SalesService(
+        ISalesOrderRepository salesOrderRepository,
+        IProductVariantRepository variantRepository,
+        IStockRepository stockRepository,
+        ICustomerRepository customerRepository)
+    {
+        _salesOrderRepository = salesOrderRepository;
+        _variantRepository = variantRepository;
+        _stockRepository = stockRepository;
+        _customerRepository = customerRepository;
+    }
+
+    public Task<SalesOrder?> GetByIdAsync(int salesOrderId) => _salesOrderRepository.GetByIdAsync(salesOrderId);
+
+    public Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null)
+        => _salesOrderRepository.GetPagedAsync(request, fromDate, toDate);
+
+    public Task<IEnumerable<Customer>> GetCustomersAsync(string? search = null) => _customerRepository.GetAllAsync(search);
+
+    public async Task<Result<ProductVariant>> ScanForSaleAsync(string barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+        {
+            return Result<ProductVariant>.Failure("Please scan or enter a barcode.");
+        }
+
+        var variant = await _variantRepository.GetByBarcodeAsync(barcode.Trim());
+        if (variant is null)
+        {
+            return Result<ProductVariant>.Failure($"No product found for barcode '{barcode}'.");
+        }
+
+        if (!variant.IsActive)
+        {
+            return Result<ProductVariant>.Failure($"'{variant.ProductName} ({variant.SizeName})' is deactivated and cannot be sold.");
+        }
+
+        if ((variant.QuantityOnHand ?? 0) <= 0)
+        {
+            return Result<ProductVariant>.Failure($"'{variant.ProductName} ({variant.SizeName})' is out of stock.");
+        }
+
+        return Result<ProductVariant>.Success(variant);
+    }
+
+    public async Task<Result<int>> CreateSaleAsync(CreateSaleRequest request, int actingUserId)
+    {
+        if (request.Items is null || request.Items.Count == 0)
+        {
+            return Result<int>.Failure("Please add at least one product to the sale.");
+        }
+
+        // Validate stock availability first
+        foreach (var item in request.Items)
+        {
+            if (item.Quantity <= 0)
+            {
+                return Result<int>.Failure("Item quantity must be greater than zero.");
+            }
+
+            var stock = await _stockRepository.GetByVariantIdAsync(item.ProductVariantId);
+            if (stock is null || stock.QuantityOnHand < item.Quantity)
+            {
+                var variant = await _variantRepository.GetByIdAsync(item.ProductVariantId);
+                var label = variant is null ? "product" : $"{variant.ProductName} ({variant.SizeName})";
+                return Result<int>.Failure($"Insufficient stock for '{label}'. Available: {stock?.QuantityOnHand ?? 0}.");
+            }
+        }
+
+        int? customerId = request.CustomerId;
+        if (customerId is null && !string.IsNullOrWhiteSpace(request.NewCustomerName))
+        {
+            customerId = await _customerRepository.CreateAsync(new Customer
+            {
+                CustomerName = request.NewCustomerName.Trim(),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        var subTotal = request.Items.Sum(i => i.Quantity * i.UnitPrice);
+        var netAmount = subTotal - request.DiscountAmount + request.TaxAmount;
+        if (netAmount < 0) netAmount = 0;
+
+        var order = new SalesOrder
+        {
+            InvoiceNo = await _salesOrderRepository.GenerateNextInvoiceNoAsync(),
+            CustomerId = customerId,
+            SaleDate = DateTime.UtcNow,
+            SubTotal = subTotal,
+            DiscountAmount = request.DiscountAmount,
+            TaxAmount = request.TaxAmount,
+            NetAmount = netAmount,
+            PaymentStatus = string.IsNullOrWhiteSpace(request.PaymentStatus) ? "PAID" : request.PaymentStatus,
+            PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "CASH" : request.PaymentMethod,
+            Status = "COMPLETED",
+            Remarks = request.Remarks,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = actingUserId,
+            Items = request.Items.Select(i => new SalesOrderItem
+            {
+                ProductVariantId = i.ProductVariantId,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                LineTotal = i.Quantity * i.UnitPrice
+            }).ToList()
+        };
+
+        var salesOrderId = await _salesOrderRepository.CreateAsync(order);
+
+        foreach (var item in order.Items)
+        {
+            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
+            await _stockRepository.CreateTransactionAsync(new StockTransaction
+            {
+                ProductVariantId = item.ProductVariantId,
+                TransactionType = "OUT",
+                Quantity = item.Quantity,
+                ReferenceType = "SALE",
+                ReferenceId = salesOrderId,
+                Remarks = $"Sale {order.InvoiceNo}",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            });
+        }
+
+        return Result<int>.Success(salesOrderId);
+    }
+
+    public async Task<Result> CancelSaleAsync(int salesOrderId, int actingUserId)
+    {
+        var order = await _salesOrderRepository.GetByIdAsync(salesOrderId);
+        if (order is null)
+        {
+            return Result.Failure("Sales order not found.");
+        }
+
+        if (order.Status == "CANCELLED")
+        {
+            return Result.Failure("This sale is already cancelled.");
+        }
+
+        // Return stock
+        foreach (var item in order.Items)
+        {
+            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
+            await _stockRepository.CreateTransactionAsync(new StockTransaction
+            {
+                ProductVariantId = item.ProductVariantId,
+                TransactionType = "IN",
+                Quantity = item.Quantity,
+                ReferenceType = "SALE",
+                ReferenceId = salesOrderId,
+                Remarks = $"Cancellation of sale {order.InvoiceNo}",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            });
+        }
+
+        var ok = await _salesOrderRepository.CancelAsync(salesOrderId);
+        return ok ? Result.Success() : Result.Failure("Unable to cancel this sale.");
+    }
+}

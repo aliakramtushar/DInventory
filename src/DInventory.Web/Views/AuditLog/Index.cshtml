@@ -1,0 +1,49 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.AuditLog>
+@{
+    ViewData["Title"] = "Audit Log";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search user/table..." />
+        <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
+        <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+    </form>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Date</th><th>User</th><th>Action</th><th>Table</th><th>Record</th><th>IP</th></tr></thead>
+            <tbody>
+                @foreach (var log in Model.Items)
+                {
+                    <tr>
+                        <td class="small">@log.CreatedAt.ToString("g")</td>
+                        <td>@log.Username</td>
+                        <td><span class="badge text-bg-secondary">@log.Action</span></td>
+                        <td class="small">@log.TableName</td>
+                        <td class="small">@log.RecordId</td>
+                        <td class="small text-muted">@log.IPAddress</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white">
+            @await Html.PartialAsync("_Pagination", new PaginationViewModel
+            {
+                PageNumber = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                HasPreviousPage = Model.HasPreviousPage,
+                HasNextPage = Model.HasNextPage,
+                RouteValues = PaginationViewModel.Filters(
+                    ("search", ViewData["Search"]?.ToString()),
+                    ("action", ViewData["Action"]?.ToString()),
+                    ("fromDate", ViewData["FromDate"]?.ToString()),
+                    ("toDate", ViewData["ToDate"]?.ToString()))
+            })
+        </div>
+    }
+</div>

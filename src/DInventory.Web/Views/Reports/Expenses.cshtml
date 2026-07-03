@@ -1,0 +1,72 @@
+@model IEnumerable<DInventory.Domain.Entities.Expense>
+@{
+    ViewData["Title"] = "Expense Report";
+    var summary = (IEnumerable<DInventory.Application.Common.Models.ExpenseCategoryTotal>)ViewBag.Summary;
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
+        <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-filter"></i> Filter</button>
+    </form>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Summary by Category</div>
+            <ul class="list-group list-group-flush">
+                @if (!summary.Any())
+                {
+                    <li class="list-group-item text-muted small">No expenses in this date range.</li>
+                }
+                @{ decimal summaryTotal = 0; }
+                @foreach (var s in summary)
+                {
+                    summaryTotal += s.Total;
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>@s.Category</span>
+                        <span class="fw-semibold">@s.Total.ToMoney()</span>
+                    </li>
+                }
+                @if (summary.Any())
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center fw-bold">
+                        <span>Total</span>
+                        <span>@summaryTotal.ToMoney()</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Expense Detail</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Date</th><th>Category</th><th>Remarks</th><th class="text-end">Amount</th></tr></thead>
+                    <tbody>
+                        @if (!Model.Any())
+                        {
+                            <tr><td colspan="4" class="text-center text-muted py-4">No expenses in this date range.</td></tr>
+                        }
+                        @{ decimal detailTotal = 0; }
+                        @foreach (var expense in Model)
+                        {
+                            detailTotal += expense.Amount;
+                            <tr>
+                                <td class="small">@expense.ExpenseDate.ToString("d")</td>
+                                <td><span class="badge text-bg-light text-dark">@expense.Category</span></td>
+                                <td class="text-muted small">@expense.Remarks</td>
+                                <td class="text-end">@expense.Amount.ToMoney()</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold"><td colspan="3" class="text-end">Total</td><td class="text-end">@detailTotal.ToMoney()</td></tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
