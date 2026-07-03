@@ -88,7 +88,7 @@ public class ProductsController : Controller
     [PermissionAuthorize("PRODUCTS", PermissionAction.Create)]
     public async Task<IActionResult> Create(Product model, decimal costPrice, decimal sellingPrice, IFormFile? imageFile,
         List<int>? variantSizeId, List<int?>? variantColorId, List<string?>? variantBarcode, List<string?>? variantSku,
-        List<int>? variantReorderLevel, List<int>? variantInitialQuantity)
+        List<int?>? variantReorderLevel, List<int?>? variantInitialQuantity)
     {
         var variants = BuildVariantInputs(variantSizeId, variantColorId, variantBarcode, variantSku, variantReorderLevel, variantInitialQuantity);
 
@@ -270,9 +270,19 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Edit), new { id = productId });
     }
 
+    // NOTE ON THE FIX BELOW: variantReorderLevel/variantInitialQuantity used to be bound as
+    // List<int> (non-nullable). ASP.NET Core's default model binder for a repeated-name,
+    // non-indexed collection like this silently DROPS any element whose raw form value fails to
+    // convert (e.g. an emptied-out number box) instead of defaulting it to 0 - it does not throw
+    // and does not pad the list. With multiple size/variant rows, that silently shifted every
+    // later row's quantity/reorder value onto the wrong row (or lost it entirely), which is
+    // exactly what was reported as "stock doesn't work properly when adding a product". Binding
+    // as List<int?> makes an empty box bind to null (never dropped), so the lists always stay
+    // index-aligned with variantSizeId. The JS below also fills any blank qty/reorder box with
+    // its default right before submit, so a blank value should no longer occur at all in practice.
     private static List<ProductVariantInput> BuildVariantInputs(
         List<int>? variantSizeId, List<int?>? variantColorId, List<string?>? variantBarcode, List<string?>? variantSku,
-        List<int>? variantReorderLevel, List<int>? variantInitialQuantity)
+        List<int?>? variantReorderLevel, List<int?>? variantInitialQuantity)
     {
         var variants = new List<ProductVariantInput>();
         if (variantSizeId is null)
@@ -287,14 +297,17 @@ public class ProductsController : Controller
                 continue;
             }
 
+            var reorderLevel = variantReorderLevel != null && i < variantReorderLevel.Count ? variantReorderLevel[i] : null;
+            var initialQuantity = variantInitialQuantity != null && i < variantInitialQuantity.Count ? variantInitialQuantity[i] : null;
+
             variants.Add(new ProductVariantInput
             {
                 SizeId = variantSizeId[i],
                 ColorId = variantColorId != null && i < variantColorId.Count && variantColorId[i] > 0 ? variantColorId[i] : null,
                 Barcode = variantBarcode != null && i < variantBarcode.Count ? variantBarcode[i] : null,
                 SKU = variantSku != null && i < variantSku.Count ? variantSku[i] : null,
-                ReorderLevel = variantReorderLevel != null && i < variantReorderLevel.Count && variantReorderLevel[i] > 0 ? variantReorderLevel[i] : 5,
-                InitialQuantity = variantInitialQuantity != null && i < variantInitialQuantity.Count ? variantInitialQuantity[i] : 0
+                ReorderLevel = (reorderLevel ?? 0) <= 0 ? 5 : reorderLevel!.Value,
+                InitialQuantity = (initialQuantity ?? 0) < 0 ? 0 : (initialQuantity ?? 0)
             });
         }
 

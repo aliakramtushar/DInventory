@@ -15,7 +15,7 @@
             </div>
         </div>
         <table class="table mt-3">
-            <thead class="table-light"><tr><th>Product</th><th>Size</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th class="text-end">Line Total</th></tr></thead>
+            <thead class="table-light"><tr><th>Product</th><th>Size</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th class="text-end">Line Total</th></tr></thead>
             <tbody>
                 @foreach (var item in Model.Items)
                 {
@@ -23,17 +23,38 @@
                         <td>@item.ProductName <span class="text-muted small">(@item.ProductCode)</span></td>
                         <td><span class="badge text-bg-light text-dark">@item.SizeName</span></td>
                         <td class="small"><code>@item.Barcode</code></td>
-                        <td>@item.Quantity</td>
+                        <td>
+                            @item.Quantity
+                            @if (item.ReturnedQuantity > 0)
+                            {
+                                <span class="badge text-bg-warning text-dark ms-1" title="Already returned">-@item.ReturnedQuantity ret.</span>
+                            }
+                        </td>
                         <td>@item.UnitPrice.ToMoney()</td>
+                        <td class="small text-muted">
+                            @if (item.DiscountAmount > 0)
+                            {
+                                @(item.DiscountType == "PERCENT" ? $"{item.DiscountValue:0.##}%" : item.DiscountAmount.ToMoney())
+                            }
+                            else
+                            {
+                                @:-
+                            }
+                        </td>
                         <td class="text-end">@item.LineTotal.ToMoney()</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
-                <tr><td colspan="5" class="text-end">Subtotal</td><td class="text-end">@Model.SubTotal.ToMoney()</td></tr>
-                <tr><td colspan="5" class="text-end">Discount</td><td class="text-end">-@Model.DiscountAmount.ToMoney()</td></tr>
-                <tr><td colspan="5" class="text-end">Tax</td><td class="text-end">@Model.TaxAmount.ToMoney()</td></tr>
-                <tr class="fw-bold"><td colspan="5" class="text-end">Net Total</td><td class="text-end">@Model.NetAmount.ToMoney()</td></tr>
+                <tr><td colspan="6" class="text-end">Subtotal</td><td class="text-end">@Model.SubTotal.ToMoney()</td></tr>
+                <tr><td colspan="6" class="text-end">Discount @(Model.DiscountType == "PERCENT" && Model.DiscountValue > 0 ? $"(incl. {Model.DiscountValue:0.##}% on bill)" : "")</td><td class="text-end">-@Model.DiscountAmount.ToMoney()</td></tr>
+                <tr><td colspan="6" class="text-end">Tax</td><td class="text-end">@Model.TaxAmount.ToMoney()</td></tr>
+                <tr class="fw-bold"><td colspan="6" class="text-end">Net Total</td><td class="text-end">@Model.NetAmount.ToMoney()</td></tr>
+                @if (Model.ReturnedAmount > 0)
+                {
+                    <tr class="text-danger"><td colspan="6" class="text-end">Returned</td><td class="text-end">-@Model.ReturnedAmount.ToMoney()</td></tr>
+                    <tr class="fw-bold"><td colspan="6" class="text-end">Net After Returns</td><td class="text-end">@((Model.NetAmount - Model.ReturnedAmount).ToMoney())</td></tr>
+                }
             </tfoot>
         </table>
         <div class="mt-2">
@@ -47,6 +68,7 @@
             <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back to Sales</a>
             @if (Model.Status == "COMPLETED")
             {
+                <a asp-controller="SalesReturns" asp-action="Create" asp-route-invoiceNo="@Model.InvoiceNo" class="btn btn-outline-warning btn-sm"><i class="bi bi-arrow-return-left"></i> Return Items</a>
                 <form asp-action="Cancel" asp-route-id="@Model.SalesOrderId" method="post" class="d-inline" onsubmit="return confirm('Cancel this sale and return stock?');">
                     <button type="submit" class="btn btn-outline-danger btn-sm">Cancel Sale</button>
                 </form>

@@ -18,10 +18,14 @@ public class PurchaseRepository : IPurchaseRepository
     private const string HeaderSelect = @"
         SELECT p.PurchaseId, p.PurchaseInvoiceNo, p.SupplierId, p.PurchaseDate, p.TotalAmount, p.PaidAmount,
                p.Remarks, p.CreatedAt, p.CreatedBy,
-               s.SupplierName, u.FullName AS CreatedByName
+               s.SupplierName, u.FullName AS CreatedByName,
+               ISNULL(pret.ReturnedAmount, 0) AS ReturnedAmount
         FROM dbo.Purchases p
         INNER JOIN dbo.Suppliers s ON s.SupplierId = p.SupplierId
-        INNER JOIN dbo.Users u ON u.UserId = p.CreatedBy";
+        INNER JOIN dbo.Users u ON u.UserId = p.CreatedBy
+        OUTER APPLY (
+            SELECT SUM(r.TotalAmount) AS ReturnedAmount FROM dbo.PurchaseReturns r WHERE r.PurchaseId = p.PurchaseId
+        ) pret";
 
     public async Task<Purchase?> GetByIdAsync(int purchaseId)
     {
@@ -37,12 +41,16 @@ public class PurchaseRepository : IPurchaseRepository
 
         const string itemsSql = @"
             SELECT pi.PurchaseItemId, pi.PurchaseId, pi.ProductVariantId, pi.Quantity, pi.BuyingPrice, pi.LineTotal,
-                   pr.ProductName, pr.ProductCode, sz.SizeName, co.ColorName, pv.Barcode
+                   pr.ProductName, pr.ProductCode, sz.SizeName, co.ColorName, pv.Barcode,
+                   ISNULL(ret.ReturnedQuantity, 0) AS ReturnedQuantity
             FROM dbo.PurchaseItems pi
             INNER JOIN dbo.ProductVariants pv ON pv.ProductVariantId = pi.ProductVariantId
             INNER JOIN dbo.Products pr ON pr.ProductId = pv.ProductId
             INNER JOIN dbo.Sizes sz ON sz.SizeId = pv.SizeId
             LEFT JOIN dbo.Colors co ON co.ColorId = pv.ColorId
+            OUTER APPLY (
+                SELECT SUM(pri.Quantity) AS ReturnedQuantity FROM dbo.PurchaseReturnItems pri WHERE pri.PurchaseItemId = pi.PurchaseItemId
+            ) ret
             WHERE pi.PurchaseId = @purchaseId";
 
         var items = await connection.QueryAsync<PurchaseItem>(itemsSql, new { purchaseId });

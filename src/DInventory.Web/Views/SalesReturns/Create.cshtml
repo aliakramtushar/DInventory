@@ -1,0 +1,141 @@
+@model DInventory.Domain.Entities.SalesOrder
+@{
+    ViewData["Title"] = "New Sale Return";
+    var searchResults = ViewBag.SearchResults as IEnumerable<DInventory.Domain.Entities.SalesOrder>;
+    var searchedInvoiceNo = ViewBag.SearchedInvoiceNo as string;
+}
+@if (Model is null)
+{
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">Find the Original Invoice</div>
+        <div class="card-body">
+            <form method="get" class="d-flex gap-2">
+                <input type="text" name="invoiceNo" class="form-control" placeholder="Enter invoice no, e.g. INV-000001" value="@searchedInvoiceNo" autofocus />
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Find</button>
+            </form>
+
+            @if (searchResults is not null)
+            {
+                if (!searchResults.Any())
+                {
+                    <p class="text-muted mt-3 mb-0">No invoice matches "@searchedInvoiceNo".</p>
+                }
+                else
+                {
+                    <p class="text-muted mt-3 mb-2">Multiple matches - pick the invoice to return against:</p>
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light"><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Net Amount</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var o in searchResults)
+                            {
+                                <tr>
+                                    <td>@o.InvoiceNo</td>
+                                    <td class="small">@o.SaleDate.ToString("g")</td>
+                                    <td>@(o.CustomerName ?? "Walk-in")</td>
+                                    <td>@o.NetAmount.ToMoney()</td>
+                                    <td><a class="btn btn-outline-primary btn-sm" asp-action="Create" asp-route-salesOrderId="@o.SalesOrderId">Select</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </div>
+    </div>
+}
+else
+{
+    var returnable = Model.Items.Where(i => i.Quantity - i.ReturnedQuantity > 0).ToList();
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+            <span>Return against Invoice @Model.InvoiceNo</span>
+            <a asp-action="Create" class="btn btn-outline-secondary btn-sm">Search a different invoice</a>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                Customer: @(Model.CustomerName ?? "Walk-in") &middot; Sold @Model.SaleDate.ToString("d")
+            </p>
+
+            @if (returnable.Count == 0)
+            {
+                <p class="text-muted">Every item on this invoice has already been fully returned.</p>
+            }
+            else
+            {
+                <form method="post" id="returnForm">
+                    <input type="hidden" name="salesOrderId" value="@Model.SalesOrderId" />
+                    <input type="hidden" name="itemsJson" id="itemsJson" value="[]" />
+
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light"><tr><th>Product</th><th>Size</th><th>Sold</th><th>Already Returned</th><th>Returnable</th><th style="width:110px">Return Qty</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in returnable)
+                            {
+                                var remaining = item.Quantity - item.ReturnedQuantity;
+                                <tr>
+                                    <td>@item.ProductName <span class="text-muted small">(@item.ProductCode)</span></td>
+                                    <td><span class="badge text-bg-light text-dark">@item.SizeName</span></td>
+                                    <td>@item.Quantity</td>
+                                    <td>@item.ReturnedQuantity</td>
+                                    <td>@remaining</td>
+                                    <td>
+                                        <input type="number" min="0" max="@remaining" value="0" class="form-control form-control-sm return-qty-input"
+                                               data-sales-order-item-id="@item.SalesOrderItemId" data-max="@remaining" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <input name="reason" class="form-control" placeholder="e.g. Wrong size, defective, customer changed mind" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Remarks</label>
+                        <input name="remarks" class="form-control" placeholder="Optional" />
+                    </div>
+
+                    <button type="submit" id="submitReturnBtn" class="btn btn-warning" disabled><i class="bi bi-arrow-return-left me-1"></i>Record Return</button>
+                </form>
+            }
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+(function () {
+    const itemsJsonField = document.getElementById('itemsJson');
+    const submitBtn = document.getElementById('submitReturnBtn');
+
+    // This script section renders even in the "no invoice loaded yet" / "search results" /
+    // "everything already returned" states, where the return form (and these elements) don't
+    // exist on the page at all - bail out instead of throwing on a null itemsJsonField/submitBtn.
+    if (!itemsJsonField || !submitBtn) {
+        return;
+    }
+
+    const qtyInputs = document.querySelectorAll('.return-qty-input');
+
+    function recalc() {
+        const items = [];
+        qtyInputs.forEach((el) => {
+            let qty = parseInt(el.value, 10);
+            const max = parseInt(el.dataset.max, 10);
+            if (!Number.isFinite(qty) || qty < 0) qty = 0;
+            if (qty > max) qty = max;
+            el.value = qty;
+            if (qty > 0) {
+                items.push({ salesOrderItemId: parseInt(el.dataset.salesOrderItemId, 10), quantity: qty });
+            }
+        });
+        itemsJsonField.value = JSON.stringify(items);
+        submitBtn.disabled = items.length === 0;
+    }
+
+    qtyInputs.forEach((el) => el.addEventListener('input', recalc));
+    recalc();
+})();
+</script>
+}

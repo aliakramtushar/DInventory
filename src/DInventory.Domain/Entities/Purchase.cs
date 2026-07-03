@@ -17,6 +17,12 @@ public class Purchase
     // Populated via joins, not DB columns
     public string? SupplierName { get; set; }
     public string? CreatedByName { get; set; }
-    public decimal DueAmount => TotalAmount - PaidAmount;
+
+    /// <summary>Sum of TotalAmount across all PurchaseReturns filed against this purchase - not a
+    /// DB column, joined in by the repository. Reduces what's actually owed to the supplier
+    /// without mutating the original invoice's TotalAmount (keeps the original invoice intact for
+    /// audit purposes; the return is its own separate, traceable record).</summary>
+    public decimal ReturnedAmount { get; set; }
+    public decimal DueAmount => TotalAmount - PaidAmount - ReturnedAmount;
     public List<PurchaseItem> Items { get; set; } = new();
 }

@@ -64,14 +64,15 @@ public class SalesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("SALES", PermissionAction.Create)]
-    public async Task<IActionResult> Create(int? customerId, string? newCustomerName, decimal discountAmount,
+    public async Task<IActionResult> Create(int? customerId, string? newCustomerName, string? discountType, decimal discountValue,
         decimal taxAmount, string paymentStatus, string? paymentMethod, string? remarks, string itemsJson)
     {
         var request = new CreateSaleRequest
         {
             CustomerId = customerId,
             NewCustomerName = newCustomerName,
-            DiscountAmount = discountAmount,
+            DiscountType = string.Equals(discountType, "PERCENT", StringComparison.OrdinalIgnoreCase) ? "PERCENT" : "FIXED",
+            DiscountValue = discountValue,
             TaxAmount = taxAmount,
             PaymentStatus = string.IsNullOrWhiteSpace(paymentStatus) ? "PAID" : paymentStatus,
             PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "CASH" : paymentMethod,

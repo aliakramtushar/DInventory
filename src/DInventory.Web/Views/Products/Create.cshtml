@@ -150,6 +150,21 @@
 
     // Start with one row so a brand-new product only needs one click to add a second size.
     addRow();
+
+    // Belt-and-suspenders fix for the "stock doesn't work when adding a product" bug: a blank
+    // Qty/Reorder box submits as an empty string, and ASP.NET Core's list model binder silently
+    // drops (rather than defaults) an unconvertible element from a repeated-name collection like
+    // these, which shifts every later row's values onto the wrong row. Filling in the same
+    // defaults the boxes are shown with before the form posts means an empty value should never
+    // actually reach the server.
+    document.getElementById('productForm').addEventListener('submit', () => {
+        document.querySelectorAll('input[name="variantReorderLevel"]').forEach((el) => {
+            if (el.value.trim() === '') el.value = '5';
+        });
+        document.querySelectorAll('input[name="variantInitialQuantity"]').forEach((el) => {
+            if (el.value.trim() === '') el.value = '0';
+        });
+    });
 })();
 </script>
 }

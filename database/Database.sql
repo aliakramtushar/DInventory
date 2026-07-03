@@ -615,6 +615,122 @@ BEGIN
 END
 GO
 
+/* =====================================================================
+   21. DISCOUNTS  (per-line item discount, entered as either a percent or
+       a manual/fixed amount, plus the same choice for the overall bill).
+       DiscountType/DiscountValue capture *how* the discount was entered
+       (for display/edit); DiscountAmount / SalesOrderItems.LineTotal stay
+       the computed money figures everything else (reports, NetAmount)
+       already reads, so this is purely additive and backward compatible.
+   ===================================================================== */
+IF OBJECT_ID('dbo.SalesOrderItems', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrderItems', 'DiscountType') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountType NVARCHAR(10) NOT NULL
+        CONSTRAINT DF_SOI_DiscountType DEFAULT (N'FIXED')
+        CONSTRAINT CK_SOI_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountValue DEFAULT (0);
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountAmount DEFAULT (0);
+END
+GO
+
+IF OBJECT_ID('dbo.SalesOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrders', 'DiscountType') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrders ADD DiscountType NVARCHAR(10) NOT NULL
+        CONSTRAINT DF_SO_DiscountType DEFAULT (N'FIXED')
+        CONSTRAINT CK_SO_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
+    ALTER TABLE dbo.SalesOrders ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SO_DiscountValue DEFAULT (0);
+END
+GO
+
+/* =====================================================================
+   22. SALES RETURNS  (a return/credit against a completed sale - always
+       linked to the original invoice; returned quantity restores Stock
+       the same way a purchase does, via StockTransactions.ReferenceType
+       = 'SALE_RETURN'. UnitPrice on each return line is the ORIGINAL
+       line's effective (post-discount) per-unit price, so the refund
+       automatically reflects whatever discount was already given.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.SalesReturns', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SalesReturns
+    (
+        SalesReturnId  INT IDENTITY(1,1) PRIMARY KEY,
+        ReturnNo       NVARCHAR(30) NOT NULL UNIQUE,
+        SalesOrderId   INT NOT NULL,
+        ReturnDate     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        SubTotal       DECIMAL(18,2) NOT NULL DEFAULT (0),
+        NetAmount      DECIMAL(18,2) NOT NULL DEFAULT (0),
+        Reason         NVARCHAR(255) NULL,
+        Remarks        NVARCHAR(255) NULL,
+        CreatedAt      DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy      INT NOT NULL,
+        CONSTRAINT FK_SalesReturns_SalesOrders FOREIGN KEY (SalesOrderId) REFERENCES dbo.SalesOrders(SalesOrderId),
+        CONSTRAINT FK_SalesReturns_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.SalesReturnItems', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SalesReturnItems
+    (
+        SalesReturnItemId  INT IDENTITY(1,1) PRIMARY KEY,
+        SalesReturnId       INT NOT NULL,
+        SalesOrderItemId    INT NOT NULL,
+        ProductVariantId    INT NOT NULL,
+        Quantity             INT NOT NULL,
+        UnitPrice             DECIMAL(18,2) NOT NULL,
+        LineTotal             DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_SRI_SalesReturns FOREIGN KEY (SalesReturnId) REFERENCES dbo.SalesReturns(SalesReturnId) ON DELETE CASCADE,
+        CONSTRAINT FK_SRI_SalesOrderItems FOREIGN KEY (SalesOrderItemId) REFERENCES dbo.SalesOrderItems(SalesOrderItemId),
+        CONSTRAINT FK_SRI_ProductVariants FOREIGN KEY (ProductVariantId) REFERENCES dbo.ProductVariants(ProductVariantId)
+    );
+END
+GO
+
+/* =====================================================================
+   23. PURCHASE RETURNS  (a return of stock back to a supplier against an
+       original purchase invoice - always linked to it. Returned quantity
+       reduces Stock via StockTransactions.ReferenceType = 'PURCHASE_RETURN'.
+       UnitPrice on each line is the original line's BuyingPrice.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.PurchaseReturns', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PurchaseReturns
+    (
+        PurchaseReturnId  INT IDENTITY(1,1) PRIMARY KEY,
+        ReturnNo          NVARCHAR(30) NOT NULL UNIQUE,
+        PurchaseId        INT NOT NULL,
+        ReturnDate        DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        TotalAmount       DECIMAL(18,2) NOT NULL DEFAULT (0),
+        Reason            NVARCHAR(255) NULL,
+        Remarks           NVARCHAR(255) NULL,
+        CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy         INT NOT NULL,
+        CONSTRAINT FK_PurchaseReturns_Purchases FOREIGN KEY (PurchaseId) REFERENCES dbo.Purchases(PurchaseId),
+        CONSTRAINT FK_PurchaseReturns_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.PurchaseReturnItems', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PurchaseReturnItems
+    (
+        PurchaseReturnItemId  INT IDENTITY(1,1) PRIMARY KEY,
+        PurchaseReturnId       INT NOT NULL,
+        PurchaseItemId          INT NOT NULL,
+        ProductVariantId        INT NOT NULL,
+        Quantity                 INT NOT NULL,
+        UnitPrice                 DECIMAL(18,2) NOT NULL,
+        LineTotal                 DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_PRI_PurchaseReturns FOREIGN KEY (PurchaseReturnId) REFERENCES dbo.PurchaseReturns(PurchaseReturnId) ON DELETE CASCADE,
+        CONSTRAINT FK_PRI_PurchaseItems FOREIGN KEY (PurchaseItemId) REFERENCES dbo.PurchaseItems(PurchaseItemId),
+        CONSTRAINT FK_PRI_ProductVariants FOREIGN KEY (ProductVariantId) REFERENCES dbo.ProductVariants(ProductVariantId)
+    );
+END
+GO
+
 PRINT 'Schema check complete.';
 GO
 
@@ -811,6 +927,49 @@ BEGIN
           INNER JOIN dbo.Menus cm ON cm.MenuId = child.MenuId
           WHERE cm.ParentId = g.MenuId AND child.RoleId = g.RoleId AND child.CanView = 1
       );
+END
+GO
+
+-- Menu grouping (round 3): Sale Return under Sales, Purchase Return under Purchase. Own outer
+-- guard so this still runs on an install that already has GROUP_SALES/GROUP_PURCHASE from an
+-- earlier version of this script.
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'SALES_RETURNS')
+BEGIN
+    DECLARE @GSales3 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_SALES');
+    IF @GSales3 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'SALES_RETURNS', N'Sale Returns', N'bi-arrow-return-left', N'/SalesReturns', @GSales3, 2, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'SALES_RETURNS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'PURCHASE_RETURNS')
+BEGIN
+    DECLARE @GPurchase3 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_PURCHASE');
+    IF @GPurchase3 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'PURCHASE_RETURNS', N'Purchase Returns', N'bi-arrow-return-right', N'/PurchaseReturns', @GPurchase3, 3, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'PURCHASE_RETURNS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
 END
 GO
 

@@ -33,6 +33,10 @@
             <tfoot>
                 <tr class="fw-bold"><td colspan="6" class="text-end">Total Amount</td><td class="text-end">@Model.TotalAmount.ToMoney()</td></tr>
                 <tr><td colspan="6" class="text-end">Paid Amount</td><td class="text-end">@Model.PaidAmount.ToMoney()</td></tr>
+                @if (Model.ReturnedAmount > 0)
+                {
+                    <tr class="text-danger"><td colspan="6" class="text-end">Returned</td><td class="text-end">-@Model.ReturnedAmount.ToMoney()</td></tr>
+                }
                 <tr class="@(Model.DueAmount > 0 ? "text-danger fw-bold" : "")"><td colspan="6" class="text-end">Due</td><td class="text-end">@Model.DueAmount.ToMoney()</td></tr>
             </tfoot>
         </table>
@@ -41,6 +45,7 @@
             <p class="text-muted">Remarks: @Model.Remarks</p>
         }
         <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back to Purchases</a>
+        <a asp-controller="PurchaseReturns" asp-action="Create" asp-route-invoiceNo="@Model.PurchaseInvoiceNo" class="btn btn-outline-warning btn-sm no-print"><i class="bi bi-arrow-return-right"></i> Return Items</a>
         <button onclick="window.print()" class="btn btn-outline-primary btn-sm no-print"><i class="bi bi-printer"></i> Print</button>
     </div>
 </div>

@@ -1,0 +1,47 @@
+@model DInventory.Domain.Entities.SalesReturn
+@{
+    ViewData["Title"] = $"Return {Model.ReturnNo}";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="d-flex justify-content-between">
+            <div>
+                <h4>Return @Model.ReturnNo</h4>
+                <p class="text-muted mb-0">@Model.ReturnDate.ToString("f")</p>
+                <p class="text-muted">
+                    Against invoice: <a asp-controller="Sales" asp-action="Details" asp-route-id="@Model.SalesOrderId">@Model.InvoiceNo</a>
+                    &middot; Customer: @(Model.CustomerName ?? "Walk-in") &middot; Processed by: @Model.CreatedByName
+                </p>
+            </div>
+        </div>
+        <table class="table mt-3">
+            <thead class="table-light"><tr><th>Product</th><th>Size</th><th>Barcode</th><th>Qty</th><th>Unit Price</th><th class="text-end">Line Total</th></tr></thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>@item.ProductName <span class="text-muted small">(@item.ProductCode)</span></td>
+                        <td><span class="badge text-bg-light text-dark">@item.SizeName</span></td>
+                        <td class="small"><code>@item.Barcode</code></td>
+                        <td>@item.Quantity</td>
+                        <td>@item.UnitPrice.ToMoney()</td>
+                        <td class="text-end">@item.LineTotal.ToMoney()</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold"><td colspan="5" class="text-end">Total Refunded / Credited</td><td class="text-end">@Model.NetAmount.ToMoney()</td></tr>
+            </tfoot>
+        </table>
+        @if (!string.IsNullOrWhiteSpace(Model.Reason))
+        {
+            <p class="mb-1"><strong>Reason:</strong> @Model.Reason</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Remarks))
+        {
+            <p class="text-muted">Remarks: @Model.Remarks</p>
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Back to Sale Returns</a>
+        <button onclick="window.print()" class="btn btn-outline-primary btn-sm no-print"><i class="bi bi-printer"></i> Print</button>
+    </div>
+</div>

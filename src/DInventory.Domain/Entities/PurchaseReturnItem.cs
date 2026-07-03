@@ -1,12 +1,13 @@
 namespace DInventory.Domain.Entities;
 
-public class PurchaseItem
+public class PurchaseReturnItem
 {
+    public int PurchaseReturnItemId { get; set; }
+    public int PurchaseReturnId { get; set; }
     public int PurchaseItemId { get; set; }
-    public int PurchaseId { get; set; }
     public int ProductVariantId { get; set; }
     public int Quantity { get; set; }
-    public decimal BuyingPrice { get; set; }
+    public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
 
     // Populated via joins, not DB columns
@@ -15,9 +16,4 @@ public class PurchaseItem
     public string? SizeName { get; set; }
     public string? ColorName { get; set; }
     public string? Barcode { get; set; }
-
-    /// <summary>Quantity already returned via PurchaseReturns against this line - not a DB
-    /// column, joined in by the repository purely so the Return screen can show what's still
-    /// returnable.</summary>
-    public int ReturnedQuantity { get; set; }
 }

@@ -38,8 +38,10 @@ public static class DependencyInjection
         services.AddScoped<IGeneratedBarcodeLabelService, GeneratedBarcodeLabelService>();
         services.AddScoped<IStockService, StockService>();
         services.AddScoped<ISalesService, SalesService>();
+        services.AddScoped<ISalesReturnService, SalesReturnService>();
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<IPurchaseService, PurchaseService>();
+        services.AddScoped<IPurchaseReturnService, PurchaseReturnService>();
         services.AddScoped<IExpenseService, ExpenseService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IReportService, ReportService>();

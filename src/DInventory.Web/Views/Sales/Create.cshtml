@@ -46,9 +46,9 @@
                 </div>
 
                 <table class="table table-sm align-middle">
-                    <thead class="table-light"><tr><th>Product</th><th>Size</th><th style="width:90px">Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+                    <thead class="table-light"><tr><th>Product</th><th>Size</th><th style="width:80px">Qty</th><th>Price</th><th style="width:150px">Discount</th><th>Total</th><th></th></tr></thead>
                     <tbody id="cartBody">
-                        <tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>
+                        <tr id="emptyRow"><td colspan="7" class="text-muted text-center">No items added yet.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -75,11 +75,17 @@
                         <input name="newCustomerName" class="form-control" placeholder="Optional" />
                     </div>
                     <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label">Discount</label>
-                            <input name="discountAmount" id="discountAmount" type="number" step="0.01" min="0" value="0" class="form-control" />
+                        <div class="col-7">
+                            <label class="form-label">Bill Discount</label>
+                            <div class="input-group">
+                                <select name="discountType" id="discountType" class="form-select" style="max-width:90px">
+                                    <option value="FIXED" selected>Amt</option>
+                                    <option value="PERCENT">%</option>
+                                </select>
+                                <input name="discountValue" id="discountValue" type="number" step="0.01" min="0" value="0" class="form-control" />
+                            </div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-5">
                             <label class="form-label">Tax</label>
                             <input name="taxAmount" id="taxAmount" type="number" step="0.01" min="0" value="0" class="form-control" />
                         </div>
@@ -110,6 +116,9 @@
 
                     <table class="table table-sm">
                         <tr><td>Subtotal</td><td class="text-end" id="subtotalDisplay">৳0.00</td></tr>
+                        <tr><td>Line Discounts</td><td class="text-end" id="lineDiscountDisplay">-৳0.00</td></tr>
+                        <tr><td>Bill Discount</td><td class="text-end" id="billDiscountDisplay">-৳0.00</td></tr>
+                        <tr><td>Tax</td><td class="text-end" id="taxDisplay">৳0.00</td></tr>
                         <tr><td>Net Total</td><td class="text-end fw-bold" id="netTotalDisplay">৳0.00</td></tr>
                     </table>
 
@@ -127,13 +136,27 @@
     const scanError = document.getElementById('scanError');
     const scanStatusBadge = document.getElementById('scanStatusBadge');
 
+    // Same PERCENT-or-FIXED clamp-to-base logic as SalesService.ComputeDiscountAmount server-side,
+    // duplicated here only so the on-screen totals preview matches what will actually be saved.
+    function computeDiscountAmount(baseAmount, discountType, discountValue) {
+        if (baseAmount <= 0 || !discountValue || discountValue <= 0) return 0;
+        let amount = discountType === 'PERCENT' ? (baseAmount * discountValue / 100) : discountValue;
+        if (amount < 0) amount = 0;
+        if (amount > baseAmount) amount = baseAmount;
+        return amount;
+    }
+
+    function lineGross(item) { return item.quantity * item.unitPrice; }
+    function lineDiscount(item) { return computeDiscountAmount(lineGross(item), item.discountType, item.discountValue); }
+    function lineNet(item) { return lineGross(item) - lineDiscount(item); }
+
     // Full rebuild of the cart table - only called when the SET of line items changes (add/remove),
     // never on every keystroke of the quantity box (that would destroy the input mid-typing and kick
     // focus out, which is exactly the "can't change the qty" bug this replaces).
     function renderCart() {
         const body = document.getElementById('cartBody');
         if (cart.length === 0) {
-            body.innerHTML = '<tr id="emptyRow"><td colspan="6" class="text-muted text-center">No items added yet.</td></tr>';
+            body.innerHTML = '<tr id="emptyRow"><td colspan="7" class="text-muted text-center">No items added yet.</td></tr>';
         } else {
             body.innerHTML = cart.map((item, idx) => `
                 <tr>
@@ -144,7 +167,17 @@
                                class="form-control form-control-sm cart-qty-input" data-idx="${idx}" />
                     </td>
                     <td>${dinvMoney(item.unitPrice)}</td>
-                    <td class="cart-line-total" data-idx="${idx}">${dinvMoney(item.quantity * item.unitPrice)}</td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select form-select-sm cart-disc-type-input" data-idx="${idx}" style="max-width:56px">
+                                <option value="FIXED" ${item.discountType !== 'PERCENT' ? 'selected' : ''}>Amt</option>
+                                <option value="PERCENT" ${item.discountType === 'PERCENT' ? 'selected' : ''}>%</option>
+                            </select>
+                            <input type="number" min="0" step="0.01" value="${item.discountValue || 0}"
+                                   class="form-control form-control-sm cart-disc-value-input" data-idx="${idx}" />
+                        </div>
+                    </td>
+                    <td class="cart-line-total" data-idx="${idx}">${dinvMoney(lineNet(item))}</td>
                     <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button></td>
                 </tr>
             `).join('');
@@ -154,16 +187,31 @@
     }
 
     // Recomputes subtotal/net + the itemsJson hidden field from the current cart array, without
-    // touching any DOM input elements - safe to call on every quantity keystroke.
+    // touching any DOM input elements - safe to call on every quantity/discount keystroke.
     function recalculateTotals() {
-        const subtotal = cart.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
-        const discount = parseFloat(document.getElementById('discountAmount').value) || 0;
-        const tax = parseFloat(document.getElementById('taxAmount').value) || 0;
-        const net = Math.max(0, subtotal - discount + tax);
+        const grossSubtotal = cart.reduce((sum, i) => sum + lineGross(i), 0);
+        const lineDiscountTotal = cart.reduce((sum, i) => sum + lineDiscount(i), 0);
+        const postLineSubtotal = grossSubtotal - lineDiscountTotal;
 
-        document.getElementById('subtotalDisplay').textContent = dinvMoney(subtotal);
+        const billDiscountType = document.getElementById('discountType').value;
+        const billDiscountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+        const billDiscount = computeDiscountAmount(postLineSubtotal, billDiscountType, billDiscountValue);
+
+        const tax = parseFloat(document.getElementById('taxAmount').value) || 0;
+        const net = Math.max(0, grossSubtotal - lineDiscountTotal - billDiscount + tax);
+
+        document.getElementById('subtotalDisplay').textContent = dinvMoney(grossSubtotal);
+        document.getElementById('lineDiscountDisplay').textContent = '-' + dinvMoney(lineDiscountTotal);
+        document.getElementById('billDiscountDisplay').textContent = '-' + dinvMoney(billDiscount);
+        document.getElementById('taxDisplay').textContent = dinvMoney(tax);
         document.getElementById('netTotalDisplay').textContent = dinvMoney(net);
-        document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({ productVariantId: i.productVariantId, quantity: i.quantity, unitPrice: i.unitPrice })));
+        document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({
+            productVariantId: i.productVariantId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            discountType: i.discountType || 'FIXED',
+            discountValue: i.discountValue || 0
+        })));
         document.getElementById('submitSaleBtn').disabled = cart.length === 0;
     }
 
@@ -177,26 +225,45 @@
         if (existing) {
             existing.quantity += qty;
         } else {
-            cart.push({ productVariantId, productName, sizeName, quantity: qty, unitPrice, stock: stock || 0 });
+            cart.push({ productVariantId, productName, sizeName, quantity: qty, unitPrice, stock: stock || 0, discountType: 'FIXED', discountValue: 0 });
         }
         renderCart();
     }
 
-    // Editing the quantity of an already-added line: update the line total + footer totals in place
-    // (no full table rebuild) so the input never loses focus while the cashier is typing a new qty.
+    // Editing the quantity/discount of an already-added line: update the line total + footer
+    // totals in place (no full table rebuild) so the input never loses focus while typing.
     document.getElementById('cartBody').addEventListener('input', (e) => {
-        if (!e.target.classList.contains('cart-qty-input')) return;
-
         const idx = parseInt(e.target.dataset.idx, 10);
-        let qty = parseInt(e.target.value, 10);
-        if (!Number.isFinite(qty) || qty < 1) {
-            qty = 1;
+        if (Number.isNaN(idx)) return;
+
+        if (e.target.classList.contains('cart-qty-input')) {
+            let qty = parseInt(e.target.value, 10);
+            if (!Number.isFinite(qty) || qty < 1) qty = 1;
+            cart[idx].quantity = qty;
+        } else if (e.target.classList.contains('cart-disc-value-input')) {
+            let val = parseFloat(e.target.value);
+            if (!Number.isFinite(val) || val < 0) val = 0;
+            cart[idx].discountValue = val;
+        } else {
+            return;
         }
-        cart[idx].quantity = qty;
 
         const lineTotalCell = document.querySelector(`.cart-line-total[data-idx="${idx}"]`);
         if (lineTotalCell) {
-            lineTotalCell.textContent = dinvMoney(cart[idx].quantity * cart[idx].unitPrice);
+            lineTotalCell.textContent = dinvMoney(lineNet(cart[idx]));
+        }
+        recalculateTotals();
+    });
+
+    document.getElementById('cartBody').addEventListener('change', (e) => {
+        if (!e.target.classList.contains('cart-disc-type-input')) return;
+        const idx = parseInt(e.target.dataset.idx, 10);
+        if (Number.isNaN(idx)) return;
+        cart[idx].discountType = e.target.value;
+
+        const lineTotalCell = document.querySelector(`.cart-line-total[data-idx="${idx}"]`);
+        if (lineTotalCell) {
+            lineTotalCell.textContent = dinvMoney(lineNet(cart[idx]));
         }
         recalculateTotals();
     });
@@ -257,7 +324,8 @@
         document.getElementById('variantQty').value = 1;
     });
 
-    document.getElementById('discountAmount').addEventListener('input', recalculateTotals);
+    document.getElementById('discountType').addEventListener('change', recalculateTotals);
+    document.getElementById('discountValue').addEventListener('input', recalculateTotals);
     document.getElementById('taxAmount').addEventListener('input', recalculateTotals);
 
     renderCart();

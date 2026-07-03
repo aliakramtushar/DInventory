@@ -16,12 +16,17 @@ public class SalesOrderRepository : ISalesOrderRepository
     }
 
     private const string HeaderSelect = @"
-        SELECT so.SalesOrderId, so.InvoiceNo, so.CustomerId, so.SaleDate, so.SubTotal, so.DiscountAmount,
+        SELECT so.SalesOrderId, so.InvoiceNo, so.CustomerId, so.SaleDate, so.SubTotal,
+               so.DiscountType, so.DiscountValue, so.DiscountAmount,
                so.TaxAmount, so.NetAmount, so.PaymentStatus, so.PaymentMethod, so.Status, so.Remarks, so.CreatedAt, so.CreatedBy,
-               c.CustomerName, u.FullName AS CreatedByName
+               c.CustomerName, u.FullName AS CreatedByName,
+               ISNULL(sr.ReturnedAmount, 0) AS ReturnedAmount
         FROM dbo.SalesOrders so
         LEFT JOIN dbo.Customers c ON c.CustomerId = so.CustomerId
-        INNER JOIN dbo.Users u ON u.UserId = so.CreatedBy";
+        INNER JOIN dbo.Users u ON u.UserId = so.CreatedBy
+        OUTER APPLY (
+            SELECT SUM(r.NetAmount) AS ReturnedAmount FROM dbo.SalesReturns r WHERE r.SalesOrderId = so.SalesOrderId
+        ) sr";
 
     public async Task<SalesOrder?> GetByIdAsync(int salesOrderId)
     {
@@ -36,12 +41,17 @@ public class SalesOrderRepository : ISalesOrderRepository
         }
 
         const string itemsSql = @"
-            SELECT soi.SalesOrderItemId, soi.SalesOrderId, soi.ProductVariantId, soi.Quantity, soi.UnitPrice, soi.LineTotal,
-                   p.ProductName, p.ProductCode, sz.SizeName, pv.Barcode
+            SELECT soi.SalesOrderItemId, soi.SalesOrderId, soi.ProductVariantId, soi.Quantity, soi.UnitPrice,
+                   soi.DiscountType, soi.DiscountValue, soi.DiscountAmount, soi.LineTotal,
+                   p.ProductName, p.ProductCode, sz.SizeName, pv.Barcode,
+                   ISNULL(ret.ReturnedQuantity, 0) AS ReturnedQuantity
             FROM dbo.SalesOrderItems soi
             INNER JOIN dbo.ProductVariants pv ON pv.ProductVariantId = soi.ProductVariantId
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
             INNER JOIN dbo.Sizes sz ON sz.SizeId = pv.SizeId
+            OUTER APPLY (
+                SELECT SUM(sri.Quantity) AS ReturnedQuantity FROM dbo.SalesReturnItems sri WHERE sri.SalesOrderItemId = soi.SalesOrderItemId
+            ) ret
             WHERE soi.SalesOrderId = @salesOrderId";
 
         var items = await connection.QueryAsync<SalesOrderItem>(itemsSql, new { salesOrderId });
@@ -117,17 +127,17 @@ public class SalesOrderRepository : ISalesOrderRepository
     private static async Task<int> InsertOrderAsync(System.Data.IDbConnection connection, SalesOrder order, System.Data.IDbTransaction? transaction)
     {
         const string headerSql = @"
-            INSERT INTO dbo.SalesOrders (InvoiceNo, CustomerId, SaleDate, SubTotal, DiscountAmount, TaxAmount,
+            INSERT INTO dbo.SalesOrders (InvoiceNo, CustomerId, SaleDate, SubTotal, DiscountType, DiscountValue, DiscountAmount, TaxAmount,
                                           NetAmount, PaymentStatus, PaymentMethod, Status, Remarks, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SalesOrderId
-            VALUES (@InvoiceNo, @CustomerId, @SaleDate, @SubTotal, @DiscountAmount, @TaxAmount,
+            VALUES (@InvoiceNo, @CustomerId, @SaleDate, @SubTotal, @DiscountType, @DiscountValue, @DiscountAmount, @TaxAmount,
                     @NetAmount, @PaymentStatus, @PaymentMethod, @Status, @Remarks, @CreatedAt, @CreatedBy)";
 
         var salesOrderId = await connection.ExecuteScalarAsync<int>(headerSql, order, transaction);
 
         const string itemSql = @"
-            INSERT INTO dbo.SalesOrderItems (SalesOrderId, ProductVariantId, Quantity, UnitPrice, LineTotal)
-            VALUES (@SalesOrderId, @ProductVariantId, @Quantity, @UnitPrice, @LineTotal)";
+            INSERT INTO dbo.SalesOrderItems (SalesOrderId, ProductVariantId, Quantity, UnitPrice, DiscountType, DiscountValue, DiscountAmount, LineTotal)
+            VALUES (@SalesOrderId, @ProductVariantId, @Quantity, @UnitPrice, @DiscountType, @DiscountValue, @DiscountAmount, @LineTotal)";
 
         foreach (var item in order.Items)
         {

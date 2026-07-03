@@ -1,0 +1,47 @@
+@model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.SalesReturn>
+@{
+    ViewData["Title"] = "Sale Returns";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Sale Returns</h5>
+    <a asp-action="Create" class="btn btn-primary btn-sm"><i class="bi bi-arrow-return-left me-1"></i>New Return</a>
+</div>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Return No</th><th>Date</th><th>Invoice</th><th>Customer</th><th>Amount</th><th>By</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-3">No returns recorded yet.</td></tr>
+                }
+                @foreach (var r in Model.Items)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@r.SalesReturnId">@r.ReturnNo</a></td>
+                        <td class="small">@r.ReturnDate.ToString("g")</td>
+                        <td><a asp-controller="Sales" asp-action="Details" asp-route-id="@r.SalesOrderId">@r.InvoiceNo</a></td>
+                        <td>@(r.CustomerName ?? "Walk-in")</td>
+                        <td>@r.NetAmount.ToMoney()</td>
+                        <td class="small text-muted">@r.CreatedByName</td>
+                        <td class="text-end">
+                            <a class="btn btn-outline-secondary btn-sm" asp-action="Details" asp-route-id="@r.SalesReturnId"><i class="bi bi-eye"></i></a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white">
+            @await Html.PartialAsync("_Pagination", new PaginationViewModel
+            {
+                PageNumber = Model.PageNumber,
+                TotalPages = Model.TotalPages,
+                HasPreviousPage = Model.HasPreviousPage,
+                HasNextPage = Model.HasNextPage
+            })
+        </div>
+    }
+</div>
