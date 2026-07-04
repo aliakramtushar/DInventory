@@ -57,7 +57,7 @@ public class BarcodeGeneratorController : Controller
         if (request is null || string.IsNullOrWhiteSpace(request.ProductName))
         {
             return BadRequest(new { message = "Product name is required." });
-        }
+        } 
 
         var currentUser = _currentUserService.GetCurrentUser();
         var result = await _labelService.GenerateAsync(
