@@ -65,7 +65,10 @@ public class BarcodeGeneratorController : Controller
             request.ProductName,
             request.BrandName,
             request.SizeName,
+            request.CompanyName,
             request.Price,
+            request.BarcodeWidth,
+            request.BarcodeHeight,
             currentUser.UserId);
 
         if (!result.Succeeded)
@@ -83,7 +86,10 @@ public class BarcodeGeneratorController : Controller
             productName = result.Data.ProductName,
             brandName = result.Data.BrandName,
             sizeName = result.Data.SizeName,
-            price = result.Data.Price
+            companyName = result.Data.CompanyName,
+            price = result.Data.Price,
+            barcodeWidth = result.Data.BarcodeWidth,
+            barcodeHeight = result.Data.BarcodeHeight
         });
     }
 
@@ -93,6 +99,13 @@ public class BarcodeGeneratorController : Controller
         public string ProductName { get; set; } = string.Empty;
         public string? BrandName { get; set; }
         public string? SizeName { get; set; }
+        public string? CompanyName { get; set; }
         public decimal? Price { get; set; }
+
+        /// <summary>CODE128 module width in px. Null falls back to the service default (2).</summary>
+        public int? BarcodeWidth { get; set; }
+
+        /// <summary>Barcode height in px. Null falls back to the service default (50).</summary>
+        public int? BarcodeHeight { get; set; }
     }
 }

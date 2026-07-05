@@ -12,17 +12,18 @@
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead class="table-light"><tr><th>Barcode</th><th>Product Name</th><th>Brand</th><th>Size</th><th>Price</th><th>Linked?</th><th>Generated</th></tr></thead>
+            <thead class="table-light"><tr><th>Barcode</th><th>Product Name</th><th>Company</th><th>Brand</th><th>Size</th><th>Price</th><th>Linked?</th><th>Generated</th></tr></thead>
             <tbody>
                 @if (!Model.Items.Any())
                 {
-                    <tr><td colspan="7" class="text-center text-muted py-4">No labels generated yet.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">No labels generated yet.</td></tr>
                 }
                 @foreach (var label in Model.Items)
                 {
                     <tr>
                         <td><code>@label.Barcode</code></td>
                         <td>@label.ProductName</td>
+                        <td class="small text-muted">@label.CompanyName</td>
                         <td class="small text-muted">@label.BrandName</td>
                         <td class="small text-muted">@label.SizeName</td>
                         <td>@(label.Price.HasValue ? label.Price.Value.ToMoney() : "-")</td>

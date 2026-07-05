@@ -322,13 +322,31 @@ BEGIN
         ProductName             NVARCHAR(150) NOT NULL,
         BrandName               NVARCHAR(100) NULL,
         SizeName                NVARCHAR(30) NULL,
+        CompanyName             NVARCHAR(150) NULL,
         Price                   DECIMAL(18,2) NULL,
+        BarcodeWidth            INT NOT NULL DEFAULT (2),
+        BarcodeHeight           INT NOT NULL DEFAULT (50),
         IsLinked                BIT NOT NULL DEFAULT (0),
         LinkedProductVariantId  INT NULL,
         CreatedAt               DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         CreatedBy               INT NULL,
         CONSTRAINT FK_GBL_ProductVariants FOREIGN KEY (LinkedProductVariantId) REFERENCES dbo.ProductVariants(ProductVariantId)
     );
+END
+GO
+
+-- Safe additive upgrade path for an existing GeneratedBarcodeLabels table created before the
+-- Company Name / configurable barcode size fields existed.
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'CompanyName') IS NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD CompanyName NVARCHAR(150) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BarcodeWidth') IS NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD BarcodeWidth INT NOT NULL CONSTRAINT DF_GBL_BarcodeWidth DEFAULT (2);
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD BarcodeHeight INT NOT NULL CONSTRAINT DF_GBL_BarcodeHeight DEFAULT (50);
 END
 GO
 

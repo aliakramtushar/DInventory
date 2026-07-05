@@ -13,5 +13,5 @@ public interface IGeneratedBarcodeLabelService
     /// product name/brand/size/price, so it can be printed and physically stuck on stock before that
     /// stock is formally entered into the system as a product variant.
     /// </summary>
-    Task<Result<GeneratedBarcodeLabel>> GenerateAsync(string? manualBarcode, string productName, string? brandName, string? sizeName, decimal? price, int? actingUserId);
+    Task<Result<GeneratedBarcodeLabel>> GenerateAsync(string? manualBarcode, string productName, string? brandName, string? sizeName, string? companyName, decimal? price, int? barcodeWidth, int? barcodeHeight, int? actingUserId);
 }

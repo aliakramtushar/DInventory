@@ -59,9 +59,9 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.GeneratedBarcodeLabels (Barcode, ProductName, BrandName, SizeName, Price, IsLinked, LinkedProductVariantId, CreatedAt, CreatedBy)
+            INSERT INTO dbo.GeneratedBarcodeLabels (Barcode, ProductName, BrandName, SizeName, CompanyName, Price, BarcodeWidth, BarcodeHeight, IsLinked, LinkedProductVariantId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.LabelId
-            VALUES (@Barcode, @ProductName, @BrandName, @SizeName, @Price, @IsLinked, @LinkedProductVariantId, @CreatedAt, @CreatedBy)";
+            VALUES (@Barcode, @ProductName, @BrandName, @SizeName, @CompanyName, @Price, @BarcodeWidth, @BarcodeHeight, @IsLinked, @LinkedProductVariantId, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, label);
     }
 
