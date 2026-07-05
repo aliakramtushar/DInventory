@@ -75,7 +75,7 @@ public class SalesController : Controller
         {
             CustomerId = customerId,
             NewCustomerName = newCustomerName,
-            DiscountType = string.Equals(discountType, "PERCENT", StringComparison.OrdinalIgnoreCase) ? "PERCENT" : "FIXED",
+            DiscountType = string.Equals(discountType, "FIXED", StringComparison.OrdinalIgnoreCase) ? "FIXED" : "PERCENT",
             DiscountValue = discountValue,
             TaxAmount = taxAmount,
             PaymentStatus = string.IsNullOrWhiteSpace(paymentStatus) ? "PAID" : paymentStatus,

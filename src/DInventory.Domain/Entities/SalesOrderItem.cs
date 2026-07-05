@@ -10,7 +10,7 @@ public class SalesOrderItem
 
     /// <summary>How this line's discount was entered (PERCENT or FIXED). DiscountAmount is the
     /// computed money value actually taken off; LineTotal = Quantity * UnitPrice - DiscountAmount.</summary>
-    public string DiscountType { get; set; } = "FIXED";
+    public string DiscountType { get; set; } = "PERCENT";
     public decimal DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }

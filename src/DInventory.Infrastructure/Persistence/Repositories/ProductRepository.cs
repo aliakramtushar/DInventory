@@ -179,25 +179,28 @@ public class ProductRepository : IProductRepository
         return await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM dbo.Products WHERE IsActive = 1");
     }
 
+    // Uses MAX(numeric suffix) rather than "last inserted row" so it's correct even if products
+    // were deleted or a manual PRD-#### code was entered out of order, then loops re-checking
+    // CodeExistsAsync (same collision-safe pattern as BarcodeNumberGenerator) so a generated code
+    // can never collide with one already in use, however it got there.
     public async Task<string> GenerateNextProductCodeAsync()
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            SELECT TOP 1 ProductCode FROM dbo.Products
-            WHERE ProductCode LIKE 'PRD-%'
-            ORDER BY ProductId DESC";
-        var lastCode = await connection.QuerySingleOrDefaultAsync<string>(sql);
+            SELECT MAX(TRY_CAST(SUBSTRING(ProductCode, 5, 50) AS INT))
+            FROM dbo.Products
+            WHERE ProductCode LIKE 'PRD-%'";
+        var maxNumber = await connection.ExecuteScalarAsync<int?>(sql);
+        var next = (maxNumber ?? 0) + 1;
 
-        var nextNumber = 1;
-        if (!string.IsNullOrEmpty(lastCode) && lastCode.Contains('-'))
+        string candidate;
+        do
         {
-            var numericPart = lastCode.Split('-').Last();
-            if (int.TryParse(numericPart, out var parsed))
-            {
-                nextNumber = parsed + 1;
-            }
+            candidate = $"PRD-{next:D4}";
+            next++;
         }
+        while (await CodeExistsAsync(candidate));
 
-        return $"PRD-{nextNumber:D4}";
+        return candidate;
     }
 }

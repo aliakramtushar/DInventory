@@ -220,8 +220,11 @@ public class SalesService : ISalesService
         return Result<int>.Success(salesOrderId);
     }
 
+    // Default is PERCENT: only an explicit "FIXED" is treated as a flat amount, so a missing/
+    // unrecognized value (e.g. an old client that didn't send one) falls back to the new default
+    // rather than silently becoming a flat-amount discount.
     private static string NormalizeDiscountType(string? discountType)
-        => string.Equals(discountType, "PERCENT", StringComparison.OrdinalIgnoreCase) ? "PERCENT" : "FIXED";
+        => string.Equals(discountType, "FIXED", StringComparison.OrdinalIgnoreCase) ? "FIXED" : "PERCENT";
 
     /// <summary>PERCENT is a percentage of <paramref name="baseAmount"/>; FIXED is a flat amount.
     /// Either way the result is clamped to [0, baseAmount] so a discount can never make a line or

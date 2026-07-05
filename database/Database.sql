@@ -644,7 +644,7 @@ GO
 IF OBJECT_ID('dbo.SalesOrderItems', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrderItems', 'DiscountType') IS NULL
 BEGIN
     ALTER TABLE dbo.SalesOrderItems ADD DiscountType NVARCHAR(10) NOT NULL
-        CONSTRAINT DF_SOI_DiscountType DEFAULT (N'FIXED')
+        CONSTRAINT DF_SOI_DiscountType DEFAULT (N'PERCENT')
         CONSTRAINT CK_SOI_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
     ALTER TABLE dbo.SalesOrderItems ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountValue DEFAULT (0);
     ALTER TABLE dbo.SalesOrderItems ADD DiscountAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountAmount DEFAULT (0);
@@ -654,7 +654,7 @@ GO
 IF OBJECT_ID('dbo.SalesOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrders', 'DiscountType') IS NULL
 BEGIN
     ALTER TABLE dbo.SalesOrders ADD DiscountType NVARCHAR(10) NOT NULL
-        CONSTRAINT DF_SO_DiscountType DEFAULT (N'FIXED')
+        CONSTRAINT DF_SO_DiscountType DEFAULT (N'PERCENT')
         CONSTRAINT CK_SO_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
     ALTER TABLE dbo.SalesOrders ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SO_DiscountValue DEFAULT (0);
 END

@@ -11,7 +11,7 @@ public class SalesOrder
     /// <summary>How the overall bill discount was entered (PERCENT or FIXED) - kept alongside
     /// DiscountAmount purely for display/edit; DiscountAmount below is the combined (line +
     /// bill) computed money figure everything else (NetAmount, reports) already reads.</summary>
-    public string DiscountType { get; set; } = "FIXED";
+    public string DiscountType { get; set; } = "PERCENT";
     public decimal DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal TaxAmount { get; set; }

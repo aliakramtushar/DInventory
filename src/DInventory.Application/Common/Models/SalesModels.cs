@@ -8,7 +8,7 @@ public class CreateSaleRequest
     /// <summary>Overall bill discount, entered as either "PERCENT" (of the post-line-discount
     /// subtotal) or "FIXED" (a flat amount). The actual money value is computed server-side in
     /// SalesService and stored on SalesOrder.DiscountAmount together with the line discounts.</summary>
-    public string DiscountType { get; set; } = "FIXED";
+    public string DiscountType { get; set; } = "PERCENT";
     public decimal DiscountValue { get; set; }
     public decimal TaxAmount { get; set; }
     public string PaymentStatus { get; set; } = "PAID";
@@ -29,6 +29,6 @@ public class CreateSaleItem
 
     /// <summary>Per-product discount, entered as either "PERCENT" (of Quantity * UnitPrice) or a
     /// "FIXED" manual amount.</summary>
-    public string DiscountType { get; set; } = "FIXED";
+    public string DiscountType { get; set; } = "PERCENT";
     public decimal DiscountValue { get; set; }
 }
