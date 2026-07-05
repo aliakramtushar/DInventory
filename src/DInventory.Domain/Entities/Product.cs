@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DInventory.Domain.Entities;
 
 /// <summary>A style/product line (e.g. "Classic Crew T-Shirt"). Not directly sellable - see
@@ -5,8 +7,14 @@ namespace DInventory.Domain.Entities;
 public class Product
 {
     public int ProductId { get; set; }
-    public string ProductCode { get; set; } = string.Empty;
-    public string ProductName { get; set; } = string.Empty;
+
+    /// <summary>Blank is allowed on create - <see cref="DInventory.Application.Catalog.ProductService"/> auto-generates
+    /// the next "PRD-####" code. Without AllowEmptyStrings, ASP.NET Core's implicit non-nullable-reference-type
+    /// [Required] validation (Nullable is enabled) rejects an empty submission before the controller ever runs.</summary>
+    [Required(AllowEmptyStrings = true)]
+    [DisplayFormat(ConvertEmptyStringToNull = false)]
+    public string ProductCode { get; set; } = String.Empty;
+    public string ProductName { get; set; } = String.Empty;
     public int CategoryId { get; set; }
     public int? SubcategoryId { get; set; }
     public int? BrandId { get; set; }
