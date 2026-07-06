@@ -4,6 +4,7 @@ using DInventory.Application.Common.Models;
 using DInventory.Application.Content;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
+using DInventory.Web.Common;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -73,6 +74,11 @@ public class ContentController : Controller
             model.CompanyId = effectiveCompanyId;
         }
 
+        if (imageFile is { Length: > 0 } && !ImageUploadValidator.TryValidate(imageFile, out var imageError))
+        {
+            ModelState.AddModelError(string.Empty, imageError!);
+        }
+
         if (!ModelState.IsValid)
         {
             ViewBag.CanCreate = effectiveCompanyId > 0;
@@ -115,6 +121,11 @@ public class ContentController : Controller
     [PermissionAuthorize("CONTENT", PermissionAction.Edit)]
     public async Task<IActionResult> Edit(ContentPage model, IFormFile? imageFile)
     {
+        if (imageFile is { Length: > 0 } && !ImageUploadValidator.TryValidate(imageFile, out var imageError))
+        {
+            ModelState.AddModelError(string.Empty, imageError!);
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);

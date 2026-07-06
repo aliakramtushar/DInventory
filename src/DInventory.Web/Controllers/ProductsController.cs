@@ -4,6 +4,7 @@ using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
+using DInventory.Web.Common;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -128,6 +129,11 @@ public class ProductsController : Controller
             ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a product.");
         }
 
+        if (imageFile is { Length: > 0 } && !ImageUploadValidator.TryValidate(imageFile, out var imageError))
+        {
+            ModelState.AddModelError(string.Empty, imageError!);
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateDropdownsAsync(effectiveCompanyId > 0 ? effectiveCompanyId : model.CompanyId);
@@ -179,6 +185,11 @@ public class ProductsController : Controller
     [PermissionAuthorize("PRODUCTS", PermissionAction.Edit)]
     public async Task<IActionResult> Edit(Product model, decimal costPrice, decimal sellingPrice, IFormFile? imageFile)
     {
+        if (imageFile is { Length: > 0 } && !ImageUploadValidator.TryValidate(imageFile, out var imageError))
+        {
+            ModelState.AddModelError(string.Empty, imageError!);
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateDropdownsAsync(model.CompanyId);

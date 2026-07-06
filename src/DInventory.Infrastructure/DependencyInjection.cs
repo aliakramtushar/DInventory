@@ -12,7 +12,10 @@ namespace DInventory.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    /// <summary><paramref name="enforceLoginLockout"/> should be true only for a real Production
+    /// deployment (see Program.cs) - it drives whether ILoginAttemptGuard actually locks accounts
+    /// out after repeated failures, so local/staging testing isn't at risk of self-lockout.</summary>
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, bool enforceLoginLockout = true)
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
@@ -26,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IBusinessUnitContextService, BusinessUnitContextService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<ILoginAttemptGuard>(sp => new LoginAttemptGuard(sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(), enforceLoginLockout));
         services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.AddScoped<ICompanyRepository, CompanyRepository>();

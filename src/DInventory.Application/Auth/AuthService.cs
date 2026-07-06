@@ -15,6 +15,7 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IEmailService _emailService;
+    private readonly ILoginAttemptGuard _loginAttemptGuard;
     private readonly JwtSettings _jwtSettings;
 
     public AuthService(
@@ -25,6 +26,7 @@ public class AuthService : IAuthService
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         IEmailService emailService,
+        ILoginAttemptGuard loginAttemptGuard,
         IOptions<JwtSettings> jwtOptions)
     {
         _userRepository = userRepository;
@@ -34,14 +36,22 @@ public class AuthService : IAuthService
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _emailService = emailService;
+        _loginAttemptGuard = loginAttemptGuard;
         _jwtSettings = jwtOptions.Value;
     }
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, string? ipAddress)
     {
+        if (_loginAttemptGuard.IsLockedOut(request.Username, out var retryAfter))
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling((retryAfter ?? TimeSpan.FromMinutes(15)).TotalMinutes));
+            return AuthResult.Failure($"Too many failed login attempts for this account. Please try again in {minutes} minute(s).");
+        }
+
         var user = await _userRepository.GetByUsernameAsync(request.Username.Trim());
         if (user is null)
         {
+            _loginAttemptGuard.RegisterFailure(request.Username);
             return AuthResult.Failure("Invalid username or password.");
         }
 
@@ -52,8 +62,11 @@ public class AuthService : IAuthService
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
+            _loginAttemptGuard.RegisterFailure(request.Username);
             return AuthResult.Failure("Invalid username or password.");
         }
+
+        _loginAttemptGuard.ResetFailures(request.Username);
 
         var role = await _roleRepository.GetByIdAsync(user.RoleId);
         var roleName = role?.RoleName ?? "Staff";
