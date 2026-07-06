@@ -12,6 +12,12 @@
     var avgOrderValue = Model.TotalOrders > 0 ? Model.RangeSales / Model.TotalOrders : 0m;
     var netAfterExpenses = Model.RangeSales - Model.RangeExpenses;
     var topProductMax = Model.TopProducts.Any() ? Model.TopProducts.Max(p => p.Revenue) : 0m;
+    // Raw System.Text.Json.JsonSerializer.Serialize (below) does NOT use ASP.NET Core's MVC
+    // default camelCase naming policy - it defaults to PascalCase (Label, Total, ProductName...).
+    // The dashboard's inline JS expects camelCase (p.label, p.total, p.productName), so every
+    // chart fed straight from Razor-serialized Model data was silently blank. JsonSerializerDefaults.Web
+    // is the built-in "match ASP.NET Core's API behavior" preset (camelCase + case-insensitive reads).
+    var jsonOpts = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -265,7 +271,7 @@
     </style>
     <script src="~/lib/chartjs/chart.umd.min.js" asp-append-version="true"></script>
     <script>
-        const initialTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Trend));
+        const initialTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Trend, jsonOpts));
         const dashboardBusinessUnitId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((int?)ViewData["BusinessUnitId"]));
 
         function buildTrendGradient(ctx) {
@@ -331,7 +337,7 @@
 
         const topProductsCanvas = document.getElementById('topProductsChart');
         if (topProductsCanvas) {
-            const topProducts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopProducts));
+            const topProducts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopProducts, jsonOpts));
             const palette = ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1', '#e83e8c', '#0dcaf0'];
             new Chart(topProductsCanvas.getContext('2d'), {
                 type: 'doughnut',
@@ -360,7 +366,7 @@
 
         const monthlyGrowthCanvas = document.getElementById('monthlyGrowthChart');
         if (monthlyGrowthCanvas) {
-            const monthlyTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyTrend));
+            const monthlyTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyTrend, jsonOpts));
             const totals = monthlyTrend.map(p => p.total);
             const barColors = totals.map((t, i) => {
                 if (i === 0) return '#94a3b8';
