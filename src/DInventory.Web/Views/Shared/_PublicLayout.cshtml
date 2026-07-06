@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="~/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/bootstrap-icons.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
@@ -20,11 +21,17 @@
             <div class="collapse navbar-collapse" id="publicNav">
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
                     <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Products">Products</a></li>
+                    <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="About">About Us</a></li>
                     @if (ViewBag.Pages != null)
                     {
                         @foreach (var contentPage in (IEnumerable<DInventory.Domain.Entities.ContentPage>)ViewBag.Pages)
                         {
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Page" asp-route-slug="@contentPage.Slug">@contentPage.Title</a></li>
+                            @* "home" and "about-us" now have their own dedicated, richly-designed static pages
+                               above - skip them here so the nav doesn't show two different "About Us" links. *@
+                            if (contentPage.Slug != "home" && contentPage.Slug != "about-us")
+                            {
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Page" asp-route-slug="@contentPage.Slug">@contentPage.Title</a></li>
+                            }
                         }
                     }
                     <li class="nav-item">
@@ -51,5 +58,6 @@
     </footer>
 
     <script src="~/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

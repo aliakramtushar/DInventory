@@ -3,17 +3,126 @@
     ViewData["Title"] = "Welcome";
     Layout = "_PublicLayout";
 }
-<div class="text-center mb-5">
-    @if (Model != null)
-    {
+
+<!-- Hero -->
+<section class="dinv-hero rounded-4 px-4 px-md-5 py-5 mb-5 text-white text-center position-relative overflow-hidden">
+    <div class="dinv-hero-orb dinv-hero-orb-1"></div>
+    <div class="dinv-hero-orb dinv-hero-orb-2"></div>
+    <div class="position-relative mx-auto" style="max-width:680px;">
+        <span class="badge rounded-pill bg-white text-primary fw-semibold px-3 py-2 mb-4">
+            <i class="bi bi-gift-fill me-1"></i> Free installation &mdash; use it first, pay later
+        </span>
+        <h1 class="display-5 fw-bold mb-3">Inventory + POS, made simple.</h1>
+        <p class="lead opacity-90 mb-4">
+            DInventory keeps your stock, sales, and reports in one place &mdash; so running the shop
+            takes less effort and less guesswork.
+        </p>
+        <a asp-controller="Account" asp-action="Login" class="btn btn-light btn-lg fw-semibold shadow-sm">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Staff Login
+        </a>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="mb-5">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="d-flex align-items-start gap-3">
+                <div class="dinv-icon bg-primary-subtle text-primary"><i class="bi bi-box-seam"></i></div>
+                <div>
+                    <h5 class="fw-semibold mb-1">Stock</h5>
+                    <p class="text-muted small mb-0">Know what's in the shop and what's running low, always.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="d-flex align-items-start gap-3">
+                <div class="dinv-icon bg-success-subtle text-success"><i class="bi bi-bar-chart-line"></i></div>
+                <div>
+                    <h5 class="fw-semibold mb-1">Reports</h5>
+                    <p class="text-muted small mb-0">Sales, profit and expenses, in plain numbers.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="d-flex align-items-start gap-3">
+                <div class="dinv-icon bg-warning-subtle text-warning"><i class="bi bi-people"></i></div>
+                <div>
+                    <h5 class="fw-semibold mb-1">Users</h5>
+                    <p class="text-muted small mb-0">Separate logins for owners, managers, and cashiers.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="dinv-steps mb-5 py-5">
+    <h2 class="fw-bold text-center mb-5">Try it first. Pay when you're sure.</h2>
+    <div class="row g-4 text-center">
+        <div class="col-md-4">
+            <div class="dinv-step-number mx-auto mb-3">1</div>
+            <h6 class="fw-semibold">We install it free</h6>
+            <p class="text-muted small mb-0">No cost, no contract, no card.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="dinv-step-number mx-auto mb-3">2</div>
+            <h6 class="fw-semibold">You run your shop</h6>
+            <p class="text-muted small mb-0">Real sales, real stock, real results.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="dinv-step-number mx-auto mb-3">3</div>
+            <h6 class="fw-semibold">Then you pay</h6>
+            <p class="text-muted small mb-0">Only if you're happy with it.</p>
+        </div>
+    </div>
+</section>
+
+@if (Model != null && !string.IsNullOrWhiteSpace(Model.Body))
+{
+    <section class="mb-5">
         @Html.Raw(Model.Body)
+    </section>
+}
+
+@section Styles {
+<style>
+    .dinv-hero {
+        background: linear-gradient(135deg, var(--erp-primary, #0d6efd) 0%, var(--erp-primary-dark, #0a58ca) 100%);
+        isolation: isolate;
     }
-    else
-    {
-        <h1 class="display-6">Welcome to DInventory</h1>
-        <p class="lead text-muted">Inventory and sales management, made simple.</p>
+    .dinv-hero-orb {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        z-index: -1;
     }
-</div>
-<div class="text-center">
-    <a asp-controller="Account" asp-action="Login" class="btn btn-primary btn-lg"><i class="bi bi-box-arrow-in-right me-2"></i>Staff Login</a>
-</div>
+    .dinv-hero-orb-1 { width: 260px; height: 260px; top: -80px; left: -60px; }
+    .dinv-hero-orb-2 { width: 200px; height: 200px; bottom: -70px; right: -40px; }
+    .dinv-icon {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        border-radius: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .dinv-steps {
+        border-top: 1px solid var(--erp-border, #e5e7eb);
+        border-bottom: 1px solid var(--erp-border, #e5e7eb);
+    }
+    .dinv-step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--erp-primary, #0d6efd);
+        color: #fff;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+}

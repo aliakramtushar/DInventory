@@ -34,6 +34,10 @@ public class DashboardStats
     public int TotalProductSold { get; set; }
     public decimal RangeProfit { get; set; }
 
+    /// <summary>Total expenses recorded over the same selected Range (see RangeSales) - shown
+    /// alongside sales/orders/units-sold as one of the four headline dashboard KPIs.</summary>
+    public decimal RangeExpenses { get; set; }
+
     /// <summary>Percent change of RangeSales vs. the immediately preceding period of the same
     /// length (e.g. this week vs last week). Null when there's no prior-period sales to compare
     /// against (division by zero would otherwise be meaningless).</summary>

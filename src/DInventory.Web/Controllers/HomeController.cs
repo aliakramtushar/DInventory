@@ -28,6 +28,13 @@ public class HomeController : Controller
         return View(home);
     }
 
+    public async Task<IActionResult> About()
+    {
+        ViewBag.Pages = (await _contentPageService.GetAllAsync(onlyPublished: true)).ToList();
+        ViewData["Title"] = "About Us";
+        return View();
+    }
+
     public async Task<IActionResult> Page(string slug)
     {
         var page = await _contentPageService.GetBySlugAsync(slug);

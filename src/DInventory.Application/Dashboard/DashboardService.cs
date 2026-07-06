@@ -70,10 +70,14 @@ public class DashboardService : IDashboardService
         stats.RangeGrowthPercent = previousRangeSales > 0
             ? Math.Round(((rangeSales - previousRangeSales) / previousRangeSales) * 100m, 1)
             : (decimal?)null;
+        stats.RangeExpenses = await _expenseRepository.GetTotalAsync(rangeFrom, rangeTo, companyId, businessUnitId);
 
         stats.Trend = (await _salesOrderRepository.GetSalesTrendAsync(todayStart.AddDays(-13), tomorrow, TrendGranularity.Day, companyId, businessUnitId)).ToList();
         stats.MonthlyTrend = (await _salesOrderRepository.GetSalesTrendAsync(sixMonthsAgoStart, tomorrow, TrendGranularity.Month, companyId, businessUnitId)).ToList();
-        stats.TopProducts = (await _salesOrderRepository.GetTopProductsAsync(monthStart, tomorrow, 5, companyId, businessUnitId)).ToList();
+
+        // Top products follow the same selected Range as the headline KPIs above (not always "this
+        // calendar month") so the whole dashboard consistently describes one period.
+        stats.TopProducts = (await _salesOrderRepository.GetTopProductsAsync(rangeFrom, rangeTo, 5, companyId, businessUnitId)).ToList();
 
         return stats;
     }
