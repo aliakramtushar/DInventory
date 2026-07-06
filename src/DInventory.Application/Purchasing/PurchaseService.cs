@@ -56,9 +56,16 @@ public class PurchaseService : IPurchaseService
         }
 
         var totalAmount = request.Items.Sum(i => i.Quantity * i.BuyingPrice);
-        if (request.PaidAmount < 0 || request.PaidAmount > totalAmount)
+
+        if (request.Discount < 0 || request.Discount > totalAmount)
         {
-            return Result<int>.Failure("Paid amount must be between 0 and the purchase total.");
+            return Result<int>.Failure("Discount must be between 0 and the purchase total.");
+        }
+
+        var payableAmount = totalAmount - request.Discount;
+        if (request.PaidAmount < 0 || request.PaidAmount > payableAmount)
+        {
+            return Result<int>.Failure("Paid amount must be between 0 and the purchase total after discount.");
         }
 
         var purchase = new Purchase
@@ -67,6 +74,7 @@ public class PurchaseService : IPurchaseService
             SupplierId = request.SupplierId,
             PurchaseDate = DateTime.UtcNow,
             TotalAmount = totalAmount,
+            Discount = request.Discount,
             PaidAmount = request.PaidAmount,
             Remarks = request.Remarks,
             CompanyId = companyId,

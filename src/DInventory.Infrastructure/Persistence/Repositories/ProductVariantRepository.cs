@@ -50,12 +50,13 @@ public class ProductVariantRepository : IProductVariantRepository
         return await connection.QueryAsync<ProductVariant>(sql, new { productId });
     }
 
-    public async Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false)
+    public async Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int companyId = 0, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern OR pv.Barcode LIKE @pattern)
+            WHERE (@companyId = 0 OR p.CompanyId = @companyId)
+              AND (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern OR pv.Barcode LIKE @pattern)
               AND (@categoryId IS NULL OR p.CategoryId = @categoryId)
               AND (@brandId IS NULL OR p.BrandId = @brandId)
               AND (@colorId IS NULL OR pv.ColorId = @colorId)
@@ -74,6 +75,7 @@ public class ProductVariantRepository : IProductVariantRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             categoryId,

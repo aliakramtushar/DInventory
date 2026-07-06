@@ -25,15 +25,24 @@
                     {
                         <input id="companyName" class="form-control" value="@ViewBag.CompanyName" readonly />
                         <div class="form-text">
-                            Printed above the product name on the label.
-                            @if (isSuperCompany)
+                            @if (!string.IsNullOrWhiteSpace((string?)ViewBag.CompanyCode))
                             {
-                                <text>Change it any time from the Company selector in the top navigation bar.</text>
+                                <text>Company code <code>@ViewBag.CompanyCode</code> is always included in the barcode.</text>
                             }
                             else
                             {
-                                <text>Your own company's name, not editable here.</text>
+                                <text>This company has no short code set yet - add one under Companies &gt; Edit before generating.</text>
                             }
+                            @if (isSuperCompany)
+                            {
+                                <text> Change the company any time from the selector in the top navigation bar.</text>
+                            }
+                        </div>
+                        <div class="form-check mt-1">
+                            <input id="includeCompanyName" type="checkbox" class="form-check-input" />
+                            <label for="includeCompanyName" class="form-check-label small">
+                                Include company name on the printed label (optional)
+                            </label>
                         </div>
                     }
                     else
@@ -42,6 +51,18 @@
                             Select a company from the <strong>Company</strong> dropdown in the top navigation bar before generating labels - "All Companies" can't own a label.
                         </div>
                     }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Business Unit (optional)</label>
+                    @{ var businessUnits = (IEnumerable<DInventory.Domain.Entities.BusinessUnit>)(ViewBag.BusinessUnits ?? new List<DInventory.Domain.Entities.BusinessUnit>()); }
+                    <select id="businessUnitId" class="form-select">
+                        <option value="">-- None --</option>
+                        @foreach (var bu in businessUnits)
+                        {
+                            <option value="@bu.BusinessUnitId">@bu.BusinessUnitName</option>
+                        }
+                    </select>
+                    <div class="form-text">Tags the label for reference only - it never appears inside the barcode itself.</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Product Name <span class="text-danger">*</span></label>
@@ -60,6 +81,11 @@
                 <div class="mb-3">
                     <label class="form-label">Price (optional)</label>
                     <input id="price" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price Code (optional)</label>
+                    <input id="priceCode" class="form-control" placeholder="000" maxlength="20" />
+                    <div class="form-text">Middle segment of the barcode (CompanyCode-PriceCode-GeneratedCode). Defaults to "000" when left blank.</div>
                 </div>
                 <div class="row g-2">
                     <div class="col-md-6 mb-3">
@@ -150,6 +176,7 @@
                 ${data.companyName ? `<div class="fw-bold small text-truncate">${data.companyName}</div>` : ''}
                 <div class="fw-semibold text-truncate small">${data.productName}</div>
                 <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
+                ${data.businessUnitName ? `<div class="text-muted small">${data.businessUnitName}</div>` : ''}
                 <svg id="${svgId}" class="my-1"></svg>
                 <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
             </div>
@@ -202,6 +229,10 @@
             return;
         }
 
+        const includeCompanyNameEl = document.getElementById('includeCompanyName');
+        const businessUnitSelect = document.getElementById('businessUnitId');
+        const selectedBusinessUnitOption = businessUnitSelect ? businessUnitSelect.options[businessUnitSelect.selectedIndex] : null;
+
         const payload = {
             manualBarcode: document.getElementById('manualBarcode').value.trim() || null,
             productName: productName,
@@ -210,7 +241,11 @@
             companyName: companyNameInput ? (companyNameInput.value.trim() || null) : null,
             price: document.getElementById('price').value ? parseFloat(document.getElementById('price').value) : null,
             barcodeWidth: document.getElementById('barcodeWidth').value ? parseInt(document.getElementById('barcodeWidth').value, 10) : null,
-            barcodeHeight: document.getElementById('barcodeHeight').value ? parseInt(document.getElementById('barcodeHeight').value, 10) : null
+            barcodeHeight: document.getElementById('barcodeHeight').value ? parseInt(document.getElementById('barcodeHeight').value, 10) : null,
+            includeCompanyName: includeCompanyNameEl ? includeCompanyNameEl.checked : false,
+            priceCode: document.getElementById('priceCode').value.trim() || null,
+            businessUnitId: businessUnitSelect && businessUnitSelect.value ? parseInt(businessUnitSelect.value, 10) : null,
+            businessUnitName: selectedBusinessUnitOption && businessUnitSelect.value ? selectedBusinessUnitOption.textContent.trim() : null
         };
 
         const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');

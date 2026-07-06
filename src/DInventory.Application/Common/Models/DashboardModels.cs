@@ -38,6 +38,16 @@ public class DashboardStats
     /// alongside sales/orders/units-sold as one of the four headline dashboard KPIs.</summary>
     public decimal RangeExpenses { get; set; }
 
+    /// <summary>Total purchase cost (TotalAmount - Discount) received from suppliers over the same
+    /// selected Range - the "Purchase Amount" that Gross/Net Profit below are computed against.</summary>
+    public decimal RangePurchases { get; set; }
+
+    /// <summary>Gross Profit = Sale Amount - Purchase Amount, for the selected Range.</summary>
+    public decimal GrossProfit => RangeSales - RangePurchases;
+
+    /// <summary>Net Profit = Sale Amount - Purchase Amount - Expense, for the selected Range.</summary>
+    public decimal NetProfit => RangeSales - RangePurchases - RangeExpenses;
+
     /// <summary>Percent change of RangeSales vs. the immediately preceding period of the same
     /// length (e.g. this week vs last week). Null when there's no prior-period sales to compare
     /// against (division by zero would otherwise be meaningless).</summary>

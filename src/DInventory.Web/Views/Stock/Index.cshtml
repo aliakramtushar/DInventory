@@ -2,18 +2,28 @@
 @{
     ViewData["Title"] = "Stock";
 }
-<div class="row g-3 mb-3">
-    <div class="col-lg-7">
-        <form class="d-flex gap-2" method="get">
-            <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search product, size or barcode..." />
-            <div class="form-check form-switch d-flex align-items-center text-nowrap">
-                <input class="form-check-input me-1" type="checkbox" name="onlyLowStock" value="true" onchange="this.form.submit()" checked="@((bool)ViewData["OnlyLowStock"]!)" />
-                <label class="form-check-label small">Low stock only</label>
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form class="row gy-2 gx-2 align-items-center" method="get">
+            <div class="col-12 col-md-6 col-lg-5">
+                <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search product, size or barcode..." />
             </div>
-            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+            <div class="col-7 col-md-4 col-lg-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Stock &le;</span>
+                    <input type="number" name="maxStock" min="0" value="@ViewData["MaxStock"]" class="form-control" onchange="this.form.submit()" />
+                </div>
+            </div>
+            <div class="col-5 col-md-2 col-lg-2 d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" type="submit" title="Search"><i class="bi bi-search"></i></button>
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-maxStock="-1" asp-route-search="@ViewData["Search"]">Show all</a>
+            </div>
         </form>
     </div>
-    <div class="col-lg-5">
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
         <div class="card shadow-sm">
             <div class="card-body py-2">
                 <form id="barcodeAdjustForm" class="row g-2 align-items-end">
@@ -105,7 +115,7 @@
                 HasNextPage = Model.HasNextPage,
                 RouteValues = PaginationViewModel.Filters(
                     ("search", ViewData["Search"]?.ToString()),
-                    ("onlyLowStock", ((bool)ViewData["OnlyLowStock"]!) ? "true" : null))
+                    ("maxStock", ViewData["MaxStock"]?.ToString()))
             })
         </div>
     }

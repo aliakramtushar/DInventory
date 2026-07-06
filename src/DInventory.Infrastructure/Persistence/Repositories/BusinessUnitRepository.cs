@@ -15,7 +15,7 @@ public class BusinessUnitRepository : IBusinessUnitRepository
     }
 
     private const string SelectBase = @"
-        SELECT bu.BusinessUnitId, bu.CompanyId, bu.BusinessUnitName, bu.IsActive,
+        SELECT bu.BusinessUnitId, bu.CompanyId, bu.BusinessUnitName, bu.Address, bu.IsActive,
                bu.CreatedAt, bu.UpdatedAt, bu.CreatedBy, bu.UpdatedBy,
                c.CompanyName
         FROM dbo.BusinessUnits bu
@@ -85,9 +85,9 @@ public class BusinessUnitRepository : IBusinessUnitRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.BusinessUnits (CompanyId, BusinessUnitName, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.BusinessUnits (CompanyId, BusinessUnitName, Address, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.BusinessUnitId
-            VALUES (@CompanyId, @BusinessUnitName, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@CompanyId, @BusinessUnitName, @Address, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, businessUnit);
     }
 
@@ -96,7 +96,7 @@ public class BusinessUnitRepository : IBusinessUnitRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             UPDATE dbo.BusinessUnits
-            SET BusinessUnitName = @BusinessUnitName, IsActive = @IsActive,
+            SET BusinessUnitName = @BusinessUnitName, Address = @Address, IsActive = @IsActive,
                 UpdatedAt = @UpdatedAt, UpdatedBy = @UpdatedBy
             WHERE BusinessUnitId = @BusinessUnitId";
         var rows = await connection.ExecuteAsync(sql, businessUnit);

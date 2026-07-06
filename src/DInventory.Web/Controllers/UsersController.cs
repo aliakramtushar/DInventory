@@ -20,6 +20,7 @@ public class UsersController : Controller
     private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
     public UsersController(
@@ -29,6 +30,7 @@ public class UsersController : Controller
         IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _userService = userService;
@@ -37,6 +39,7 @@ public class UsersController : Controller
         _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
@@ -68,8 +71,8 @@ public class UsersController : Controller
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
         ViewBag.CanCreate = effectiveCompanyId > 0;
         await PopulateRolesAsync();
-        await PopulateCompaniesAsync(effectiveCompanyId);
-        return View(new User { CompanyId = effectiveCompanyId });
+        var effectiveBusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+        return View(new User { CompanyId = effectiveCompanyId, BusinessUnitId = effectiveBusinessUnitId });
     }
 
     [HttpPost]
@@ -80,10 +83,12 @@ public class UsersController : Controller
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
         ViewBag.CanCreate = effectiveCompanyId > 0;
 
-        // Which company this new user belongs to always comes from the global Company selector in
-        // the top navbar now - never from a per-page picker. A company-level admin was already
-        // pinned to their own company; a SuperAdmin must pick a real company in the navbar first.
+        // Which company (and business unit) this new user belongs to always comes from the global
+        // Company / Business Unit selectors in the top navbar now - never from a per-page picker. A
+        // company-level admin was already pinned to their own company; a SuperAdmin must pick a real
+        // company in the navbar first.
         model.CompanyId = effectiveCompanyId;
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
 
         if (model.CompanyId <= 0)
         {
@@ -93,7 +98,6 @@ public class UsersController : Controller
         if (!ModelState.IsValid)
         {
             await PopulateRolesAsync();
-            await PopulateCompaniesAsync(effectiveCompanyId, model.CompanyId);
             return View(model);
         }
 
@@ -103,7 +107,6 @@ public class UsersController : Controller
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to create user.");
             await PopulateRolesAsync();
-            await PopulateCompaniesAsync(effectiveCompanyId, model.CompanyId);
             return View(model);
         }
 
@@ -128,7 +131,6 @@ public class UsersController : Controller
         }
 
         await PopulateRolesAsync();
-        await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), user.CompanyId, isEdit: true, currentUser: currentUser);
         return View(user);
     }
 
@@ -147,7 +149,6 @@ public class UsersController : Controller
         if (!ModelState.IsValid)
         {
             await PopulateRolesAsync();
-            await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), model.CompanyId, isEdit: true, currentUser: currentUser);
             return View(model);
         }
 
@@ -157,7 +158,6 @@ public class UsersController : Controller
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to update user.");
             await PopulateRolesAsync();
-            await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), model.CompanyId, isEdit: true, currentUser: currentUser);
             return View(model);
         }
 
@@ -234,25 +234,4 @@ public class UsersController : Controller
         ViewBag.Roles = await _roleService.GetAllAsync();
     }
 
-    /// <summary>Populates the Business Unit list for the Create/Edit form. Which company a new user
-    /// belongs to now always comes from the global Company selector in the top navbar - this only
-    /// resolves which company's business units to list: the record's own CompanyId for Edit, or the
-    /// effective navbar company for Create.
-    /// <paramref name="effectiveCompanyId"/> is the globally-selected company (0 = SuperAdmin still
-    /// on "All Companies"). <paramref name="businessUnitCompanyId"/> is which company's business
-    /// units to list - the record's own CompanyId for Edit, or the effective company for Create.</summary>
-    private async Task PopulateCompaniesAsync(int effectiveCompanyId, int? businessUnitCompanyId = null, bool isEdit = false, CurrentUser? currentUser = null)
-    {
-        ViewBag.IsSuperCompany = _companyContextService.IsSuperCompany;
-        var companyIdForUnits = businessUnitCompanyId ?? effectiveCompanyId;
-
-        if (!_companyContextService.IsSuperCompany)
-        {
-            ViewBag.CurrentCompanyName = currentUser?.CompanyName;
-        }
-
-        ViewBag.BusinessUnits = companyIdForUnits > 0
-            ? await _businessUnitService.GetAllAsync(companyIdForUnits, onlyActive: true)
-            : Enumerable.Empty<BusinessUnit>();
-    }
 }

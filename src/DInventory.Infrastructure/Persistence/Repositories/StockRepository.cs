@@ -41,13 +41,13 @@ public class StockRepository : IStockRepository
         return await connection.QueryAsync<Stock>(sql, new { companyId, onlyLowStock, search, pattern = $"%{search}%" });
     }
 
-    public async Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false)
+    public async Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, int? maxStock = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@companyId = 0 OR p.CompanyId = @companyId)
-              AND (@onlyLowStock = 0 OR s.QuantityOnHand <= pv.ReorderLevel)
+              AND (@maxStock IS NULL OR s.QuantityOnHand <= @maxStock)
               AND (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern OR pv.Barcode LIKE @pattern)";
 
         var countSql = $@"
@@ -65,7 +65,7 @@ public class StockRepository : IStockRepository
         var parameters = new
         {
             companyId,
-            onlyLowStock,
+            maxStock,
             search = request.Search,
             pattern = $"%{request.Search}%",
             offset = (request.PageNumber - 1) * request.PageSize,

@@ -41,7 +41,7 @@ public class BarcodeNumberGenerator : IBarcodeNumberGenerator
         string candidate;
         do
         {
-            candidate = $"{prefix}{next:D9}";
+            candidate = $"{prefix}{next:D6}";
             next++;
         }
         while (await _labelRepository.BarcodeExistsAsync(candidate) || await _variantRepository.BarcodeExistsAsync(candidate));

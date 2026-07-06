@@ -19,7 +19,7 @@ public class SupplierService : ISupplierService
 
     public Task<Supplier?> GetByIdWithDueAsync(int supplierId) => _supplierRepository.GetByIdWithDueAsync(supplierId);
 
-    public Task<IEnumerable<Supplier>> GetAllAsync(bool onlyActive = false) => _supplierRepository.GetAllAsync(onlyActive);
+    public Task<IEnumerable<Supplier>> GetAllAsync(int companyId = 0, bool onlyActive = false) => _supplierRepository.GetAllAsync(companyId, onlyActive);
 
     public Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
         => _supplierRepository.GetPagedAsync(request, companyId, onlyActive);
@@ -59,6 +59,7 @@ public class SupplierService : ISupplierService
         existing.SupplierName = supplier.SupplierName;
         existing.Phone = supplier.Phone;
         existing.Address = supplier.Address;
+        existing.Remarks = supplier.Remarks;
         existing.IsActive = supplier.IsActive;
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;

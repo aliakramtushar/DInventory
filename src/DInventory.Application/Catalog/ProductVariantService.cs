@@ -13,6 +13,7 @@ public class ProductVariantService : IProductVariantService
     private readonly ISizeRepository _sizeRepository;
     private readonly IColorRepository _colorRepository;
     private readonly IBarcodeNumberGenerator _barcodeNumberGenerator;
+    private readonly IGeneratedBarcodeLabelService _labelService;
 
     public ProductVariantService(
         IProductVariantRepository variantRepository,
@@ -20,7 +21,8 @@ public class ProductVariantService : IProductVariantService
         IStockRepository stockRepository,
         ISizeRepository sizeRepository,
         IColorRepository colorRepository,
-        IBarcodeNumberGenerator barcodeNumberGenerator)
+        IBarcodeNumberGenerator barcodeNumberGenerator,
+        IGeneratedBarcodeLabelService labelService)
     {
         _variantRepository = variantRepository;
         _productRepository = productRepository;
@@ -28,6 +30,7 @@ public class ProductVariantService : IProductVariantService
         _sizeRepository = sizeRepository;
         _colorRepository = colorRepository;
         _barcodeNumberGenerator = barcodeNumberGenerator;
+        _labelService = labelService;
     }
 
     public Task<ProductVariant?> GetByIdAsync(int productVariantId) => _variantRepository.GetByIdAsync(productVariantId);
@@ -36,8 +39,8 @@ public class ProductVariantService : IProductVariantService
 
     public Task<IEnumerable<ProductVariant>> GetByProductIdAsync(int productId) => _variantRepository.GetByProductIdAsync(productId);
 
-    public Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false)
-        => _variantRepository.GetPagedAsync(request, categoryId, brandId, colorId, onlyActive);
+    public Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int companyId = 0, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false)
+        => _variantRepository.GetPagedAsync(request, companyId, categoryId, brandId, colorId, onlyActive);
 
     /// <summary>Shared by product-creation and add-variant-later flows so both build the exact same
     /// "{ProductCode}-{SizeName}[-{ColorName}]" SKU when the user leaves SKU blank.</summary>
@@ -100,6 +103,10 @@ public class ProductVariantService : IProductVariantService
             return Result<int>.Failure("This product already has a variant in that size/color, or the barcode is a duplicate.");
         }
 
+        // If this barcode was printed ahead of time via the Barcode Generator, flip its label over to
+        // "Linked" now that it's actually been entered into inventory (no-op if it wasn't printed there).
+        await _labelService.MarkLinkedAsync(code, variantId);
+
         await _stockRepository.EnsureStockRowExistsAsync(variantId);
         if (initialQuantity > 0)
         {
@@ -133,6 +140,8 @@ public class ProductVariantService : IProductVariantService
             return Result.Failure($"Barcode '{variant.Barcode}' is already assigned to another product/size.");
         }
 
+        var barcodeChanged = !string.Equals(existing.Barcode, variant.Barcode, StringComparison.OrdinalIgnoreCase);
+
         existing.SizeId = variant.SizeId;
         existing.ColorId = variant.ColorId;
         existing.Barcode = variant.Barcode.Trim();
@@ -141,6 +150,12 @@ public class ProductVariantService : IProductVariantService
         existing.IsActive = variant.IsActive;
 
         var ok = await _variantRepository.UpdateAsync(existing);
+        if (ok && barcodeChanged)
+        {
+            // The barcode changed to (possibly) a previously printed label - reflect that on its History row.
+            await _labelService.MarkLinkedAsync(existing.Barcode, existing.ProductVariantId);
+        }
+
         return ok ? Result.Success() : Result.Failure("Unable to update product variant.");
     }
 

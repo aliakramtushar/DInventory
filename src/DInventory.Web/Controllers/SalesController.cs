@@ -240,9 +240,11 @@ public class SalesController : Controller
 
     private async Task PopulateFormDataAsync()
     {
-        // Manual fallback dropdown: every active variant, a generous page size since this is a
-        // simple <select> fallback for when there's no scanner handy (not itself paginated UI).
-        var variantsPage = await _productVariantService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 500 }, onlyActive: true);
+        // Manual fallback dropdown: every active variant belonging to whichever company is currently
+        // selected in the navbar - a generous page size since this is a simple <select> fallback for
+        // when there's no scanner handy (not itself paginated UI).
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var variantsPage = await _productVariantService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 500 }, effectiveCompanyId, onlyActive: true);
         ViewBag.Variants = variantsPage.Items;
         ViewBag.Customers = await _salesService.GetCustomersAsync();
     }

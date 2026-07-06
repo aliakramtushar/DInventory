@@ -8,7 +8,7 @@ public interface IProductVariantService
     Task<ProductVariant?> GetByIdAsync(int productVariantId);
     Task<ProductVariant?> GetByBarcodeAsync(string barcode);
     Task<IEnumerable<ProductVariant>> GetByProductIdAsync(int productId);
-    Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false);
+    Task<PagedResult<ProductVariant>> GetPagedAsync(PagedRequest request, int companyId = 0, int? categoryId = null, int? brandId = null, int? colorId = null, bool onlyActive = false);
 
     /// <summary>
     /// Adds a new size(+color) variant to an existing product. If <paramref name="barcode"/> is

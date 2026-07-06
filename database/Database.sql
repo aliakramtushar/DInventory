@@ -350,6 +350,26 @@ BEGIN
 END
 GO
 
+-- Safe additive upgrade path for the optional Business Unit tag, Price Code segment, and the
+-- "was the company code included in the barcode text" flag (Barcode Generator page enhancement).
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BusinessUnitName') IS NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD BusinessUnitName NVARCHAR(150) NULL;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'PriceCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD PriceCode NVARCHAR(20) NOT NULL CONSTRAINT DF_GBL_PriceCode DEFAULT ('000');
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'IncludeCompanyCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels ADD IncludeCompanyCode BIT NOT NULL CONSTRAINT DF_GBL_IncludeCompanyCode DEFAULT (1);
+END
+GO
+
 /* =====================================================================
    13. CUSTOMERS / SALES
    ===================================================================== */
@@ -551,12 +571,20 @@ BEGIN
         SupplierName  NVARCHAR(150) NOT NULL,
         Phone         NVARCHAR(30) NULL,
         Address       NVARCHAR(255) NULL,
+        Remarks       NVARCHAR(1000) NULL,
         IsActive      BIT NOT NULL DEFAULT (1),
         CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         UpdatedAt     DATETIME2 NULL,
         CreatedBy     INT NULL,
         UpdatedBy     INT NULL
     );
+END
+GO
+
+-- Safe additive upgrade path for an existing Suppliers table created before Remarks existed.
+IF OBJECT_ID('dbo.Suppliers', 'U') IS NOT NULL AND COL_LENGTH('dbo.Suppliers', 'Remarks') IS NULL
+BEGIN
+    ALTER TABLE dbo.Suppliers ADD Remarks NVARCHAR(1000) NULL;
 END
 GO
 
@@ -574,6 +602,7 @@ BEGIN
         SupplierId          INT NOT NULL,
         PurchaseDate        DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         TotalAmount         DECIMAL(18,2) NOT NULL DEFAULT (0),
+        Discount            DECIMAL(18,2) NOT NULL DEFAULT (0),
         PaidAmount          DECIMAL(18,2) NOT NULL DEFAULT (0),
         Remarks             NVARCHAR(255) NULL,
         CreatedAt           DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
@@ -581,6 +610,13 @@ BEGIN
         CONSTRAINT FK_Purchases_Suppliers FOREIGN KEY (SupplierId) REFERENCES dbo.Suppliers(SupplierId),
         CONSTRAINT FK_Purchases_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
     );
+END
+GO
+
+-- Safe additive upgrade path for an existing Purchases table created before Discount existed.
+IF OBJECT_ID('dbo.Purchases', 'U') IS NOT NULL AND COL_LENGTH('dbo.Purchases', 'Discount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Purchases ADD Discount DECIMAL(18,2) NOT NULL CONSTRAINT DF_Purchases_Discount DEFAULT (0);
 END
 GO
 
@@ -1264,6 +1300,7 @@ BEGIN
         BusinessUnitId    INT IDENTITY(1,1) PRIMARY KEY,
         CompanyId         INT NOT NULL,
         BusinessUnitName  NVARCHAR(150) NOT NULL,
+        Address           NVARCHAR(255) NULL,
         IsActive          BIT NOT NULL DEFAULT (1),
         CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         UpdatedAt         DATETIME2 NULL,
@@ -1272,6 +1309,13 @@ BEGIN
         CONSTRAINT FK_BusinessUnits_Companies FOREIGN KEY (CompanyId) REFERENCES dbo.Companies(CompanyId),
         CONSTRAINT UQ_BusinessUnits_CompanyName UNIQUE (CompanyId, BusinessUnitName)
     );
+END
+GO
+
+-- Safe additive upgrade path for an existing BusinessUnits table created before Address existed.
+IF OBJECT_ID('dbo.BusinessUnits', 'U') IS NOT NULL AND COL_LENGTH('dbo.BusinessUnits', 'Address') IS NULL
+BEGIN
+    ALTER TABLE dbo.BusinessUnits ADD Address NVARCHAR(255) NULL;
 END
 GO
 

@@ -11,4 +11,8 @@ public interface IPurchaseRepository
     Task<IEnumerable<Purchase>> GetForSupplierAsync(int supplierId);
     Task<int> CreateAsync(Purchase purchase);
     Task<string> GenerateNextInvoiceNoAsync();
+
+    /// <summary>Sum of (TotalAmount - Discount) for purchases received within the date range - the
+    /// "Purchase Amount" the dashboard's Gross/Net Profit figures are computed against.</summary>
+    Task<decimal> GetTotalAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null);
 }

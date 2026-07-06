@@ -6,6 +6,7 @@ public class Supplier
     public string SupplierName { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? Address { get; set; }
+    public string? Remarks { get; set; }
     /// <summary>Which company this record belongs to. 0 = the built-in superuser company
     /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
     public int CompanyId { get; set; }

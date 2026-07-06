@@ -11,19 +11,22 @@ public class DashboardService : IDashboardService
     private readonly IStockRepository _stockRepository;
     private readonly ICustomerRepository _customerRepository;
     private readonly IExpenseRepository _expenseRepository;
+    private readonly IPurchaseRepository _purchaseRepository;
 
     public DashboardService(
         ISalesOrderRepository salesOrderRepository,
         IProductRepository productRepository,
         IStockRepository stockRepository,
         ICustomerRepository customerRepository,
-        IExpenseRepository expenseRepository)
+        IExpenseRepository expenseRepository,
+        IPurchaseRepository purchaseRepository)
     {
         _salesOrderRepository = salesOrderRepository;
         _productRepository = productRepository;
         _stockRepository = stockRepository;
         _customerRepository = customerRepository;
         _expenseRepository = expenseRepository;
+        _purchaseRepository = purchaseRepository;
     }
 
     public async Task<DashboardStats> GetStatsAsync(int companyId = 0, int? businessUnitId = null, string range = "today")
@@ -71,6 +74,7 @@ public class DashboardService : IDashboardService
             ? Math.Round(((rangeSales - previousRangeSales) / previousRangeSales) * 100m, 1)
             : (decimal?)null;
         stats.RangeExpenses = await _expenseRepository.GetTotalAsync(rangeFrom, rangeTo, companyId, businessUnitId);
+        stats.RangePurchases = await _purchaseRepository.GetTotalAsync(rangeFrom, rangeTo, companyId, businessUnitId);
 
         stats.Trend = (await _salesOrderRepository.GetSalesTrendAsync(todayStart.AddDays(-13), tomorrow, TrendGranularity.Day, companyId, businessUnitId)).ToList();
         stats.MonthlyTrend = (await _salesOrderRepository.GetSalesTrendAsync(sixMonthsAgoStart, tomorrow, TrendGranularity.Month, companyId, businessUnitId)).ToList();

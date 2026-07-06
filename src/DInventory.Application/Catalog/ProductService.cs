@@ -14,6 +14,7 @@ public class ProductService : IProductService
     private readonly ISizeRepository _sizeRepository;
     private readonly IColorRepository _colorRepository;
     private readonly IBarcodeNumberGenerator _barcodeNumberGenerator;
+    private readonly IGeneratedBarcodeLabelService _labelService;
 
     public ProductService(
         IProductRepository productRepository,
@@ -22,7 +23,8 @@ public class ProductService : IProductService
         IProductVariantRepository variantRepository,
         ISizeRepository sizeRepository,
         IColorRepository colorRepository,
-        IBarcodeNumberGenerator barcodeNumberGenerator)
+        IBarcodeNumberGenerator barcodeNumberGenerator,
+        IGeneratedBarcodeLabelService labelService)
     {
         _productRepository = productRepository;
         _priceRepository = priceRepository;
@@ -31,6 +33,7 @@ public class ProductService : IProductService
         _sizeRepository = sizeRepository;
         _colorRepository = colorRepository;
         _barcodeNumberGenerator = barcodeNumberGenerator;
+        _labelService = labelService;
     }
 
     public Task<Product?> GetByIdAsync(int productId) => _productRepository.GetByIdAsync(productId);
@@ -133,6 +136,10 @@ public class ProductService : IProductService
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = actingUserId
             });
+
+            // If this barcode was printed ahead of time via the Barcode Generator, flip its label over
+            // to "Linked" now that it's actually been entered into inventory (no-op otherwise).
+            await _labelService.MarkLinkedAsync(barcode, variantId);
 
             await _stockRepository.EnsureStockRowExistsAsync(variantId);
             if (v.InitialQuantity > 0)

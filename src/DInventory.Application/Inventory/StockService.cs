@@ -18,8 +18,8 @@ public class StockService : IStockService
     public Task<IEnumerable<Stock>> GetAllAsync(int companyId, bool onlyLowStock = false, string? search = null)
         => _stockRepository.GetAllAsync(companyId, onlyLowStock, search);
 
-    public Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false)
-        => _stockRepository.GetPagedAsync(request, companyId, onlyLowStock);
+    public Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, int? maxStock = null)
+        => _stockRepository.GetPagedAsync(request, companyId, maxStock);
 
     public Task<Stock?> GetByVariantIdAsync(int productVariantId) => _stockRepository.GetByVariantIdAsync(productVariantId);
 

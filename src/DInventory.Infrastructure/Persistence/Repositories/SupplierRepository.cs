@@ -38,14 +38,15 @@ public class SupplierRepository : ISupplierRepository
         return await connection.QuerySingleOrDefaultAsync<Supplier>(sql, new { supplierId });
     }
 
-    public async Task<IEnumerable<Supplier>> GetAllAsync(bool onlyActive = false)
+    public async Task<IEnumerable<Supplier>> GetAllAsync(int companyId = 0, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Suppliers
-            WHERE (@onlyActive = 0 OR IsActive = 1)
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@onlyActive = 0 OR IsActive = 1)
             ORDER BY SupplierName";
-        return await connection.QueryAsync<Supplier>(sql, new { onlyActive });
+        return await connection.QueryAsync<Supplier>(sql, new { companyId, onlyActive });
     }
 
     public async Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
@@ -90,9 +91,9 @@ public class SupplierRepository : ISupplierRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Suppliers (SupplierName, Phone, Address, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Suppliers (SupplierName, Phone, Address, Remarks, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SupplierId
-            VALUES (@SupplierName, @Phone, @Address, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@SupplierName, @Phone, @Address, @Remarks, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, supplier);
     }
 
@@ -101,7 +102,7 @@ public class SupplierRepository : ISupplierRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             UPDATE dbo.Suppliers
-            SET SupplierName = @SupplierName, Phone = @Phone, Address = @Address, IsActive = @IsActive,
+            SET SupplierName = @SupplierName, Phone = @Phone, Address = @Address, Remarks = @Remarks, IsActive = @IsActive,
                 UpdatedAt = @UpdatedAt, UpdatedBy = @UpdatedBy
             WHERE SupplierId = @SupplierId";
         var rows = await connection.ExecuteAsync(sql, supplier);

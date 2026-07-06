@@ -106,6 +106,47 @@
     </div>
 </div>
 
+<!-- Profit KPIs: Gross Profit = Sale Amount - Purchase Amount; Net Profit further deducts Expense.
+     Both computed over the same selected Range as the headline KPIs above. -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-4">
+        <div class="card kpi-card h-100">
+            <div class="card-body d-flex align-items-start justify-content-between">
+                <div>
+                    <div class="text-muted small fw-medium mb-1">Total Purchase</div>
+                    <div class="fs-3 fw-bold">@Model.RangePurchases.ToMoney()</div>
+                    <div class="small text-muted mt-1">@rangeLabel.ToLower()</div>
+                </div>
+                <span class="dinv-stat-icon bg-secondary-subtle text-secondary"><i class="bi bi-truck"></i></span>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card kpi-card h-100">
+            <div class="card-body d-flex align-items-start justify-content-between">
+                <div>
+                    <div class="text-muted small fw-medium mb-1">Gross Profit</div>
+                    <div class="fs-3 fw-bold @(Model.GrossProfit >= 0 ? "text-success" : "text-danger")">@Model.GrossProfit.ToMoney()</div>
+                    <div class="small text-muted mt-1">Sale &minus; Purchase</div>
+                </div>
+                <span class="dinv-stat-icon bg-success-subtle text-success"><i class="bi bi-piggy-bank"></i></span>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card kpi-card h-100">
+            <div class="card-body d-flex align-items-start justify-content-between">
+                <div>
+                    <div class="text-muted small fw-medium mb-1">Net Profit</div>
+                    <div class="fs-3 fw-bold @(Model.NetProfit >= 0 ? "text-success" : "text-danger")">@Model.NetProfit.ToMoney()</div>
+                    <div class="small text-muted mt-1">Sale &minus; Purchase &minus; Expense</div>
+                </div>
+                <span class="dinv-stat-icon bg-primary-subtle text-primary"><i class="bi bi-cash-stack"></i></span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Primary chart + Top Products - the "what's actually happening" section. -->
 <div class="row g-3 mb-4 align-items-stretch">
     <div class="col-lg-8">

@@ -36,6 +36,10 @@
             </tbody>
             <tfoot>
                 <tr class="fw-bold"><td colspan="6" class="text-end">Total Amount</td><td class="text-end">@Model.TotalAmount.ToMoney()</td></tr>
+                @if (Model.Discount > 0)
+                {
+                    <tr class="text-danger"><td colspan="6" class="text-end">Discount</td><td class="text-end">-@Model.Discount.ToMoney()</td></tr>
+                }
                 <tr><td colspan="6" class="text-end">Paid Amount</td><td class="text-end">@Model.PaidAmount.ToMoney()</td></tr>
                 @if (Model.ReturnedAmount > 0)
                 {
@@ -78,6 +82,10 @@
         }
         <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
         <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>Total Amount</span><span>@Model.TotalAmount.ToMoney()</span></div>
+        @if (Model.Discount > 0)
+        {
+            <div style="display:flex; justify-content:space-between;"><span>Discount</span><span>-@Model.Discount.ToMoney()</span></div>
+        }
         <div style="display:flex; justify-content:space-between;"><span>Paid Amount</span><span>@Model.PaidAmount.ToMoney()</span></div>
         @if (Model.ReturnedAmount > 0)
         {

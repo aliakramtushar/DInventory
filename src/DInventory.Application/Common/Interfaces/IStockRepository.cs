@@ -8,7 +8,8 @@ public interface IStockRepository
     Task<Stock?> GetByVariantIdAsync(int productVariantId);
     /// <summary>companyId = 0 (superuser) bypasses the filter and returns stock across every company.</summary>
     Task<IEnumerable<Stock>> GetAllAsync(int companyId, bool onlyLowStock = false, string? search = null);
-    Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false);
+    /// <summary>maxStock filters to variants whose QuantityOnHand is at or below this threshold (null = no filter).</summary>
+    Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, int? maxStock = null);
     Task EnsureStockRowExistsAsync(int productVariantId);
     Task<bool> AdjustQuantityAsync(int productVariantId, int deltaQuantity);
     Task<int> CreateTransactionAsync(StockTransaction transaction);

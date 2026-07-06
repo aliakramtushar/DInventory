@@ -9,35 +9,28 @@
             <input asp-for="UserId" type="hidden" />
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">Full Name</label>
+                    <label class="form-label">Full Name <span class="text-danger">*</span></label>
                     <input asp-for="FullName" class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Username</label>
+                    <label class="form-label">Username <span class="text-danger">*</span></label>
                     <input asp-for="Username" class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Email</label>
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
                     <input asp-for="Email" type="email" class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Role</label>
+                    <label class="form-label">Role <span class="text-danger">*</span></label>
                     <select asp-for="RoleId" class="form-select" asp-items="@(new SelectList(ViewBag.Roles, "RoleId", "RoleName"))" required></select>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Company</label>
-                    @* Edit never lets anyone move a user to a different company - the record's own
-                       CompanyId is fixed, same guard as the controller's server-side check. *@
-                    <input class="form-control" value="@Model.CompanyName" readonly />
-                    <input asp-for="CompanyId" type="hidden" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Business Unit (optional)</label>
-                    <select asp-for="BusinessUnitId" class="form-select" asp-items="@(new SelectList(ViewBag.BusinessUnits, "BusinessUnitId", "BusinessUnitName", Model.BusinessUnitId))">
-                        <option value="">-- None --</option>
-                    </select>
-                </div>
             </div>
+            @* Company and Business Unit are no longer picked here - both come from the Company /
+               Business Unit selectors in the top navigation bar, same as every other record type.
+               Edit never moves a user to a different company/business unit - both stay fixed at
+               whatever they already were, same guard as the controller's server-side check. *@
+            <input asp-for="CompanyId" type="hidden" />
+            <input asp-for="BusinessUnitId" type="hidden" />
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>

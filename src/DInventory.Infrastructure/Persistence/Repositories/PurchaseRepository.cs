@@ -16,7 +16,7 @@ public class PurchaseRepository : IPurchaseRepository
     }
 
     private const string HeaderSelect = @"
-        SELECT p.PurchaseId, p.PurchaseInvoiceNo, p.SupplierId, p.PurchaseDate, p.TotalAmount, p.PaidAmount,
+        SELECT p.PurchaseId, p.PurchaseInvoiceNo, p.SupplierId, p.PurchaseDate, p.TotalAmount, p.Discount, p.PaidAmount,
                p.Remarks, p.CompanyId, p.BusinessUnitId, p.CreatedAt, p.CreatedBy,
                s.SupplierName, u.FullName AS CreatedByName, comp.CompanyName,
                ISNULL(pret.ReturnedAmount, 0) AS ReturnedAmount
@@ -136,9 +136,9 @@ public class PurchaseRepository : IPurchaseRepository
     private static async Task<int> InsertPurchaseAsync(System.Data.IDbConnection connection, Purchase purchase, System.Data.IDbTransaction? transaction)
     {
         const string headerSql = @"
-            INSERT INTO dbo.Purchases (PurchaseInvoiceNo, SupplierId, PurchaseDate, TotalAmount, PaidAmount, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Purchases (PurchaseInvoiceNo, SupplierId, PurchaseDate, TotalAmount, Discount, PaidAmount, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.PurchaseId
-            VALUES (@PurchaseInvoiceNo, @SupplierId, @PurchaseDate, @TotalAmount, @PaidAmount, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
+            VALUES (@PurchaseInvoiceNo, @SupplierId, @PurchaseDate, @TotalAmount, @Discount, @PaidAmount, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
 
         var purchaseId = await connection.ExecuteScalarAsync<int>(headerSql, purchase, transaction);
 
@@ -153,6 +153,17 @@ public class PurchaseRepository : IPurchaseRepository
         }
 
         return purchaseId;
+    }
+
+    public async Task<decimal> GetTotalAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT ISNULL(SUM(TotalAmount - Discount), 0) FROM dbo.Purchases
+            WHERE PurchaseDate >= @fromDate AND PurchaseDate < @toDateExclusive
+              AND (@companyId = 0 OR CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
     }
 
     public async Task<string> GenerateNextInvoiceNoAsync()

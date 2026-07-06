@@ -27,15 +27,21 @@ public class StockController : Controller
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(bool onlyLowStock = false, string? search = null, int page = 1)
+    public async Task<IActionResult> Index(int? maxStock = 5, string? search = null, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
-        var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _stockService.GetPagedAsync(request, effectiveCompanyId, onlyLowStock);
+        // maxStock is a threshold filter, not a toggle - "5" shows every product at or below 5 on
+        // hand, "10" shows at or below 10, etc. Defaults to 5 when not specified by the caller.
+        // A negative value (from the "Show all" link) means "no ceiling" - pass null through.
+        var effectiveMaxStock = maxStock ?? 5;
+        int? filterValue = effectiveMaxStock < 0 ? null : effectiveMaxStock;
 
-        ViewData["OnlyLowStock"] = onlyLowStock;
+        var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
+        var result = await _stockService.GetPagedAsync(request, effectiveCompanyId, filterValue);
+
+        ViewData["MaxStock"] = effectiveMaxStock;
         ViewData["Search"] = search;
         ViewData["CompanyId"] = effectiveCompanyId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;

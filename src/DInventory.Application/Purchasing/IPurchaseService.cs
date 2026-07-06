@@ -13,6 +13,7 @@ public class CreatePurchaseItemInput
 public class CreatePurchaseRequest
 {
     public int SupplierId { get; set; }
+    public decimal Discount { get; set; }
     public decimal PaidAmount { get; set; }
     public string? Remarks { get; set; }
     public List<CreatePurchaseItemInput> Items { get; set; } = new();

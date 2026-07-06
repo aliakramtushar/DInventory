@@ -24,6 +24,19 @@ public class GeneratedBarcodeLabel
     public int BarcodeHeight { get; set; } = 50;
     public bool IsLinked { get; set; }
     public int? LinkedProductVariantId { get; set; }
+
+    /// <summary>Snapshot of the business unit name at generation time (optional - tracked for
+    /// reference only, does not appear inside the Barcode string itself).</summary>
+    public string? BusinessUnitName { get; set; }
+
+    /// <summary>Middle segment of the composed barcode (CompanyCode-PriceCode-GeneratedCode).
+    /// Optional for the user to specify; defaults to "000" when left blank.</summary>
+    public string PriceCode { get; set; } = "000";
+
+    /// <summary>Whether the company's short code was included as the first segment of the barcode
+    /// when it was generated (the user can opt out via a checkbox on the generator page).</summary>
+    public bool IncludeCompanyCode { get; set; } = true;
+
     public DateTime CreatedAt { get; set; }
     public int? CreatedBy { get; set; }
 }

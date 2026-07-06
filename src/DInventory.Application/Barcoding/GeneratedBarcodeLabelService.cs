@@ -1,6 +1,7 @@
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Domain.Entities;
+using System.Linq;
 
 namespace DInventory.Application.Barcoding;
 
@@ -27,17 +28,40 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
     private const int MinBarcodeHeight = 20;
     private const int MaxBarcodeHeight = 150;
 
-    public async Task<Result<GeneratedBarcodeLabel>> GenerateAsync(int companyId, int? businessUnitId, string? manualBarcode, string productName, string? brandName, string? sizeName, string? companyName, decimal? price, int? barcodeWidth, int? barcodeHeight, int? actingUserId)
+    public async Task<Result<GeneratedBarcodeLabel>> GenerateAsync(
+        int companyId,
+        int? businessUnitId,
+        string? businessUnitName,
+        string? manualBarcode,
+        string productName,
+        string? brandName,
+        string? sizeName,
+        string? companyName,
+        string? companyCode,
+        string? priceCode,
+        decimal? price,
+        int? barcodeWidth,
+        int? barcodeHeight,
+        int? actingUserId)
     {
         if (string.IsNullOrWhiteSpace(productName))
         {
             return Result<GeneratedBarcodeLabel>.Failure("Product name is required for the label.");
         }
 
+        var resolvedPriceCode = string.IsNullOrWhiteSpace(priceCode) ? "000" : priceCode.Trim();
+
         var barcode = manualBarcode?.Trim();
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            barcode = await _barcodeNumberGenerator.GenerateNextAsync(companyId);
+            // The company code segment is mandatory for every auto-generated barcode - company name and
+            // business unit are the only optional pieces on this page.
+            if (string.IsNullOrWhiteSpace(companyCode))
+            {
+                return Result<GeneratedBarcodeLabel>.Failure("Could not resolve this company's short code, which is required for barcode generation. Set one under Companies > Edit.");
+            }
+
+            barcode = await GenerateComposedBarcodeAsync(companyId, resolvedPriceCode, companyCode);
         }
         else if (await _labelRepository.BarcodeExistsAsync(barcode))
         {
@@ -51,10 +75,17 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         {
             CompanyId = companyId,
             BusinessUnitId = businessUnitId,
+            BusinessUnitName = string.IsNullOrWhiteSpace(businessUnitName) ? null : businessUnitName.Trim(),
+            PriceCode = resolvedPriceCode,
+            // The company code is now always part of the barcode - this flag exists purely for
+            // historical/audit reference on older rows and is always true going forward.
+            IncludeCompanyCode = true,
             Barcode = barcode,
             ProductName = productName.Trim(),
             BrandName = brandName,
             SizeName = sizeName,
+            // Company name is optional - null unless the caller explicitly opted to include it (the
+            // "Include company name on the label" checkbox), so it's resolved to null upstream when unchecked.
             CompanyName = string.IsNullOrWhiteSpace(companyName) ? null : companyName.Trim(),
             Price = price,
             BarcodeWidth = width,
@@ -67,4 +98,39 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         await _labelRepository.CreateAsync(label);
         return Result<GeneratedBarcodeLabel>.Success(label);
     }
+
+    /// <summary>Builds the mandatory "CompanyCode-PriceCode-GeneratedCode" barcode. Reuses
+    /// IBarcodeNumberGenerator only to obtain a fresh, collision-free numeric sequence (checked against
+    /// both existing labels and live product variants) - the prefix that generator applies internally is
+    /// discarded and just the digits are kept, since this format re-composes its own dash-separated
+    /// prefix instead. The fully composed candidate is then re-checked for uniqueness on its own
+    /// (composed strings differ from the plain "PREFIX000000123" style the raw sequence uses, so
+    /// collisions here are effectively only possible if this exact composed value was already generated
+    /// before), bumping the numeric tail until a free one is found.</summary>
+    private async Task<string> GenerateComposedBarcodeAsync(int companyId, string priceCode, string companyCode)
+    {
+        var raw = await _barcodeNumberGenerator.GenerateNextAsync(companyId);
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrEmpty(digits))
+        {
+            digits = "000000001";
+        }
+
+        var numberLength = digits.Length;
+        var baseNumber = long.Parse(digits);
+
+        string candidate;
+        long bump = 0;
+        do
+        {
+            var number = (baseNumber + bump).ToString().PadLeft(numberLength, '0');
+            candidate = string.Join("-", new[] { companyCode.Trim().ToUpperInvariant(), priceCode, number });
+            bump++;
+        }
+        while (await _labelRepository.BarcodeExistsAsync(candidate));
+
+        return candidate;
+    }
+
+    public Task<bool> MarkLinkedAsync(string barcode, int productVariantId) => _labelRepository.MarkLinkedAsync(barcode.Trim(), productVariantId);
 }

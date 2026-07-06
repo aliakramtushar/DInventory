@@ -54,6 +54,7 @@ public class BusinessUnitService : IBusinessUnitService
         }
 
         existing.BusinessUnitName = businessUnit.BusinessUnitName;
+        existing.Address = businessUnit.Address;
         existing.IsActive = businessUnit.IsActive;
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;

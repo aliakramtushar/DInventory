@@ -13,6 +13,10 @@ public class Purchase
     public int? BusinessUnitId { get; set; }
     public DateTime PurchaseDate { get; set; }
     public decimal TotalAmount { get; set; }
+
+    /// <summary>Header-level discount applied to this invoice - reduces what's actually owed to the
+    /// supplier without mutating the original line-item total (kept intact for audit purposes).</summary>
+    public decimal Discount { get; set; }
     public decimal PaidAmount { get; set; }
     public string? Remarks { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -28,6 +32,6 @@ public class Purchase
     /// without mutating the original invoice's TotalAmount (keeps the original invoice intact for
     /// audit purposes; the return is its own separate, traceable record).</summary>
     public decimal ReturnedAmount { get; set; }
-    public decimal DueAmount => TotalAmount - PaidAmount - ReturnedAmount;
+    public decimal DueAmount => TotalAmount - Discount - PaidAmount - ReturnedAmount;
     public List<PurchaseItem> Items { get; set; } = new();
 }

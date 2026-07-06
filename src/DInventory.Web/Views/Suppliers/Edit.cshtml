@@ -9,7 +9,7 @@
             <input asp-for="SupplierId" type="hidden" />
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">Supplier Name</label>
+                    <label class="form-label">Supplier Name <span class="text-danger">*</span></label>
                     <input asp-for="SupplierName" class="form-control" required />
                 </div>
                 <div class="col-md-6">
@@ -19,6 +19,10 @@
                 <div class="col-12">
                     <label class="form-label">Address</label>
                     <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Remarks</label>
+                    <textarea asp-for="Remarks" class="form-control" rows="2"></textarea>
                 </div>
                 <div class="col-12">
                     <div class="form-check">

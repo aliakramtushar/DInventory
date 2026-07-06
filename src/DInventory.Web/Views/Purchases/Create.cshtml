@@ -34,14 +34,19 @@
 
                 <hr />
                 <h6 class="text-muted text-uppercase small mb-2">Manual product/size/color picker (fallback)</h6>
+                <p class="text-muted small mb-2">Only shows products belonging to the company currently selected in the top navigation bar.</p>
+                <div class="mb-2">
+                    <input id="variantFilter" class="form-control form-control-sm" placeholder="Type to filter products by name, size, color or barcode..." />
+                </div>
                 <div class="row g-2 mb-3">
                     <div class="col-7">
-                        <select id="variantSelect" class="form-select">
+                        <select id="variantSelect" class="form-select" size="1">
                             <option value="">-- Select a product/size/color --</option>
                             @foreach (var v in variants)
                             {
                                 <option value="@v.ProductVariantId" data-cost="@v.CostPrice" data-name="@v.ProductName"
-                                        data-size="@v.SizeName" data-color="@v.ColorName" data-barcode="@v.Barcode">
+                                        data-size="@v.SizeName" data-color="@v.ColorName" data-barcode="@v.Barcode"
+                                        data-search="@($"{v.ProductName} {v.SizeName} {v.ColorName} {v.Barcode}".ToLowerInvariant())">
                                     @v.ProductName (@v.SizeName@(!string.IsNullOrWhiteSpace(v.ColorName) ? " / " + v.ColorName : ""))
                                 </option>
                             }
@@ -71,14 +76,19 @@
                 <form asp-action="Create" method="post" id="purchaseForm">
                     <input type="hidden" name="itemsJson" id="itemsJson" value="[]" />
                     <div class="mb-3">
-                        <label class="form-label">Supplier</label>
-                        <select name="supplierId" class="form-select" required>
+                        <label class="form-label">Supplier <span class="text-danger">*</span></label>
+                        <input id="supplierFilter" class="form-control form-control-sm mb-1" placeholder="Type to filter suppliers..." />
+                        <select name="supplierId" id="supplierSelect" class="form-select" required>
                             <option value="">-- Select supplier --</option>
                             @foreach (var s in suppliers)
                             {
-                                <option value="@s.SupplierId" selected="@(preselectedSupplierId.HasValue && preselectedSupplierId.Value == s.SupplierId)">@s.SupplierName</option>
+                                <option value="@s.SupplierId" data-search="@s.SupplierName.ToLowerInvariant()" selected="@(preselectedSupplierId.HasValue && preselectedSupplierId.Value == s.SupplierId)">@s.SupplierName</option>
                             }
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Discount</label>
+                        <input name="discount" id="discount" type="number" step="0.01" min="0" value="0" class="form-control" />
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Paid Amount</label>
@@ -91,6 +101,7 @@
 
                     <table class="table table-sm">
                         <tr><td>Total Amount</td><td class="text-end" id="totalDisplay">৳0.00</td></tr>
+                        <tr><td>Discount</td><td class="text-end" id="discountDisplay">৳0.00</td></tr>
                         <tr><td>Paid</td><td class="text-end" id="paidDisplay">৳0.00</td></tr>
                         <tr class="fw-bold"><td>Due</td><td class="text-end" id="dueDisplay">৳0.00</td></tr>
                     </table>
@@ -146,10 +157,12 @@
 
     function recalculateTotals() {
         const total = cart.reduce((sum, i) => sum + i.quantity * i.buyingPrice, 0);
+        const discount = parseFloat(document.getElementById('discount').value) || 0;
         const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
-        const due = Math.max(0, total - paid);
+        const due = Math.max(0, total - discount - paid);
 
         document.getElementById('totalDisplay').textContent = dinvMoney(total);
+        document.getElementById('discountDisplay').textContent = dinvMoney(discount);
         document.getElementById('paidDisplay').textContent = dinvMoney(paid);
         document.getElementById('dueDisplay').textContent = dinvMoney(due);
         document.getElementById('itemsJson').value = JSON.stringify(cart.map(i => ({ productVariantId: i.productVariantId, quantity: i.quantity, buyingPrice: i.buyingPrice })));
@@ -247,6 +260,29 @@
     });
 
     document.getElementById('paidAmount').addEventListener('input', recalculateTotals);
+    document.getElementById('discount').addEventListener('input', recalculateTotals);
+
+    // ---- Filterable product/size/color picker ------------------------------
+    document.getElementById('variantFilter').addEventListener('input', (e) => {
+        const term = e.target.value.trim().toLowerCase();
+        const select = document.getElementById('variantSelect');
+        Array.from(select.options).forEach((opt) => {
+            if (!opt.value) return; // keep the placeholder option always visible
+            const haystack = opt.dataset.search || opt.textContent.toLowerCase();
+            opt.hidden = term.length > 0 && !haystack.includes(term);
+        });
+    });
+
+    // ---- Filterable supplier picker -----------------------------------------
+    document.getElementById('supplierFilter').addEventListener('input', (e) => {
+        const term = e.target.value.trim().toLowerCase();
+        const select = document.getElementById('supplierSelect');
+        Array.from(select.options).forEach((opt) => {
+            if (!opt.value) return;
+            const haystack = opt.dataset.search || opt.textContent.toLowerCase();
+            opt.hidden = term.length > 0 && !haystack.includes(term);
+        });
+    });
 
     renderCart();
 </script>

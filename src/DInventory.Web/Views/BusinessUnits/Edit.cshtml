@@ -13,8 +13,12 @@
                 <input class="form-control" value="@Model.CompanyName" readonly />
             </div>
             <div class="mb-3">
-                <label class="form-label">Business Unit Name</label>
+                <label class="form-label">Business Unit Name <span class="text-danger">*</span></label>
                 <input asp-for="BusinessUnitName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Address</label>
+                <textarea asp-for="Address" class="form-control" rows="2"></textarea>
             </div>
             <div class="form-check mb-3">
                 <input asp-for="IsActive" class="form-check-input" />

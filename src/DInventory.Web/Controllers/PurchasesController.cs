@@ -55,7 +55,7 @@ public class PurchasesController : Controller
         ViewData["SupplierId"] = supplierId;
         ViewData["CompanyId"] = effectiveCompanyId;
         ViewData["BusinessUnitId"] = businessUnitId;
-        ViewBag.Suppliers = await _supplierService.GetAllAsync(onlyActive: true);
+        ViewBag.Suppliers = await _supplierService.GetAllAsync(effectiveCompanyId, onlyActive: true);
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
 
         ViewBag.BusinessUnits = effectiveCompanyId > 0
@@ -99,7 +99,7 @@ public class PurchasesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("PURCHASES", PermissionAction.Create)]
-    public async Task<IActionResult> Create(int supplierId, decimal paidAmount, string? remarks, string itemsJson)
+    public async Task<IActionResult> Create(int supplierId, decimal paidAmount, decimal discount, string? remarks, string itemsJson)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
@@ -118,6 +118,7 @@ public class PurchasesController : Controller
         {
             SupplierId = supplierId,
             PaidAmount = paidAmount,
+            Discount = discount,
             Remarks = remarks
         };
 
@@ -185,8 +186,11 @@ public class PurchasesController : Controller
 
     private async Task PopulateFormDataAsync()
     {
-        var variantsPage = await _productVariantService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 500 }, onlyActive: true);
+        // Manual fallback dropdown - scoped to whichever company is currently selected in the navbar
+        // so a purchase can only ever be receipted against that company's own products/suppliers.
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var variantsPage = await _productVariantService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 500 }, effectiveCompanyId, onlyActive: true);
         ViewBag.Variants = variantsPage.Items;
-        ViewBag.Suppliers = await _supplierService.GetAllAsync(onlyActive: true);
+        ViewBag.Suppliers = await _supplierService.GetAllAsync(effectiveCompanyId, onlyActive: true);
     }
 }
