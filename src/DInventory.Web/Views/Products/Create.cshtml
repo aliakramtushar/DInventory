@@ -3,12 +3,20 @@
     ViewData["Title"] = "New Product";
     var sizes = (IEnumerable<DInventory.Domain.Entities.Size>)ViewBag.Sizes;
     var colors = (IEnumerable<DInventory.Domain.Entities.Color>)ViewBag.Colors;
+    bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating a product - "All Companies" can't own one.
+            </div>
+        }
         <form method="post" enctype="multipart/form-data" id="productForm">
             <h6 class="text-muted text-uppercase small mb-3">Style Details</h6>
+            <input asp-for="CompanyId" type="hidden" />
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Product Code (leave blank to auto-generate)</label>
@@ -125,7 +133,7 @@
             </template>
 
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Create Product</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create Product</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

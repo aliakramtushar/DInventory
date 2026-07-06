@@ -8,6 +8,10 @@ public class PurchaseReturn
     public int PurchaseReturnId { get; set; }
     public string ReturnNo { get; set; } = string.Empty;
     public int PurchaseId { get; set; }
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public DateTime ReturnDate { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Reason { get; set; }

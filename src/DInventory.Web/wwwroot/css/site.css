@@ -3,10 +3,112 @@
     --erp-sidebar-bg: #101828;
     --erp-sidebar-bg-hover: #1d2939;
     --erp-primary: #0d6efd;
+    --erp-primary-dark: #0a58ca;
+    --erp-success: #12b76a;
+    --erp-danger: #f04438;
+    --erp-warning: #f79009;
+    --erp-info: #0dcaf0;
+    --erp-text-muted: #667085;
+    --erp-border: #eaecf0;
+    --erp-radius: 0.75rem;
+    --erp-radius-sm: 0.5rem;
+    --erp-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+    --erp-shadow: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+    --bs-body-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
-    background-color: #f4f6f9;
+    background-color: #f7f8fa;
+    font-family: var(--bs-body-font-family);
+    color: #1d2939;
+}
+
+/* ---------- Professional-polish overrides (applied globally, every page) ---------- */
+
+.card {
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius);
+    box-shadow: var(--erp-shadow-sm);
+}
+
+.card-header {
+    border-bottom: 1px solid var(--erp-border);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.card-header.bg-white {
+    border-top-left-radius: var(--erp-radius) !important;
+    border-top-right-radius: var(--erp-radius) !important;
+}
+
+.btn {
+    border-radius: var(--erp-radius-sm);
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: var(--erp-primary);
+    border-color: var(--erp-primary);
+    box-shadow: 0 1px 2px rgba(13, 110, 253, 0.25);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background: var(--erp-primary-dark);
+    border-color: var(--erp-primary-dark);
+}
+
+.form-control, .form-select {
+    border-radius: var(--erp-radius-sm);
+    border-color: #d0d5dd;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--erp-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.badge {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.table {
+    --bs-table-color: #344054;
+}
+
+.table thead th {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--erp-text-muted);
+    background-color: #f9fafb;
+    border-bottom-width: 1px;
+    white-space: nowrap;
+}
+
+.table > :not(caption) > * > * {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 
 /* ---------- ERP admin shell ---------- */
@@ -98,7 +200,8 @@ body {
     top: 0;
     z-index: 1020;
     background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--erp-border);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
     padding: 0.75rem 1.5rem;
     display: flex;
     align-items: center;
@@ -123,11 +226,16 @@ body {
 }
 
 .kpi-card {
-    transition: transform 0.15s ease-in-out;
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .kpi-card:hover {
     transform: translateY(-2px);
+    box-shadow: var(--erp-shadow) !important;
+}
+
+.erp-brand i {
+    filter: drop-shadow(0 0 6px rgba(13, 110, 253, 0.45));
 }
 
 .setup-tile {

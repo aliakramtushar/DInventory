@@ -25,6 +25,8 @@ public class CurrentUserService : ICurrentUserService
 
         var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var roleIdClaim = user.FindFirst("roleId")?.Value;
+        var companyIdClaim = user.FindFirst("companyId")?.Value;
+        var businessUnitIdClaim = user.FindFirst("businessUnitId")?.Value;
 
         return new CurrentUser
         {
@@ -34,6 +36,9 @@ public class CurrentUserService : ICurrentUserService
             FullName = user.FindFirst("fullName")?.Value ?? string.Empty,
             RoleId = int.TryParse(roleIdClaim, out var roleId) ? roleId : 0,
             RoleName = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty,
+            CompanyId = int.TryParse(companyIdClaim, out var companyId) ? companyId : 0,
+            BusinessUnitId = int.TryParse(businessUnitIdClaim, out var businessUnitId) && businessUnitId > 0 ? businessUnitId : null,
+            CompanyName = user.FindFirst("companyName")?.Value ?? string.Empty,
             IpAddress = httpContext?.Connection?.RemoteIpAddress?.ToString()
         };
     }

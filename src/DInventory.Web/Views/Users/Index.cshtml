@@ -4,6 +4,13 @@
 }
 <div class="d-flex justify-content-between align-items-center mb-3">
     <form class="d-flex gap-2" method="get">
+        <select name="businessUnitId" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All Business Units</option>
+            @foreach (var bu in (IEnumerable<DInventory.Domain.Entities.BusinessUnit>)ViewBag.BusinessUnits)
+            {
+                <option value="@bu.BusinessUnitId" selected="@(ViewData["BusinessUnitId"]?.ToString() == bu.BusinessUnitId.ToString())">@bu.BusinessUnitName</option>
+            }
+        </select>
         <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search users..." />
         <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
     </form>
@@ -14,13 +21,13 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th class="text-end">Actions</th>
+                    <th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Company</th><th>Business Unit</th><th>Status</th><th>Last Login</th><th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @if (!Model.Items.Any())
                 {
-                    <tr><td colspan="7" class="text-center text-muted py-4">No users found.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">No users found.</td></tr>
                 }
                 @foreach (var user in Model.Items)
                 {
@@ -29,6 +36,8 @@
                         <td>@user.Username</td>
                         <td>@user.Email</td>
                         <td><span class="badge text-bg-secondary">@user.RoleName</span></td>
+                        <td>@(user.CompanyName ?? "-")</td>
+                        <td>@(user.BusinessUnitName ?? "-")</td>
                         <td>
                             @if (user.IsActive)
                             {
@@ -89,7 +98,7 @@
                 TotalPages = Model.TotalPages,
                 HasPreviousPage = Model.HasPreviousPage,
                 HasNextPage = Model.HasNextPage,
-                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()))
+                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()), ("businessUnitId", ViewData["BusinessUnitId"]?.ToString()))
             })
         </div>
     }

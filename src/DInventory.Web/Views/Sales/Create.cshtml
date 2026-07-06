@@ -2,6 +2,15 @@
     ViewData["Title"] = "New Sale";
     var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
     var customers = (IEnumerable<DInventory.Domain.Entities.Customer>)ViewBag.Customers;
+    bool isSuperCompany = ViewBag.IsSuperCompany ?? false;
+    int effectiveCompanyId = ViewBag.EffectiveCompanyId ?? 0;
+    bool canCreateSale = !isSuperCompany || effectiveCompanyId > 0;
+}
+@if (!canCreateSale)
+{
+    <div class="alert alert-warning">
+        Select a company from the <strong>Company</strong> dropdown in the top navigation bar before recording a sale - "All Companies" can't own a sale.
+    </div>
 }
 <div class="row g-3">
     <div class="col-lg-7">
@@ -66,13 +75,20 @@
                             <option value="">-- Walk-in customer --</option>
                             @foreach (var c in customers)
                             {
-                                <option value="@c.CustomerId">@c.CustomerName</option>
+                                <option value="@c.CustomerId">@c.CustomerName@(string.IsNullOrWhiteSpace(c.Phone) ? "" : $" ({c.Phone})")</option>
                             }
                         </select>
+                        <div class="form-text">Type to search by name or mobile number.</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Or new customer name</label>
-                        <input name="newCustomerName" id="newCustomerNameInput" class="form-control" placeholder="Optional" />
+                    <div class="row g-2 mb-3">
+                        <div class="col-7">
+                            <label class="form-label">Or new customer name</label>
+                            <input name="newCustomerName" id="newCustomerNameInput" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label">Mobile No</label>
+                            <input name="newCustomerMobile" id="newCustomerMobileInput" class="form-control" placeholder="Optional" />
+                        </div>
                     </div>
                     <div id="loyaltyBox" class="mb-3 d-none">
                         <label class="form-label">Redeem Loyalty Points <span id="loyaltyBalanceLabel" class="text-muted small"></span></label>
@@ -128,7 +144,7 @@
                         <tr><td>Net Total</td><td class="text-end fw-bold" id="netTotalDisplay">৳0.00</td></tr>
                     </table>
 
-                    <button type="submit" id="submitSaleBtn" class="btn btn-success w-100" disabled>Complete Sale</button>
+                    <button type="submit" id="submitSaleBtn" class="btn btn-success w-100" disabled="@(!canCreateSale)">Complete Sale</button>
                 </form>
             </div>
         </div>

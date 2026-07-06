@@ -25,10 +25,10 @@ public class PurchaseService : IPurchaseService
 
     public Task<Purchase?> GetByIdAsync(int purchaseId) => _purchaseRepository.GetByIdAsync(purchaseId);
 
-    public Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int? supplierId = null)
-        => _purchaseRepository.GetPagedAsync(request, supplierId);
+    public Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null, int? supplierId = null)
+        => _purchaseRepository.GetPagedAsync(request, companyId, businessUnitId, supplierId);
 
-    public async Task<Result<int>> CreateAsync(CreatePurchaseRequest request, int actingUserId)
+    public async Task<Result<int>> CreateAsync(CreatePurchaseRequest request, int actingUserId, int companyId, int? businessUnitId)
     {
         if (request.Items is null || request.Items.Count == 0)
         {
@@ -69,6 +69,8 @@ public class PurchaseService : IPurchaseService
             TotalAmount = totalAmount,
             PaidAmount = request.PaidAmount,
             Remarks = request.Remarks,
+            CompanyId = companyId,
+            BusinessUnitId = businessUnitId,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = actingUserId,
             Items = request.Items.Select(i => new PurchaseItem

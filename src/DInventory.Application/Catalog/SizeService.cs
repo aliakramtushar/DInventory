@@ -15,9 +15,9 @@ public class SizeService : ISizeService
 
     public Task<Size?> GetByIdAsync(int sizeId) => _sizeRepository.GetByIdAsync(sizeId);
 
-    public Task<IEnumerable<Size>> GetAllAsync(bool onlyActive = false) => _sizeRepository.GetAllAsync(onlyActive);
+    public Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false) => _sizeRepository.GetAllAsync(companyId, onlyActive);
 
-    public Task<PagedResult<Size>> GetPagedAsync(PagedRequest request) => _sizeRepository.GetPagedAsync(request);
+    public Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId) => _sizeRepository.GetPagedAsync(request, companyId);
 
     public async Task<Result<int>> CreateAsync(Size size, int? actingUserId)
     {
@@ -26,7 +26,7 @@ public class SizeService : ISizeService
             return Result<int>.Failure("Size name is required.");
         }
 
-        if (await _sizeRepository.NameExistsAsync(size.SizeName))
+        if (await _sizeRepository.NameExistsAsync(size.CompanyId, size.SizeName))
         {
             return Result<int>.Failure("This size already exists.");
         }
@@ -45,7 +45,7 @@ public class SizeService : ISizeService
             return Result.Failure("Size not found.");
         }
 
-        if (await _sizeRepository.NameExistsAsync(size.SizeName, size.SizeId))
+        if (await _sizeRepository.NameExistsAsync(existing.CompanyId, size.SizeName, size.SizeId))
         {
             return Result.Failure("This size already exists.");
         }

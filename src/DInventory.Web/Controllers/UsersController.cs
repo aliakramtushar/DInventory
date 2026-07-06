@@ -3,6 +3,7 @@ using DInventory.Application.Auth;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Roles;
+using DInventory.Application.Tenancy;
 using DInventory.Application.Users;
 using DInventory.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -16,56 +17,93 @@ public class UsersController : Controller
     private readonly IUserService _userService;
     private readonly IRoleService _roleService;
     private readonly IAuthService _authService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
 
     public UsersController(
         IUserService userService,
         IRoleService roleService,
         IAuthService authService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
         IAuditLogService auditLogService)
     {
         _userService = userService;
         _roleService = roleService;
         _authService = authService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(string? search, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? businessUnitId, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
+        // effectiveCompanyId 0 (SuperAdmin still on "All Companies") means "no company filter" for
+        // this paged query, same as the old (companyId: null) behavior.
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _userService.GetPagedAsync(request);
+        var result = await _userService.GetPagedAsync(request, effectiveCompanyId > 0 ? effectiveCompanyId : null, businessUnitId);
 
         ViewData["Search"] = search;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<BusinessUnit>();
+
         return View(result);
     }
 
     [HttpGet]
     public async Task<IActionResult> Create()
     {
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
         await PopulateRolesAsync();
-        return View(new User());
+        await PopulateCompaniesAsync(effectiveCompanyId);
+        return View(new User { CompanyId = effectiveCompanyId });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(User model, string password)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+
+        // Which company this new user belongs to always comes from the global Company selector in
+        // the top navbar now - never from a per-page picker. A company-level admin was already
+        // pinned to their own company; a SuperAdmin must pick a real company in the navbar first.
+        model.CompanyId = effectiveCompanyId;
+
+        if (model.CompanyId <= 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a user.");
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateRolesAsync();
+            await PopulateCompaniesAsync(effectiveCompanyId, model.CompanyId);
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _userService.CreateAsync(model, password, currentUser.UserId);
 
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to create user.");
             await PopulateRolesAsync();
+            await PopulateCompaniesAsync(effectiveCompanyId, model.CompanyId);
             return View(model);
         }
 
@@ -83,7 +121,14 @@ public class UsersController : Controller
             return NotFound();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && user.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         await PopulateRolesAsync();
+        await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), user.CompanyId, isEdit: true, currentUser: currentUser);
         return View(user);
     }
 
@@ -91,19 +136,28 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(User model)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany)
+        {
+            // Same guard as Create - a company admin can't move a user to another company or to
+            // the superuser company, even by tampering with the (hidden, for them) form field.
+            model.CompanyId = currentUser.CompanyId;
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateRolesAsync();
+            await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), model.CompanyId, isEdit: true, currentUser: currentUser);
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _userService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to update user.");
             await PopulateRolesAsync();
+            await PopulateCompaniesAsync(_companyContextService.GetEffectiveCompanyId(), model.CompanyId, isEdit: true, currentUser: currentUser);
             return View(model);
         }
 
@@ -178,5 +232,27 @@ public class UsersController : Controller
     private async Task PopulateRolesAsync()
     {
         ViewBag.Roles = await _roleService.GetAllAsync();
+    }
+
+    /// <summary>Populates the Business Unit list for the Create/Edit form. Which company a new user
+    /// belongs to now always comes from the global Company selector in the top navbar - this only
+    /// resolves which company's business units to list: the record's own CompanyId for Edit, or the
+    /// effective navbar company for Create.
+    /// <paramref name="effectiveCompanyId"/> is the globally-selected company (0 = SuperAdmin still
+    /// on "All Companies"). <paramref name="businessUnitCompanyId"/> is which company's business
+    /// units to list - the record's own CompanyId for Edit, or the effective company for Create.</summary>
+    private async Task PopulateCompaniesAsync(int effectiveCompanyId, int? businessUnitCompanyId = null, bool isEdit = false, CurrentUser? currentUser = null)
+    {
+        ViewBag.IsSuperCompany = _companyContextService.IsSuperCompany;
+        var companyIdForUnits = businessUnitCompanyId ?? effectiveCompanyId;
+
+        if (!_companyContextService.IsSuperCompany)
+        {
+            ViewBag.CurrentCompanyName = currentUser?.CompanyName;
+        }
+
+        ViewBag.BusinessUnits = companyIdForUnits > 0
+            ? await _businessUnitService.GetAllAsync(companyIdForUnits, onlyActive: true)
+            : Enumerable.Empty<BusinessUnit>();
     }
 }

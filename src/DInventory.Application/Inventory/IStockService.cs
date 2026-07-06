@@ -5,8 +5,8 @@ namespace DInventory.Application.Inventory;
 
 public interface IStockService
 {
-    Task<IEnumerable<Stock>> GetAllAsync(bool onlyLowStock = false, string? search = null);
-    Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, bool onlyLowStock = false);
+    Task<IEnumerable<Stock>> GetAllAsync(int companyId, bool onlyLowStock = false, string? search = null);
+    Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false);
     Task<Stock?> GetByVariantIdAsync(int productVariantId);
     Task<IEnumerable<StockTransaction>> GetTransactionsAsync(int productVariantId);
 

@@ -4,6 +4,7 @@ public class CreateSaleRequest
 {
     public int? CustomerId { get; set; }
     public string? NewCustomerName { get; set; }
+    public string? NewCustomerMobile { get; set; }
 
     /// <summary>Overall bill discount, entered as either "PERCENT" (of the post-line-discount
     /// subtotal) or "FIXED" (a flat amount). The actual money value is computed server-side in

@@ -1,7 +1,90 @@
 @model DInventory.Application.Common.Models.DashboardStats
 @{
     ViewData["Title"] = "Dashboard";
+    var rangeLabels = new Dictionary<string, string>
+    {
+        ["today"] = "Today",
+        ["7day"] = "Last 7 Days",
+        ["1month"] = "Last 1 Month",
+        ["1year"] = "Last 1 Year"
+    };
+    var rangeLabel = rangeLabels.TryGetValue(Model.Range, out var lbl) ? lbl : "Today";
+    var avgOrderValue = Model.TotalOrders > 0 ? Model.RangeSales / Model.TotalOrders : 0m;
 }
+
+<div class="row g-3 mb-4 align-items-stretch">
+    <div class="col-lg-9">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small text-muted mb-1">Date Range</label>
+                        <select name="range" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="today" selected="@(Model.Range == "today")">Today</option>
+                            <option value="7day" selected="@(Model.Range == "7day")">7 Days</option>
+                            <option value="1month" selected="@(Model.Range == "1month")">1 Month</option>
+                            <option value="1year" selected="@(Model.Range == "1year")">1 Year</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <a asp-controller="Sales" asp-action="Create" class="btn btn-primary btn-pos w-100 h-100 shadow-sm d-flex align-items-center justify-content-center gap-2">
+            <i class="bi bi-cash-coin fs-4"></i>
+            <span class="fw-bold">POS</span>
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-2">
+    <div class="col-12">
+        <h6 class="text-muted text-uppercase small mb-0">@rangeLabel Overview</h6>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card border-start border-primary border-4 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Sales (@rangeLabel)</div>
+                <div class="fs-4 fw-semibold">@Model.RangeSales.ToMoney()</div>
+                @if (Model.RangeGrowthPercent.HasValue)
+                {
+                    var growthUp = Model.RangeGrowthPercent.Value >= 0;
+                    <div class="small fw-semibold @(growthUp ? "text-success" : "text-danger")">
+                        <i class="bi @(growthUp ? "bi-arrow-up-right" : "bi-arrow-down-right")"></i>
+                        @Math.Abs(Model.RangeGrowthPercent.Value)% vs previous period
+                    </div>
+                }
+                <div class="text-muted small">Avg order: @avgOrderValue.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card border-start border-success border-4 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Total Orders</div>
+                <div class="fs-4 fw-semibold">@Model.TotalOrders</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card border-start border-info border-4 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Total Product Sold</div>
+                <div class="fs-4 fw-semibold">@Model.TotalProductSold</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card border-start border-warning border-4 shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Profit (@rangeLabel)</div>
+                <div class="fs-4 fw-semibold @(Model.RangeProfit >= 0 ? "" : "text-danger")">@Model.RangeProfit.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
         <div class="card kpi-card border-start border-primary border-4 shadow-sm">
@@ -33,22 +116,6 @@
             <div class="card-body">
                 <div class="text-muted small">This Year</div>
                 <div class="fs-4 fw-semibold">@Model.YearSales.ToMoney()</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card kpi-card border-start border-success border-4 shadow-sm">
-            <div class="card-body">
-                <div class="text-muted small">Today's Profit</div>
-                <div class="fs-4 fw-semibold @(Model.TodayProfit >= 0 ? "" : "text-danger")">@Model.TodayProfit.ToMoney()</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card kpi-card border-start border-info border-4 shadow-sm">
-            <div class="card-body">
-                <div class="text-muted small">Cash in Hand</div>
-                <div class="fs-4 fw-semibold">@Model.CashInHand.ToMoney()</div>
             </div>
         </div>
     </div>
@@ -91,16 +158,17 @@
     <div class="col-sm-6 col-xl-3">
         <div class="card shadow-sm">
             <div class="card-body d-flex align-items-center gap-3">
-                <i class="bi bi-cart-check fs-2 text-info"></i>
+                <i class="bi bi-wallet2 fs-2 text-info"></i>
                 <div>
-                    <a asp-controller="Sales" asp-action="Create" class="btn btn-sm btn-primary">New Sale</a>
+                    <div class="fs-5 fw-semibold">@Model.CashInHand.ToMoney()</div>
+                    <div class="text-muted small">Cash in Hand (today)</div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row g-3">
+<div class="row g-3 mb-4">
     <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
@@ -118,29 +186,72 @@
         </div>
     </div>
     <div class="col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white fw-semibold">Top Products (This Month)</div>
-            <ul class="list-group list-group-flush">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">Top Selling Products</div>
+            <div class="card-body">
                 @if (!Model.TopProducts.Any())
                 {
-                    <li class="list-group-item text-muted small">No sales recorded yet this month.</li>
+                    <p class="text-muted small mb-0">No sales recorded yet this month.</p>
                 }
-                @foreach (var product in Model.TopProducts)
+                else
                 {
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>@product.ProductName</span>
-                        <span class="text-muted small">@product.QuantitySold units &middot; @product.Revenue.ToMoney()</span>
-                    </li>
+                    <canvas id="topProductsChart" height="180"></canvas>
                 }
-            </ul>
+            </div>
+            @if (Model.TopProducts.Any())
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var product in Model.TopProducts)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>@product.ProductName</span>
+                            <span class="text-muted small">@product.QuantitySold units &middot; @product.Revenue.ToMoney()</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Monthly Sales Growth (Last 6 Months)</div>
+            <div class="card-body">
+                @if (Model.MonthlyTrend.Any(p => p.Total > 0))
+                {
+                    <canvas id="monthlyGrowthChart" height="90"></canvas>
+                }
+                else
+                {
+                    <p class="text-muted small mb-0">Not enough sales history yet to chart monthly growth.</p>
+                }
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
+    <style>
+        .btn-pos {
+            min-height: 62px;
+            font-size: 1rem;
+            border-radius: 0.6rem;
+            background: linear-gradient(135deg, #0d6efd, #0a58ca);
+            border: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .btn-pos:hover, .btn-pos:focus {
+            background: linear-gradient(135deg, #0b5ed7, #0a53be);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+    </style>
     <script src="~/lib/chartjs/chart.umd.min.js" asp-append-version="true"></script>
     <script>
         const initialTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Trend));
+        const dashboardBusinessUnitId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((int?)ViewData["BusinessUnitId"]));
 
         const ctx = document.getElementById('salesTrendChart').getContext('2d');
         const chart = new Chart(ctx, {
@@ -165,7 +276,8 @@
 
         document.getElementById('rangeSelect').addEventListener('change', async (e) => {
             try {
-                const response = await dinvFetch(`/api/dashboard/trend?range=${e.target.value}`);
+                const buParam = dashboardBusinessUnitId ? `&businessUnitId=${dashboardBusinessUnitId}` : '';
+                const response = await dinvFetch(`/api/dashboard/trend?range=${e.target.value}${buParam}`);
                 if (!response.ok) return;
                 const points = await response.json();
                 chart.data.labels = points.map(p => p.label);
@@ -175,5 +287,54 @@
                 console.error('Failed to load trend data', err);
             }
         });
+
+        const topProductsCanvas = document.getElementById('topProductsChart');
+        if (topProductsCanvas) {
+            const topProducts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopProducts));
+            const palette = ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1', '#e83e8c', '#0dcaf0'];
+            new Chart(topProductsCanvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: topProducts.map(p => p.productName),
+                    datasets: [{
+                        data: topProducts.map(p => p.revenue),
+                        backgroundColor: topProducts.map((_, i) => palette[i % palette.length]),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        const monthlyGrowthCanvas = document.getElementById('monthlyGrowthChart');
+        if (monthlyGrowthCanvas) {
+            const monthlyTrend = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyTrend));
+            const totals = monthlyTrend.map(p => p.total);
+            const barColors = totals.map((t, i) => {
+                if (i === 0) return '#94a3b8';
+                return t >= totals[i - 1] ? '#20c997' : '#dc3545';
+            });
+            new Chart(monthlyGrowthCanvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: monthlyTrend.map(p => p.label),
+                    datasets: [{
+                        label: 'Monthly Sales',
+                        data: totals,
+                        backgroundColor: barColors,
+                        borderRadius: 6,
+                        maxBarThickness: 56
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
     </script>
 }

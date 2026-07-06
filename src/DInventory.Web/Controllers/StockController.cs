@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Inventory;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -15,22 +16,30 @@ public class StockController : Controller
 {
     private readonly IStockService _stockService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public StockController(IStockService stockService, ICurrentUserService currentUserService, IAuditLogService auditLogService)
+    public StockController(IStockService stockService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IAuditLogService auditLogService)
     {
         _stockService = stockService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(bool onlyLowStock = false, string? search = null, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _stockService.GetPagedAsync(request, onlyLowStock);
+        var result = await _stockService.GetPagedAsync(request, effectiveCompanyId, onlyLowStock);
 
         ViewData["OnlyLowStock"] = onlyLowStock;
         ViewData["Search"] = search;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
         return View(result);
     }
 
@@ -102,7 +111,8 @@ public class StockController : Controller
         // Reuse the same barcode resolution the adjustment itself will use, but with quantity 0 /
         // no-op semantics isn't available here, so we look the variant up through the stock row
         // returned once we know the barcode resolves - simplest is to just try a 0 quantity guard.
-        var stock = await _stockService.GetAllAsync(search: barcode);
+        var currentUser = _currentUserService.GetCurrentUser();
+        var stock = await _stockService.GetAllAsync(currentUser.CompanyId, search: barcode);
         var match = stock.FirstOrDefault(s => string.Equals(s.Barcode, barcode.Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (match is null)

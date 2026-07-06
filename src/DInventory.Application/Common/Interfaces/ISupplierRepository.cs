@@ -8,7 +8,7 @@ public interface ISupplierRepository
     Task<Supplier?> GetByIdAsync(int supplierId);
     Task<Supplier?> GetByIdWithDueAsync(int supplierId);
     Task<IEnumerable<Supplier>> GetAllAsync(bool onlyActive = false);
-    Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, bool onlyActive = false);
+    Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false);
     Task<int> CreateAsync(Supplier supplier);
     Task<bool> UpdateAsync(Supplier supplier);
     Task<bool> DeleteAsync(int supplierId);

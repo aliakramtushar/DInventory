@@ -15,6 +15,19 @@ var builder = WebApplication.CreateBuilder(args);
 // MVC + Razor views
 builder.Services.AddControllersWithViews();
 
+// Distributed (in-memory) session store, used only to persist a SuperAdmin's globally selected
+// company (see ICompanyContextService) across pages for the rest of their login. Non-SuperAdmin
+// users never touch this - they're always pinned to their own company from the auth claims.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.Name = "dinv_session";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.IdleTimeout = TimeSpan.FromHours(8);
+});
+
 // Application layer (use cases / business rules) + Infrastructure layer (Dapper repos, JWT, email, hashing)
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -146,6 +159,10 @@ app.UseSwaggerUI(options =>
 });
 
 app.UseRouting();
+
+// Must come after UseRouting and before anything that reads/writes ICompanyContextService's
+// session-backed selection (controllers, view components) - i.e. before auth/endpoints.
+app.UseSession();
 
 app.UseAuthentication();
 app.UseAuthorization();

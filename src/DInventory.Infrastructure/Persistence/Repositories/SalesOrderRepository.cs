@@ -20,12 +20,14 @@ public class SalesOrderRepository : ISalesOrderRepository
                so.DiscountType, so.DiscountValue, so.DiscountAmount,
                so.TaxAmount, so.NetAmount, so.PaymentStatus, so.PaymentMethod, so.Status, so.Remarks,
                so.LoyaltyPointsEarned, so.LoyaltyPointsRedeemed, so.LoyaltyRedeemAmount,
+               so.CompanyId, so.BusinessUnitId,
                so.CreatedAt, so.CreatedBy,
-               c.CustomerName, u.FullName AS CreatedByName,
+               c.CustomerName, u.FullName AS CreatedByName, comp.CompanyName,
                ISNULL(sr.ReturnedAmount, 0) AS ReturnedAmount
         FROM dbo.SalesOrders so
         LEFT JOIN dbo.Customers c ON c.CustomerId = so.CustomerId
         INNER JOIN dbo.Users u ON u.UserId = so.CreatedBy
+        LEFT JOIN dbo.Companies comp ON comp.CompanyId = so.CompanyId
         OUTER APPLY (
             SELECT SUM(r.NetAmount) AS ReturnedAmount FROM dbo.SalesReturns r WHERE r.SalesOrderId = so.SalesOrderId
         ) sr";
@@ -69,12 +71,14 @@ public class SalesOrderRepository : ISalesOrderRepository
         return order;
     }
 
-    public async Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null)
+    public async Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR so.InvoiceNo LIKE @pattern OR c.CustomerName LIKE @pattern)
+            WHERE (@companyId = 0 OR so.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR so.BusinessUnitId = @businessUnitId)
+              AND (@search IS NULL OR so.InvoiceNo LIKE @pattern OR c.CustomerName LIKE @pattern)
               AND (@fromDate IS NULL OR so.SaleDate >= @fromDate)
               AND (@toDate IS NULL OR so.SaleDate < @toDate)";
 
@@ -90,6 +94,8 @@ public class SalesOrderRepository : ISalesOrderRepository
 
         var parameters = new
         {
+            companyId,
+            businessUnitId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             fromDate,
@@ -138,11 +144,11 @@ public class SalesOrderRepository : ISalesOrderRepository
         const string headerSql = @"
             INSERT INTO dbo.SalesOrders (InvoiceNo, CustomerId, SaleDate, SubTotal, DiscountType, DiscountValue, DiscountAmount, TaxAmount,
                                           NetAmount, PaymentStatus, PaymentMethod, Status, Remarks,
-                                          LoyaltyPointsEarned, LoyaltyPointsRedeemed, LoyaltyRedeemAmount, CreatedAt, CreatedBy)
+                                          LoyaltyPointsEarned, LoyaltyPointsRedeemed, LoyaltyRedeemAmount, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SalesOrderId
             VALUES (@InvoiceNo, @CustomerId, @SaleDate, @SubTotal, @DiscountType, @DiscountValue, @DiscountAmount, @TaxAmount,
                     @NetAmount, @PaymentStatus, @PaymentMethod, @Status, @Remarks,
-                    @LoyaltyPointsEarned, @LoyaltyPointsRedeemed, @LoyaltyRedeemAmount, @CreatedAt, @CreatedBy)";
+                    @LoyaltyPointsEarned, @LoyaltyPointsRedeemed, @LoyaltyRedeemAmount, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
 
         var salesOrderId = await connection.ExecuteScalarAsync<int>(headerSql, order, transaction);
 
@@ -178,25 +184,42 @@ public class SalesOrderRepository : ISalesOrderRepository
         return $"INV-{nextNumber:D6}";
     }
 
-    public async Task<decimal> GetSalesTotalAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<decimal> GetSalesTotalAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT ISNULL(SUM(NetAmount), 0) FROM dbo.SalesOrders
-            WHERE Status = 'COMPLETED' AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive";
-        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive });
+            WHERE Status = 'COMPLETED' AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
     }
 
-    public async Task<int> GetOrderCountAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<int> GetOrderCountAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT COUNT(1) FROM dbo.SalesOrders
-            WHERE Status = 'COMPLETED' AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive";
-        return await connection.ExecuteScalarAsync<int>(sql, new { fromDate, toDateExclusive });
+            WHERE Status = 'COMPLETED' AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<int>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
     }
 
-    public async Task<IEnumerable<SalesSummaryPoint>> GetSalesTrendAsync(DateTime fromDate, DateTime toDateExclusive, TrendGranularity granularity)
+    public async Task<int> GetTotalQuantitySoldAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT ISNULL(SUM(soi.Quantity), 0)
+            FROM dbo.SalesOrderItems soi
+            INNER JOIN dbo.SalesOrders so ON so.SalesOrderId = soi.SalesOrderId
+            WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR so.BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<int>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
+    }
+
+    public async Task<IEnumerable<SalesSummaryPoint>> GetSalesTrendAsync(DateTime fromDate, DateTime toDateExclusive, TrendGranularity granularity, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -213,10 +236,12 @@ public class SalesOrderRepository : ISalesOrderRepository
             SELECT {groupExpr} AS GroupDate, SUM(NetAmount) AS Total, COUNT(1) AS OrderCount
             FROM dbo.SalesOrders
             WHERE Status = 'COMPLETED' AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)
             GROUP BY {groupExpr}
             ORDER BY GroupDate";
 
-        var rows = await connection.QueryAsync<(DateTime GroupDate, decimal Total, int OrderCount)>(sql, new { fromDate, toDateExclusive });
+        var rows = await connection.QueryAsync<(DateTime GroupDate, decimal Total, int OrderCount)>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
 
         return rows.Select(r => new SalesSummaryPoint
         {
@@ -235,7 +260,7 @@ public class SalesOrderRepository : ISalesOrderRepository
         _ => date.ToString("MMM dd")
     };
 
-    public async Task<IEnumerable<SalesReportRow>> GetReportRowsAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<IEnumerable<SalesReportRow>> GetReportRowsAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -245,11 +270,12 @@ public class SalesOrderRepository : ISalesOrderRepository
             LEFT JOIN dbo.Customers c ON c.CustomerId = so.CustomerId
             INNER JOIN dbo.Users u ON u.UserId = so.CreatedBy
             WHERE so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
             ORDER BY so.SaleDate DESC";
-        return await connection.QueryAsync<SalesReportRow>(sql, new { fromDate, toDateExclusive });
+        return await connection.QueryAsync<SalesReportRow>(sql, new { fromDate, toDateExclusive, companyId });
     }
 
-    public async Task<IEnumerable<TopProduct>> GetTopProductsAsync(DateTime fromDate, DateTime toDateExclusive, int take = 5)
+    public async Task<IEnumerable<TopProduct>> GetTopProductsAsync(DateTime fromDate, DateTime toDateExclusive, int take = 5, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -259,9 +285,11 @@ public class SalesOrderRepository : ISalesOrderRepository
             INNER JOIN dbo.ProductVariants pv ON pv.ProductVariantId = soi.ProductVariantId
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
             WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR so.BusinessUnitId = @businessUnitId)
             GROUP BY p.ProductName
             ORDER BY SUM(soi.LineTotal) DESC";
-        return await connection.QueryAsync<TopProduct>(sql, new { fromDate, toDateExclusive, take });
+        return await connection.QueryAsync<TopProduct>(sql, new { fromDate, toDateExclusive, take, companyId, businessUnitId });
     }
 
     public async Task<bool> CancelAsync(int salesOrderId)
@@ -272,7 +300,7 @@ public class SalesOrderRepository : ISalesOrderRepository
         return rows > 0;
     }
 
-    public async Task<decimal> GetProfitTotalAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<decimal> GetProfitTotalAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -282,21 +310,25 @@ public class SalesOrderRepository : ISalesOrderRepository
             INNER JOIN dbo.ProductVariants pv ON pv.ProductVariantId = soi.ProductVariantId
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
             LEFT JOIN dbo.Price pr ON pr.ProductId = p.ProductId AND pr.IsActive = 1
-            WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive";
-        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive });
+            WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR so.BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive, companyId, businessUnitId });
     }
 
-    public async Task<decimal> GetSalesTotalByMethodAsync(DateTime fromDate, DateTime toDateExclusive, string paymentMethod)
+    public async Task<decimal> GetSalesTotalByMethodAsync(DateTime fromDate, DateTime toDateExclusive, string paymentMethod, int companyId = 0, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT ISNULL(SUM(NetAmount), 0) FROM dbo.SalesOrders
             WHERE Status = 'COMPLETED' AND PaymentMethod = @paymentMethod
-              AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive";
-        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive, paymentMethod });
+              AND SaleDate >= @fromDate AND SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
+        return await connection.ExecuteScalarAsync<decimal>(sql, new { fromDate, toDateExclusive, paymentMethod, companyId, businessUnitId });
     }
 
-    public async Task<IEnumerable<ProductProfitRow>> GetProductProfitReportAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<IEnumerable<ProductProfitRow>> GetProductProfitReportAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -310,12 +342,13 @@ public class SalesOrderRepository : ISalesOrderRepository
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
             LEFT JOIN dbo.Price pr ON pr.ProductId = p.ProductId AND pr.IsActive = 1
             WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
             GROUP BY p.ProductName
             ORDER BY SUM(soi.LineTotal) DESC";
-        return await connection.QueryAsync<ProductProfitRow>(sql, new { fromDate, toDateExclusive });
+        return await connection.QueryAsync<ProductProfitRow>(sql, new { fromDate, toDateExclusive, companyId });
     }
 
-    public async Task<IEnumerable<CategorySalesRow>> GetCategorySalesReportAsync(DateTime fromDate, DateTime toDateExclusive)
+    public async Task<IEnumerable<CategorySalesRow>> GetCategorySalesReportAsync(DateTime fromDate, DateTime toDateExclusive, int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -328,12 +361,13 @@ public class SalesOrderRepository : ISalesOrderRepository
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
             INNER JOIN dbo.Categories c ON c.CategoryId = p.CategoryId
             WHERE so.Status = 'COMPLETED' AND so.SaleDate >= @fromDate AND so.SaleDate < @toDateExclusive
+              AND (@companyId = 0 OR so.CompanyId = @companyId)
             GROUP BY c.CategoryName
             ORDER BY SUM(soi.LineTotal) DESC";
-        return await connection.QueryAsync<CategorySalesRow>(sql, new { fromDate, toDateExclusive });
+        return await connection.QueryAsync<CategorySalesRow>(sql, new { fromDate, toDateExclusive, companyId });
     }
 
-    public async Task<IEnumerable<CustomerReportRow>> GetCustomerSummaryReportAsync()
+    public async Task<IEnumerable<CustomerReportRow>> GetCustomerSummaryReportAsync(int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -342,8 +376,9 @@ public class SalesOrderRepository : ISalesOrderRepository
                    SUM(so.NetAmount) AS TotalSpend
             FROM dbo.Customers c
             INNER JOIN dbo.SalesOrders so ON so.CustomerId = c.CustomerId AND so.Status = 'COMPLETED'
+                AND (@companyId = 0 OR so.CompanyId = @companyId)
             GROUP BY c.CustomerId, c.CustomerName, c.Phone
             ORDER BY SUM(so.NetAmount) DESC";
-        return await connection.QueryAsync<CustomerReportRow>(sql);
+        return await connection.QueryAsync<CustomerReportRow>(sql, new { companyId });
     }
 }

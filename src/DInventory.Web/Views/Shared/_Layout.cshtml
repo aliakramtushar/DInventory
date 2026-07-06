@@ -29,6 +29,8 @@
                 <div class="erp-topbar-actions">
                     @if (User.Identity?.IsAuthenticated == true)
                     {
+                        @await Component.InvokeAsync("CompanySelector")
+                        @await Component.InvokeAsync("BusinessUnitSelector")
                         <div class="dropdown">
                             <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-person-circle fs-5"></i>

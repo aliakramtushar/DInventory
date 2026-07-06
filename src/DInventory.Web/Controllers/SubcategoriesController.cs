@@ -17,28 +17,39 @@ public class SubcategoriesController : Controller
     private readonly ISubcategoryService _subcategoryService;
     private readonly ICategoryService _categoryService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
     public SubcategoriesController(
         ISubcategoryService subcategoryService,
         ICategoryService categoryService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _subcategoryService = subcategoryService;
         _categoryService = categoryService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(int? categoryId, string? search, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _subcategoryService.GetPagedAsync(request, categoryId);
+        var result = await _subcategoryService.GetPagedAsync(request, effectiveCompanyId, categoryId);
 
         ViewData["Search"] = search;
         ViewData["CategoryId"] = categoryId;
-        await PopulateCategoriesAsync();
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+        await PopulateCategoriesAsync(effectiveCompanyId);
         return View(result);
     }
 
@@ -46,8 +57,10 @@ public class SubcategoriesController : Controller
     [PermissionAuthorize("SUBCATEGORIES", PermissionAction.Create)]
     public async Task<IActionResult> Create()
     {
-        await PopulateCategoriesAsync();
-        return View(new Subcategory());
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        await PopulateCategoriesAsync(effectiveCompanyId);
+        return View(new Subcategory { CompanyId = effectiveCompanyId });
     }
 
     [HttpPost]
@@ -55,14 +68,30 @@ public class SubcategoriesController : Controller
     [PermissionAuthorize("SUBCATEGORIES", PermissionAction.Create)]
     public async Task<IActionResult> Create(Subcategory model)
     {
-        if (!ModelState.IsValid)
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        model.CompanyId = effectiveCompanyId;
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+
+        if (!ModelState.IsValid || model.CompanyId <= 0)
         {
-            await PopulateCategoriesAsync();
+            if (model.CompanyId <= 0)
+            {
+                ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a subcategory.");
+            }
+            await PopulateCategoriesAsync(effectiveCompanyId > 0 ? effectiveCompanyId : model.CompanyId);
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _subcategoryService.CreateAsync(model, currentUser.UserId);
+
+        if (!result.Succeeded)
+        {
+            ModelState.AddModelError(string.Empty, result.Error ?? "Unable to create subcategory.");
+            await PopulateCategoriesAsync(effectiveCompanyId > 0 ? effectiveCompanyId : model.CompanyId);
+            return View(model);
+        }
 
         await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "CREATE", "Subcategories", result.Data.ToString(), ipAddress: currentUser.IpAddress);
         TempData["StatusMessage"] = "Subcategory created.";
@@ -133,12 +162,16 @@ public class SubcategoriesController : Controller
     [HttpGet]
     public async Task<IActionResult> GetByCategory(int categoryId)
     {
-        var subcategories = await _subcategoryService.GetAllAsync(categoryId, onlyActive: true);
+        var currentUser = _currentUserService.GetCurrentUser();
+        var subcategories = await _subcategoryService.GetAllAsync(currentUser.CompanyId, categoryId, onlyActive: true);
         return Json(subcategories.Select(s => new { s.SubcategoryId, s.SubcategoryName }));
     }
 
-    private async Task PopulateCategoriesAsync()
+    private async Task PopulateCategoriesAsync(int? companyId = null)
     {
-        ViewBag.Categories = await _categoryService.GetAllAsync(onlyActive: true);
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = companyId ?? currentUser.CompanyId;
+        ViewBag.Categories = await _categoryService.GetAllAsync(effectiveCompanyId, onlyActive: true);
     }
+
 }

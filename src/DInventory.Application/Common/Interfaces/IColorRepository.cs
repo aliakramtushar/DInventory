@@ -6,11 +6,12 @@ namespace DInventory.Application.Common.Interfaces;
 public interface IColorRepository
 {
     Task<Color?> GetByIdAsync(int colorId);
-    Task<IEnumerable<Color>> GetAllAsync(bool onlyActive = false);
-    Task<PagedResult<Color>> GetPagedAsync(PagedRequest request);
+    /// <summary>companyId = 0 (superuser) bypasses the filter and returns colors across every company.</summary>
+    Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false);
+    Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId);
     Task<int> CreateAsync(Color color);
     Task<bool> UpdateAsync(Color color);
     Task<bool> DeleteAsync(int colorId);
-    Task<bool> NameExistsAsync(string name, int? excludeId = null);
+    Task<bool> NameExistsAsync(int companyId, string name, int? excludeId = null);
     Task<bool> HasVariantsAsync(int colorId);
 }

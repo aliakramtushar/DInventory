@@ -1,11 +1,18 @@
 @model DInventory.Domain.Entities.ContentPage
 @{
     ViewData["Title"] = "New Page";
+    bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
         <form method="post" enctype="multipart/form-data">
+            @if (!canCreate)
+            {
+                <div class="alert alert-warning">
+                    Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating a page - "All Companies" can't own one.
+                </div>
+            }
             <div class="mb-3">
                 <label class="form-label">Title</label>
                 <input asp-for="Title" class="form-control" required />
@@ -35,7 +42,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Create Page</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create Page</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

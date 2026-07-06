@@ -6,6 +6,10 @@
     <div class="card-body">
         <div class="d-flex justify-content-between">
             <div>
+                @if (!string.IsNullOrWhiteSpace(Model.CompanyName))
+                {
+                    <h6 class="text-uppercase text-muted mb-1">@Model.CompanyName</h6>
+                }
                 <h4>Invoice @Model.InvoiceNo</h4>
                 <p class="text-muted mb-0">@Model.SaleDate.ToString("f")</p>
                 <p class="text-muted">
@@ -93,6 +97,76 @@
                 </form>
             }
             <button onclick="window.print()" class="btn btn-outline-primary btn-sm"><i class="bi bi-printer"></i> Print Invoice</button>
+            <button type="button" onclick="printPosReceipt()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-receipt-cutoff"></i> Print Receipt (POS)</button>
         </div>
     </div>
 </div>
+
+<div id="posReceiptAnchor">
+    <div id="posReceipt" class="d-none" style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; margin: 0 auto;">
+        <div class="text-center">
+            @if (!string.IsNullOrWhiteSpace(Model.CompanyName))
+            {
+                <div style="font-weight:bold; font-size: 14px;">@Model.CompanyName</div>
+            }
+            <div>Invoice: @Model.InvoiceNo</div>
+            <div>@Model.SaleDate.ToString("g")</div>
+        </div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+        <div>Customer: @(Model.CustomerName ?? "Walk-in")</div>
+        <div>Served by: @Model.CreatedByName</div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+        @foreach (var item in Model.Items)
+        {
+            <div style="display:flex; justify-content:space-between;">
+                <span>@item.ProductName (@item.SizeName) x@item.Quantity</span>
+                <span>@item.LineTotal.ToMoney()</span>
+            </div>
+        }
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Subtotal</span><span>@Model.SubTotal.ToMoney()</span></div>
+        @if (Model.DiscountAmount > 0)
+        {
+            <div style="display:flex; justify-content:space-between;"><span>Discount</span><span>-@Model.DiscountAmount.ToMoney()</span></div>
+        }
+        @if (Model.TaxAmount > 0)
+        {
+            <div style="display:flex; justify-content:space-between;"><span>Tax</span><span>@Model.TaxAmount.ToMoney()</span></div>
+        }
+        <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>Net Total</span><span>@Model.NetAmount.ToMoney()</span></div>
+        @if (Model.ReturnedAmount > 0)
+        {
+            <div style="display:flex; justify-content:space-between;"><span>Returned</span><span>-@Model.ReturnedAmount.ToMoney()</span></div>
+        }
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+        <div>Payment: @Model.PaymentMethod</div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+        <div class="text-center">Thank you!</div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function printPosReceipt() {
+        const receipt = document.getElementById('posReceipt');
+        const style = document.createElement('style');
+        style.id = 'posPrintStyle';
+        style.innerHTML = '@@media print { body > *:not(#posReceipt) { display: none !important; } #posReceipt { display: block !important; } @@page { size: 80mm auto; margin: 2mm; } }';
+        document.head.appendChild(style);
+        document.body.appendChild(receipt);
+        receipt.classList.remove('d-none');
+        window.print();
+    }
+
+    window.addEventListener('afterprint', () => {
+        const style = document.getElementById('posPrintStyle');
+        if (style) { style.remove(); }
+        const receipt = document.getElementById('posReceipt');
+        const anchor = document.getElementById('posReceiptAnchor');
+        if (receipt && anchor) {
+            receipt.classList.add('d-none');
+            anchor.appendChild(receipt);
+        }
+    });
+</script>
+}

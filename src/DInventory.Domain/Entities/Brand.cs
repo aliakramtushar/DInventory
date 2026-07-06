@@ -5,6 +5,10 @@ public class Brand
     public int BrandId { get; set; }
     public string BrandName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

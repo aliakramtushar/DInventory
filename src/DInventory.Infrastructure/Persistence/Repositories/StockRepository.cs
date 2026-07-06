@@ -30,22 +30,24 @@ public class StockRepository : IStockRepository
         return await connection.QuerySingleOrDefaultAsync<Stock>($"{SelectBase} WHERE s.ProductVariantId = @productVariantId", new { productVariantId });
     }
 
-    public async Task<IEnumerable<Stock>> GetAllAsync(bool onlyLowStock = false, string? search = null)
+    public async Task<IEnumerable<Stock>> GetAllAsync(int companyId, bool onlyLowStock = false, string? search = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         var sql = $@"{SelectBase}
-            WHERE (@onlyLowStock = 0 OR s.QuantityOnHand <= pv.ReorderLevel)
+            WHERE (@companyId = 0 OR p.CompanyId = @companyId)
+              AND (@onlyLowStock = 0 OR s.QuantityOnHand <= pv.ReorderLevel)
               AND (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern OR pv.Barcode LIKE @pattern)
             ORDER BY p.ProductName, sz.DisplayOrder";
-        return await connection.QueryAsync<Stock>(sql, new { onlyLowStock, search, pattern = $"%{search}%" });
+        return await connection.QueryAsync<Stock>(sql, new { companyId, onlyLowStock, search, pattern = $"%{search}%" });
     }
 
-    public async Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, bool onlyLowStock = false)
+    public async Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@onlyLowStock = 0 OR s.QuantityOnHand <= pv.ReorderLevel)
+            WHERE (@companyId = 0 OR p.CompanyId = @companyId)
+              AND (@onlyLowStock = 0 OR s.QuantityOnHand <= pv.ReorderLevel)
               AND (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern OR pv.Barcode LIKE @pattern)";
 
         var countSql = $@"
@@ -62,6 +64,7 @@ public class StockRepository : IStockRepository
 
         var parameters = new
         {
+            companyId,
             onlyLowStock,
             search = request.Search,
             pattern = $"%{request.Search}%",
@@ -130,15 +133,16 @@ public class StockRepository : IStockRepository
         return await connection.QueryAsync<StockTransaction>(sql, new { productVariantId, take });
     }
 
-    public async Task<int> GetLowStockCountAsync()
+    public async Task<int> GetLowStockCountAsync(int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT COUNT(1) FROM dbo.Stock s
             INNER JOIN dbo.ProductVariants pv ON pv.ProductVariantId = s.ProductVariantId
             INNER JOIN dbo.Products p ON p.ProductId = pv.ProductId
-            WHERE s.QuantityOnHand <= pv.ReorderLevel AND pv.IsActive = 1 AND p.IsActive = 1";
-        return await connection.ExecuteScalarAsync<int>(sql);
+            WHERE s.QuantityOnHand <= pv.ReorderLevel AND pv.IsActive = 1 AND p.IsActive = 1
+              AND (@companyId = 0 OR p.CompanyId = @companyId)";
+        return await connection.ExecuteScalarAsync<int>(sql, new { companyId });
     }
 
     public async Task<int> GetTotalQuantityForProductAsync(int productId)

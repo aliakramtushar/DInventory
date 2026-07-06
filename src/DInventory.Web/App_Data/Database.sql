@@ -633,6 +633,198 @@ BEGIN
 END
 GO
 
+/* =====================================================================
+   21. DISCOUNTS  (per-line item discount, entered as either a percent or
+       a manual/fixed amount, plus the same choice for the overall bill).
+       DiscountType/DiscountValue capture *how* the discount was entered
+       (for display/edit); DiscountAmount / SalesOrderItems.LineTotal stay
+       the computed money figures everything else (reports, NetAmount)
+       already reads, so this is purely additive and backward compatible.
+   ===================================================================== */
+IF OBJECT_ID('dbo.SalesOrderItems', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrderItems', 'DiscountType') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountType NVARCHAR(10) NOT NULL
+        CONSTRAINT DF_SOI_DiscountType DEFAULT (N'PERCENT')
+        CONSTRAINT CK_SOI_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountValue DEFAULT (0);
+    ALTER TABLE dbo.SalesOrderItems ADD DiscountAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_SOI_DiscountAmount DEFAULT (0);
+END
+GO
+
+IF OBJECT_ID('dbo.SalesOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrders', 'DiscountType') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrders ADD DiscountType NVARCHAR(10) NOT NULL
+        CONSTRAINT DF_SO_DiscountType DEFAULT (N'PERCENT')
+        CONSTRAINT CK_SO_DiscountType CHECK (DiscountType IN (N'PERCENT', N'FIXED'));
+    ALTER TABLE dbo.SalesOrders ADD DiscountValue DECIMAL(18,2) NOT NULL CONSTRAINT DF_SO_DiscountValue DEFAULT (0);
+END
+GO
+
+/* =====================================================================
+   22. SALES RETURNS  (a return/credit against a completed sale - always
+       linked to the original invoice; returned quantity restores Stock
+       the same way a purchase does, via StockTransactions.ReferenceType
+       = 'SALE_RETURN'. UnitPrice on each return line is the ORIGINAL
+       line's effective (post-discount) per-unit price, so the refund
+       automatically reflects whatever discount was already given.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.SalesReturns', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SalesReturns
+    (
+        SalesReturnId  INT IDENTITY(1,1) PRIMARY KEY,
+        ReturnNo       NVARCHAR(30) NOT NULL UNIQUE,
+        SalesOrderId   INT NOT NULL,
+        ReturnDate     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        SubTotal       DECIMAL(18,2) NOT NULL DEFAULT (0),
+        NetAmount      DECIMAL(18,2) NOT NULL DEFAULT (0),
+        Reason         NVARCHAR(255) NULL,
+        Remarks        NVARCHAR(255) NULL,
+        CreatedAt      DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy      INT NOT NULL,
+        CONSTRAINT FK_SalesReturns_SalesOrders FOREIGN KEY (SalesOrderId) REFERENCES dbo.SalesOrders(SalesOrderId),
+        CONSTRAINT FK_SalesReturns_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.SalesReturnItems', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SalesReturnItems
+    (
+        SalesReturnItemId  INT IDENTITY(1,1) PRIMARY KEY,
+        SalesReturnId       INT NOT NULL,
+        SalesOrderItemId    INT NOT NULL,
+        ProductVariantId    INT NOT NULL,
+        Quantity             INT NOT NULL,
+        UnitPrice             DECIMAL(18,2) NOT NULL,
+        LineTotal             DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_SRI_SalesReturns FOREIGN KEY (SalesReturnId) REFERENCES dbo.SalesReturns(SalesReturnId) ON DELETE CASCADE,
+        CONSTRAINT FK_SRI_SalesOrderItems FOREIGN KEY (SalesOrderItemId) REFERENCES dbo.SalesOrderItems(SalesOrderItemId),
+        CONSTRAINT FK_SRI_ProductVariants FOREIGN KEY (ProductVariantId) REFERENCES dbo.ProductVariants(ProductVariantId)
+    );
+END
+GO
+
+/* =====================================================================
+   23. PURCHASE RETURNS  (a return of stock back to a supplier against an
+       original purchase invoice - always linked to it. Returned quantity
+       reduces Stock via StockTransactions.ReferenceType = 'PURCHASE_RETURN'.
+       UnitPrice on each line is the original line's BuyingPrice.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.PurchaseReturns', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PurchaseReturns
+    (
+        PurchaseReturnId  INT IDENTITY(1,1) PRIMARY KEY,
+        ReturnNo          NVARCHAR(30) NOT NULL UNIQUE,
+        PurchaseId        INT NOT NULL,
+        ReturnDate        DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        TotalAmount       DECIMAL(18,2) NOT NULL DEFAULT (0),
+        Reason            NVARCHAR(255) NULL,
+        Remarks           NVARCHAR(255) NULL,
+        CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy         INT NOT NULL,
+        CONSTRAINT FK_PurchaseReturns_Purchases FOREIGN KEY (PurchaseId) REFERENCES dbo.Purchases(PurchaseId),
+        CONSTRAINT FK_PurchaseReturns_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.PurchaseReturnItems', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PurchaseReturnItems
+    (
+        PurchaseReturnItemId  INT IDENTITY(1,1) PRIMARY KEY,
+        PurchaseReturnId       INT NOT NULL,
+        PurchaseItemId          INT NOT NULL,
+        ProductVariantId        INT NOT NULL,
+        Quantity                 INT NOT NULL,
+        UnitPrice                 DECIMAL(18,2) NOT NULL,
+        LineTotal                 DECIMAL(18,2) NOT NULL,
+        CONSTRAINT FK_PRI_PurchaseReturns FOREIGN KEY (PurchaseReturnId) REFERENCES dbo.PurchaseReturns(PurchaseReturnId) ON DELETE CASCADE,
+        CONSTRAINT FK_PRI_PurchaseItems FOREIGN KEY (PurchaseItemId) REFERENCES dbo.PurchaseItems(PurchaseItemId),
+        CONSTRAINT FK_PRI_ProductVariants FOREIGN KEY (ProductVariantId) REFERENCES dbo.ProductVariants(ProductVariantId)
+    );
+END
+GO
+
+/* =====================================================================
+   24. CUSTOMERS - audit columns  (Customers originally had no
+       CreatedBy/UpdatedAt/UpdatedBy, unlike Suppliers - adding them now
+       for a real Customer management module, same additive-upgrade
+       pattern used everywhere else in this script.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.Customers', 'U') IS NOT NULL AND COL_LENGTH('dbo.Customers', 'CreatedBy') IS NULL
+BEGIN
+    ALTER TABLE dbo.Customers ADD CreatedBy INT NULL;
+    ALTER TABLE dbo.Customers ADD UpdatedAt DATETIME2 NULL;
+    ALTER TABLE dbo.Customers ADD UpdatedBy INT NULL;
+END
+GO
+
+/* =====================================================================
+   25. LOYALTY PROGRAM  (basic setup: one editable settings row -
+       "points earned per amount spent" and "money value of 1 point when
+       redeemed" - plus a ledger of every earn/redeem/manual-adjust so a
+       customer's balance is always SUM(Points) rather than a single
+       column that can drift out of sync, same ledger+balance pattern as
+       dbo.Stock/dbo.StockTransactions.)
+   ===================================================================== */
+IF OBJECT_ID('dbo.LoyaltySettings', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LoyaltySettings
+    (
+        LoyaltySettingsId     INT IDENTITY(1,1) PRIMARY KEY,
+        IsEnabled              BIT NOT NULL DEFAULT (1),
+        PointsPerAmountSpent   DECIMAL(18,2) NOT NULL DEFAULT (0), -- earn 1 point per this many currency units of NetAmount (0 = earning off)
+        PointValueOnRedeem     DECIMAL(18,4) NOT NULL DEFAULT (0), -- 1 point is worth this many currency units when redeemed (0 = redeeming off)
+        UpdatedAt              DATETIME2 NULL,
+        UpdatedBy              INT NULL
+    );
+END
+GO
+
+-- Exactly one settings row to edit, ever - seeded disabled-by-default (rate 0) until the shop
+-- owner sets real numbers on the Loyalty Settings screen, so no points get silently issued/valued
+-- before that happens.
+IF NOT EXISTS (SELECT 1 FROM dbo.LoyaltySettings)
+BEGIN
+    INSERT INTO dbo.LoyaltySettings (IsEnabled, PointsPerAmountSpent, PointValueOnRedeem) VALUES (0, 0, 0);
+END
+GO
+
+IF OBJECT_ID('dbo.LoyaltyTransactions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LoyaltyTransactions
+    (
+        LoyaltyTransactionId  INT IDENTITY(1,1) PRIMARY KEY,
+        CustomerId             INT NOT NULL,
+        TransactionType         NVARCHAR(10) NOT NULL
+            CONSTRAINT CK_LoyaltyTx_Type CHECK (TransactionType IN (N'EARN', N'REDEEM', N'ADJUST')),
+        Points                   INT NOT NULL, -- positive for EARN/positive ADJUST, negative for REDEEM/negative ADJUST
+        ReferenceType            NVARCHAR(30) NULL, -- SALE, MANUAL
+        ReferenceId               INT NULL,
+        Remarks                   NVARCHAR(255) NULL,
+        CreatedAt                 DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy                 INT NULL,
+        CONSTRAINT FK_LoyaltyTx_Customers FOREIGN KEY (CustomerId) REFERENCES dbo.Customers(CustomerId),
+        CONSTRAINT FK_LoyaltyTx_Users FOREIGN KEY (CreatedBy) REFERENCES dbo.Users(UserId)
+    );
+END
+GO
+
+-- Denormalized onto the sale itself purely so Sales/Details can show "Points Earned"/"Points
+-- Redeemed" without an extra join - dbo.LoyaltyTransactions (ReferenceType='SALE') stays the
+-- source of truth for the customer's actual point balance.
+IF OBJECT_ID('dbo.SalesOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.SalesOrders', 'LoyaltyPointsEarned') IS NULL
+BEGIN
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyPointsEarned INT NOT NULL CONSTRAINT DF_SO_LoyaltyPointsEarned DEFAULT (0);
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyPointsRedeemed INT NOT NULL CONSTRAINT DF_SO_LoyaltyPointsRedeemed DEFAULT (0);
+    ALTER TABLE dbo.SalesOrders ADD LoyaltyRedeemAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_SO_LoyaltyRedeemAmount DEFAULT (0);
+END
+GO
+
 PRINT 'Schema check complete.';
 GO
 
@@ -832,6 +1024,70 @@ BEGIN
 END
 GO
 
+-- Menu grouping (round 3): Sale Return under Sales, Purchase Return under Purchase. Own outer
+-- guard so this still runs on an install that already has GROUP_SALES/GROUP_PURCHASE from an
+-- earlier version of this script.
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'SALES_RETURNS')
+BEGIN
+    DECLARE @GSales3 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_SALES');
+    IF @GSales3 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'SALES_RETURNS', N'Sale Returns', N'bi-arrow-return-left', N'/SalesReturns', @GSales3, 2, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'SALES_RETURNS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'PURCHASE_RETURNS')
+BEGIN
+    DECLARE @GPurchase3 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_PURCHASE');
+    IF @GPurchase3 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'PURCHASE_RETURNS', N'Purchase Returns', N'bi-arrow-return-right', N'/PurchaseReturns', @GPurchase3, 3, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'PURCHASE_RETURNS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
+-- Menu grouping (round 4): Customers under Sales (own outer guard, same reasoning as round 3).
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'CUSTOMERS')
+BEGIN
+    DECLARE @GSales4 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_SALES');
+    IF @GSales4 IS NOT NULL
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'CUSTOMERS', N'Customers', N'bi-person-vcard', N'/Customers', @GSales4, 1, 1);
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager', N'Staff') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey = N'CUSTOMERS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
 -- Role Menu Permissions (base set, for a fresh install before grouping runs above)
 IF NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions)
 BEGIN
@@ -970,3 +1226,174 @@ GO
 
 PRINT 'DInventoryDB schema and seed data created successfully.';
 PRINT 'Login: superadmin / 12345  or  admin / 12345';
+
+/* =====================================================================
+   26. MULTI-TENANCY: COMPANIES / BUSINESS UNITS
+       Every company-owned table gets a mandatory CompanyId + optional
+       BusinessUnitId. CompanyId = 0 is reserved for the built-in "Super
+       Admin / All Companies" row - a user whose Users.CompanyId = 0 is a
+       superuser and every company-scoped query bypasses its filter for
+       them (see application-layer WHERE (@companyId = 0 OR t.CompanyId =
+       @companyId) pattern). IDENTITY(0,1) below guarantees that row (the
+       very first insert into an empty table) actually gets id 0.
+   ===================================================================== */
+IF OBJECT_ID('dbo.Companies', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Companies
+    (
+        CompanyId     INT IDENTITY(0,1) PRIMARY KEY,
+        CompanyName   NVARCHAR(150) NOT NULL,
+        ShortName     NVARCHAR(15) NOT NULL,
+        Phone         NVARCHAR(30) NULL,
+        Email         NVARCHAR(150) NULL,
+        Address       NVARCHAR(255) NULL,
+        IsActive      BIT NOT NULL DEFAULT (1),
+        CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt     DATETIME2 NULL,
+        CreatedBy     INT NULL,
+        UpdatedBy     INT NULL,
+        CONSTRAINT UQ_Companies_ShortName UNIQUE (ShortName)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.BusinessUnits', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.BusinessUnits
+    (
+        BusinessUnitId    INT IDENTITY(1,1) PRIMARY KEY,
+        CompanyId         INT NOT NULL,
+        BusinessUnitName  NVARCHAR(150) NOT NULL,
+        IsActive          BIT NOT NULL DEFAULT (1),
+        CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt         DATETIME2 NULL,
+        CreatedBy         INT NULL,
+        UpdatedBy         INT NULL,
+        CONSTRAINT FK_BusinessUnits_Companies FOREIGN KEY (CompanyId) REFERENCES dbo.Companies(CompanyId),
+        CONSTRAINT UQ_BusinessUnits_CompanyName UNIQUE (CompanyId, BusinessUnitName)
+    );
+END
+GO
+
+-- Seed: row 1 becomes CompanyId 0 (superuser/system, sees every company), row 2 becomes CompanyId 1
+-- (the real default tenant - everything that existed before this migration belongs here).
+IF NOT EXISTS (SELECT 1 FROM dbo.Companies)
+BEGIN
+    INSERT INTO dbo.Companies (CompanyName, ShortName, IsActive) VALUES (N'Super Admin / All Companies', N'SUP', 1);
+    INSERT INTO dbo.Companies (CompanyName, ShortName, IsActive) VALUES (N'DInventory', N'DINV', 1);
+END
+GO
+
+-- Safe additive upgrade: give every existing company-owned table a mandatory CompanyId (backfilled
+-- to CompanyId = 1, the default tenant seeded above) + an optional BusinessUnitId. Two-step
+-- (nullable -> backfill -> NOT NULL) so this works on a table that already has rows.
+DECLARE @t TABLE (TableName SYSNAME);
+INSERT INTO @t (TableName) VALUES
+    (N'Users'), (N'Categories'), (N'Subcategories'), (N'Brands'), (N'Sizes'), (N'Colors'),
+    (N'Products'), (N'Customers'), (N'Suppliers'), (N'SalesOrders'), (N'Purchases'),
+    (N'SalesReturns'), (N'PurchaseReturns'), (N'Expenses'), (N'ContentPages'), (N'LoyaltySettings'),
+    (N'GeneratedBarcodeLabels');
+
+DECLARE @tbl SYSNAME, @sql NVARCHAR(MAX);
+DECLARE tbl_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT TableName FROM @t;
+OPEN tbl_cursor;
+FETCH NEXT FROM tbl_cursor INTO @tbl;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF OBJECT_ID('dbo.' + @tbl, 'U') IS NOT NULL
+    BEGIN
+        -- CompanyId and BusinessUnitId are checked and added INDEPENDENTLY of each other (not as one
+        -- combined "has this table been migrated at all" check on CompanyId alone) - a database that
+        -- picked up CompanyId from an earlier partial run of this migration but never got
+        -- BusinessUnitId (because an older version of this script only added CompanyId) would
+        -- otherwise have BusinessUnitId silently skipped forever, since CompanyId already existing
+        -- would short-circuit the whole block. That exact gap is what broke barcode generation with
+        -- "Invalid column name 'BusinessUnitId'" even after re-running this script.
+        IF COL_LENGTH('dbo.' + @tbl, 'CompanyId') IS NULL
+        BEGIN
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CompanyId INT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'UPDATE dbo.' + @tbl + N' SET CompanyId = 1 WHERE CompanyId IS NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ALTER COLUMN CompanyId INT NOT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CONSTRAINT FK_' + @tbl + N'_Companies FOREIGN KEY (CompanyId) REFERENCES dbo.Companies(CompanyId);';
+            EXEC sp_executesql @sql;
+        END
+
+        IF COL_LENGTH('dbo.' + @tbl, 'BusinessUnitId') IS NULL
+        BEGIN
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD BusinessUnitId INT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CONSTRAINT FK_' + @tbl + N'_BusinessUnits FOREIGN KEY (BusinessUnitId) REFERENCES dbo.BusinessUnits(BusinessUnitId);';
+            EXEC sp_executesql @sql;
+        END
+    END
+    FETCH NEXT FROM tbl_cursor INTO @tbl;
+END
+CLOSE tbl_cursor;
+DEALLOCATE tbl_cursor;
+GO
+
+-- The two seed users (superadmin/admin) predate CompanyId. superadmin is the one true superuser
+-- (CompanyId 0 = sees every company); admin is a normal company-level admin under the default
+-- tenant (CompanyId 1) seeded above.
+IF COL_LENGTH('dbo.Users', 'CompanyId') IS NOT NULL
+BEGIN
+    UPDATE u SET u.CompanyId = 0
+    FROM dbo.Users u
+    INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
+    WHERE r.RoleName = N'SuperAdmin';
+END
+GO
+
+PRINT 'Company / BusinessUnit multi-tenancy migration complete.';
+GO
+
+-- Menu grouping (round 5): Companies (SuperAdmin only) + Business Units (SuperAdmin/Admin) under Admin.
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'COMPANIES')
+BEGIN
+    DECLARE @GAdmin5 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_ADMIN');
+    IF @GAdmin5 IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'COMPANIES', N'Companies', N'bi-building', N'/Companies', @GAdmin5, 1, 1);
+
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'BUSINESSUNITS', N'Business Units', N'bi-diagram-3', N'/BusinessUnits', @GAdmin5, 2, 1);
+    END
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName = N'SuperAdmin' THEN 1
+             ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey IN (N'COMPANIES', N'BUSINESSUNITS')
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+
+    UPDATE g
+    SET CanView = 1
+    FROM dbo.RoleMenuPermissions g
+    WHERE g.MenuId IN (SELECT MenuId FROM dbo.Menus WHERE ParentId IS NULL AND MenuKey LIKE N'GROUP_%')
+      AND EXISTS (
+          SELECT 1 FROM dbo.RoleMenuPermissions child
+          INNER JOIN dbo.Menus cm ON cm.MenuId = child.MenuId
+          WHERE cm.ParentId = g.MenuId AND child.RoleId = g.RoleId AND child.CanView = 1
+      );
+END
+GO

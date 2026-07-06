@@ -17,12 +17,13 @@ public class PurchaseRepository : IPurchaseRepository
 
     private const string HeaderSelect = @"
         SELECT p.PurchaseId, p.PurchaseInvoiceNo, p.SupplierId, p.PurchaseDate, p.TotalAmount, p.PaidAmount,
-               p.Remarks, p.CreatedAt, p.CreatedBy,
-               s.SupplierName, u.FullName AS CreatedByName,
+               p.Remarks, p.CompanyId, p.BusinessUnitId, p.CreatedAt, p.CreatedBy,
+               s.SupplierName, u.FullName AS CreatedByName, comp.CompanyName,
                ISNULL(pret.ReturnedAmount, 0) AS ReturnedAmount
         FROM dbo.Purchases p
         INNER JOIN dbo.Suppliers s ON s.SupplierId = p.SupplierId
         INNER JOIN dbo.Users u ON u.UserId = p.CreatedBy
+        LEFT JOIN dbo.Companies comp ON comp.CompanyId = p.CompanyId
         OUTER APPLY (
             SELECT SUM(r.TotalAmount) AS ReturnedAmount FROM dbo.PurchaseReturns r WHERE r.PurchaseId = p.PurchaseId
         ) pret";
@@ -59,12 +60,14 @@ public class PurchaseRepository : IPurchaseRepository
         return purchase;
     }
 
-    public async Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int? supplierId = null)
+    public async Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null, int? supplierId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR p.PurchaseInvoiceNo LIKE @pattern OR s.SupplierName LIKE @pattern)
+            WHERE (@companyId = 0 OR p.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR p.BusinessUnitId = @businessUnitId)
+              AND (@search IS NULL OR p.PurchaseInvoiceNo LIKE @pattern OR s.SupplierName LIKE @pattern)
               AND (@supplierId IS NULL OR p.SupplierId = @supplierId)";
 
         var countSql = $@"
@@ -79,6 +82,8 @@ public class PurchaseRepository : IPurchaseRepository
 
         var parameters = new
         {
+            companyId,
+            businessUnitId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             supplierId,
@@ -131,9 +136,9 @@ public class PurchaseRepository : IPurchaseRepository
     private static async Task<int> InsertPurchaseAsync(System.Data.IDbConnection connection, Purchase purchase, System.Data.IDbTransaction? transaction)
     {
         const string headerSql = @"
-            INSERT INTO dbo.Purchases (PurchaseInvoiceNo, SupplierId, PurchaseDate, TotalAmount, PaidAmount, Remarks, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Purchases (PurchaseInvoiceNo, SupplierId, PurchaseDate, TotalAmount, PaidAmount, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.PurchaseId
-            VALUES (@PurchaseInvoiceNo, @SupplierId, @PurchaseDate, @TotalAmount, @PaidAmount, @Remarks, @CreatedAt, @CreatedBy)";
+            VALUES (@PurchaseInvoiceNo, @SupplierId, @PurchaseDate, @TotalAmount, @PaidAmount, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
 
         var purchaseId = await connection.ExecuteScalarAsync<int>(headerSql, purchase, transaction);
 

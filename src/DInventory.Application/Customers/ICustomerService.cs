@@ -11,7 +11,7 @@ public interface ICustomerService
     Task<Customer?> GetByIdWithStatsAsync(int customerId);
 
     Task<IEnumerable<Customer>> GetAllAsync(string? search = null);
-    Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, bool onlyActive = false);
+    Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false);
     Task<Result<int>> CreateAsync(Customer customer, int? actingUserId);
     Task<Result> UpdateAsync(Customer customer, int? actingUserId);
     Task<Result> DeleteAsync(int customerId);

@@ -12,6 +12,7 @@ using DInventory.Application.Purchasing;
 using DInventory.Application.Reports;
 using DInventory.Application.Roles;
 using DInventory.Application.Sales;
+using DInventory.Application.Tenancy;
 using DInventory.Application.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +25,8 @@ public static class DependencyInjection
         services.AddMemoryCache();
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<IBusinessUnitService, BusinessUnitService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IMenuService, MenuService>();

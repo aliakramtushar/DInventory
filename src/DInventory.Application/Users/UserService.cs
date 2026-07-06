@@ -21,7 +21,7 @@ public class UserService : IUserService
 
     public Task<IEnumerable<User>> GetAllAsync(string? search = null) => _userRepository.GetAllAsync(search);
 
-    public Task<PagedResult<User>> GetPagedAsync(PagedRequest request) => _userRepository.GetPagedAsync(request);
+    public Task<PagedResult<User>> GetPagedAsync(PagedRequest request, int? companyId = null, int? businessUnitId = null) => _userRepository.GetPagedAsync(request, companyId, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(User user, string password, int? actingUserId)
     {
@@ -38,6 +38,11 @@ public class UserService : IUserService
         if (string.IsNullOrWhiteSpace(password) || password.Length < 5)
         {
             return Result<int>.Failure("Password must be at least 5 characters long.");
+        }
+
+        if (user.CompanyId < 0)
+        {
+            return Result<int>.Failure("Choose which company this user belongs to.");
         }
 
         user.PasswordHash = _passwordHasher.Hash(password);
@@ -71,6 +76,8 @@ public class UserService : IUserService
         existing.Email = user.Email;
         existing.FullName = user.FullName;
         existing.RoleId = user.RoleId;
+        existing.CompanyId = user.CompanyId;
+        existing.BusinessUnitId = user.BusinessUnitId;
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 

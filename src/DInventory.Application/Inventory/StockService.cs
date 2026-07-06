@@ -15,11 +15,11 @@ public class StockService : IStockService
         _variantRepository = variantRepository;
     }
 
-    public Task<IEnumerable<Stock>> GetAllAsync(bool onlyLowStock = false, string? search = null)
-        => _stockRepository.GetAllAsync(onlyLowStock, search);
+    public Task<IEnumerable<Stock>> GetAllAsync(int companyId, bool onlyLowStock = false, string? search = null)
+        => _stockRepository.GetAllAsync(companyId, onlyLowStock, search);
 
-    public Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, bool onlyLowStock = false)
-        => _stockRepository.GetPagedAsync(request, onlyLowStock);
+    public Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, bool onlyLowStock = false)
+        => _stockRepository.GetPagedAsync(request, companyId, onlyLowStock);
 
     public Task<Stock?> GetByVariantIdAsync(int productVariantId) => _stockRepository.GetByVariantIdAsync(productVariantId);
 

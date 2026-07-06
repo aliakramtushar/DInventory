@@ -2,11 +2,19 @@
 @{
     ViewData["Title"] = "New Expense";
     var categories = (string[])ViewBag.Categories;
+    bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating an expense - "All Companies" can't own one.
+            </div>
+        }
         <form method="post">
+            <input asp-for="CompanyId" type="hidden" />
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Expense Date</label>
@@ -26,13 +34,23 @@
                     <label class="form-label">Amount</label>
                     <input asp-for="Amount" type="number" step="0.01" min="0" class="form-control" required />
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Business Unit</label>
+                    <select asp-for="BusinessUnitId" class="form-select">
+                        <option value="">-- None --</option>
+                        @foreach (var bu in (IEnumerable<DInventory.Domain.Entities.BusinessUnit>)ViewBag.BusinessUnits)
+                        {
+                            <option value="@bu.BusinessUnitId">@bu.BusinessUnitName</option>
+                        }
+                    </select>
+                </div>
                 <div class="col-12">
                     <label class="form-label">Remarks</label>
                     <textarea asp-for="Remarks" class="form-control" rows="2"></textarea>
                 </div>
             </div>
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Save Expense</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Save Expense</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

@@ -9,7 +9,7 @@ public interface IUserRepository
     Task<User?> GetByUsernameAsync(string username);
     Task<User?> GetByEmailAsync(string email);
     Task<IEnumerable<User>> GetAllAsync(string? search = null);
-    Task<PagedResult<User>> GetPagedAsync(PagedRequest request);
+    Task<PagedResult<User>> GetPagedAsync(PagedRequest request, int? companyId = null, int? businessUnitId = null);
     Task<int> CreateAsync(User user);
     Task<bool> UpdateAsync(User user);
     Task<bool> DeleteAsync(int userId);

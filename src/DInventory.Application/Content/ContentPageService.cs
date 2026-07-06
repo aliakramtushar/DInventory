@@ -20,7 +20,7 @@ public partial class ContentPageService : IContentPageService
 
     public Task<IEnumerable<ContentPage>> GetAllAsync(bool onlyPublished = false) => _contentPageRepository.GetAllAsync(onlyPublished);
 
-    public Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request) => _contentPageRepository.GetPagedAsync(request);
+    public Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request, int companyId) => _contentPageRepository.GetPagedAsync(request, companyId);
 
     public async Task<Result<int>> CreateAsync(ContentPage page, int? actingUserId)
     {

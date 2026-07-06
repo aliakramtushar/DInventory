@@ -36,11 +36,13 @@ public class ContentPageRepository : IContentPageRepository
         return await connection.QueryAsync<ContentPage>(sql, new { onlyPublished });
     }
 
-    public async Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request)
+    public async Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request, int companyId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var whereClause = "WHERE (@search IS NULL OR Title LIKE @pattern OR Slug LIKE @pattern)";
+        var whereClause = @"
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@search IS NULL OR Title LIKE @pattern OR Slug LIKE @pattern)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.ContentPages {whereClause}";
         var pagedSql = $@"
@@ -51,6 +53,7 @@ public class ContentPageRepository : IContentPageRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             offset = (request.PageNumber - 1) * request.PageSize,
@@ -73,9 +76,9 @@ public class ContentPageRepository : IContentPageRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.ContentPages (Title, Slug, Body, ImagePath, IsPublished, DisplayOrder, CreatedAt, CreatedBy)
+            INSERT INTO dbo.ContentPages (Title, Slug, Body, ImagePath, IsPublished, DisplayOrder, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.ContentPageId
-            VALUES (@Title, @Slug, @Body, @ImagePath, @IsPublished, @DisplayOrder, @CreatedAt, @CreatedBy)";
+            VALUES (@Title, @Slug, @Body, @ImagePath, @IsPublished, @DisplayOrder, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, page);
     }
 

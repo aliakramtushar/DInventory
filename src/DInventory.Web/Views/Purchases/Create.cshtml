@@ -3,6 +3,15 @@
     var variants = (IEnumerable<DInventory.Domain.Entities.ProductVariant>)ViewBag.Variants;
     var suppliers = (IEnumerable<DInventory.Domain.Entities.Supplier>)ViewBag.Suppliers;
     var preselectedSupplierId = ViewData["SupplierId"] as int?;
+    bool isSuperCompany = ViewBag.IsSuperCompany ?? false;
+    int effectiveCompanyId = ViewBag.EffectiveCompanyId ?? 0;
+    bool canCreatePurchase = !isSuperCompany || effectiveCompanyId > 0;
+}
+@if (!canCreatePurchase)
+{
+    <div class="alert alert-warning">
+        Select a company from the <strong>Company</strong> dropdown in the top navigation bar before receiving a purchase - "All Companies" can't own a purchase.
+    </div>
 }
 <div class="row g-3">
     <div class="col-lg-7">
@@ -86,7 +95,7 @@
                         <tr class="fw-bold"><td>Due</td><td class="text-end" id="dueDisplay">৳0.00</td></tr>
                     </table>
 
-                    <button type="submit" id="submitPurchaseBtn" class="btn btn-success w-100" disabled>Receive Purchase</button>
+                    <button type="submit" id="submitPurchaseBtn" class="btn btn-success w-100" disabled="@(!canCreatePurchase)">Receive Purchase</button>
                 </form>
             </div>
         </div>

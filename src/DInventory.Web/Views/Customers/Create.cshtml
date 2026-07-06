@@ -1,11 +1,19 @@
 @model DInventory.Domain.Entities.Customer
 @{
     ViewData["Title"] = "New Customer";
+    bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating a customer - "All Companies" can't own one.
+            </div>
+        }
         <form method="post">
+            <input asp-for="CompanyId" type="hidden" />
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Customer Name</label>
@@ -25,7 +33,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Create Customer</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create Customer</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

@@ -16,39 +16,63 @@ public class BrandsController : Controller
 {
     private readonly IBrandService _brandService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public BrandsController(IBrandService brandService, ICurrentUserService currentUserService, IAuditLogService auditLogService)
+    public BrandsController(IBrandService brandService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
     {
         _brandService = brandService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(string? search, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _brandService.GetPagedAsync(request);
+        var result = await _brandService.GetPagedAsync(request, effectiveCompanyId);
 
         ViewData["Search"] = search;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
         return View(result);
     }
 
     [HttpGet]
     [PermissionAuthorize("BRANDS", PermissionAction.Create)]
-    public IActionResult Create() => View(new Brand());
+    public async Task<IActionResult> Create()
+    {
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        return View(new Brand { CompanyId = effectiveCompanyId });
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("BRANDS", PermissionAction.Create)]
     public async Task<IActionResult> Create(Brand model)
     {
-        if (!ModelState.IsValid)
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        model.CompanyId = effectiveCompanyId;
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+
+        if (!ModelState.IsValid || model.CompanyId <= 0)
         {
+            if (model.CompanyId <= 0)
+            {
+                ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a brand.");
+            }
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _brandService.CreateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -119,4 +143,5 @@ public class BrandsController : Controller
 
         return RedirectToAction(nameof(Index));
     }
+
 }

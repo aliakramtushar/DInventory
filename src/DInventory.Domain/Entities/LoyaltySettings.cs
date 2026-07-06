@@ -7,6 +7,10 @@ public class LoyaltySettings
 {
     public int LoyaltySettingsId { get; set; }
     public bool IsEnabled { get; set; }
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
 
     /// <summary>Earn 1 point per this many currency units of a sale's NetAmount. 0 = no points
     /// are earned.</summary>

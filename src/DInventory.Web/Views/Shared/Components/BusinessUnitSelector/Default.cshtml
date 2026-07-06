@@ -1,0 +1,48 @@
+@model DInventory.Web.Models.BusinessUnitSelectorViewModel
+<form asp-controller="CompanyContext" asp-action="SwitchBusinessUnit" method="post" class="d-flex align-items-center gap-2 me-2 erp-businessunit-selector">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+    <label class="small text-muted mb-0 d-none d-md-inline">Business Unit</label>
+    @if (!Model.HasCompany)
+    {
+        <select class="form-select form-select-sm" style="min-width:180px" disabled>
+            <option>Select a company first</option>
+        </select>
+    }
+    else if (Model.BusinessUnits.Count == 0)
+    {
+        <select class="form-select form-select-sm" style="min-width:180px" disabled>
+            <option>No business units</option>
+        </select>
+    }
+    else if (Model.BusinessUnits.Count == 1)
+    {
+        <select class="form-select form-select-sm" style="min-width:180px" disabled>
+            <option selected>@Model.BusinessUnits[0].BusinessUnitName</option>
+        </select>
+    }
+    else
+    {
+        <select name="businessUnitId" class="form-select form-select-sm" style="min-width:180px" onchange="this.form.submit()">
+            @if (Model.SelectedBusinessUnitId is null)
+            {
+                <option value="" selected>Whole Company</option>
+            }
+            else
+            {
+                <option value="">Whole Company</option>
+            }
+            @foreach (var unit in Model.BusinessUnits)
+            {
+                if (Model.SelectedBusinessUnitId == unit.BusinessUnitId)
+                {
+                    <option value="@unit.BusinessUnitId" selected>@unit.BusinessUnitName</option>
+                }
+                else
+                {
+                    <option value="@unit.BusinessUnitId">@unit.BusinessUnitName</option>
+                }
+            }
+        </select>
+    }
+</form>

@@ -7,5 +7,7 @@ namespace DInventory.Application.Barcoding;
 /// </summary>
 public interface IBarcodeNumberGenerator
 {
-    Task<string> GenerateNextAsync();
+    /// <summary>companyId selects which tenant's ShortName is used as the barcode prefix (falls
+    /// back to "DIN" if the company can't be resolved or has no short name yet).</summary>
+    Task<string> GenerateNextAsync(int companyId);
 }

@@ -22,8 +22,8 @@ public class PurchaseReturnService : IPurchaseReturnService
 
     public Task<PurchaseReturn?> GetByIdAsync(int purchaseReturnId) => _purchaseReturnRepository.GetByIdAsync(purchaseReturnId);
 
-    public Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int? purchaseId = null)
-        => _purchaseReturnRepository.GetPagedAsync(request, purchaseId);
+    public Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int companyId, int? purchaseId = null)
+        => _purchaseReturnRepository.GetPagedAsync(request, companyId, purchaseId);
 
     public async Task<Result<int>> CreateReturnAsync(CreatePurchaseReturnRequest request, int actingUserId)
     {
@@ -82,6 +82,8 @@ public class PurchaseReturnService : IPurchaseReturnService
         {
             ReturnNo = await _purchaseReturnRepository.GenerateNextReturnNoAsync(),
             PurchaseId = purchase.PurchaseId,
+            CompanyId = purchase.CompanyId,
+            BusinessUnitId = purchase.BusinessUnitId,
             ReturnDate = DateTime.UtcNow,
             TotalAmount = totalAmount,
             Reason = request.Reason,

@@ -5,6 +5,10 @@ public class ContentPage
     public int ContentPageId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public string? Body { get; set; }
     public string? ImagePath { get; set; }
     public bool IsPublished { get; set; }

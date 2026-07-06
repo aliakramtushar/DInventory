@@ -20,22 +20,24 @@ public class BrandRepository : IBrandRepository
         return await connection.QuerySingleOrDefaultAsync<Brand>("SELECT * FROM dbo.Brands WHERE BrandId = @brandId", new { brandId });
     }
 
-    public async Task<IEnumerable<Brand>> GetAllAsync(bool onlyActive = false)
+    public async Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Brands
-            WHERE (@onlyActive = 0 OR IsActive = 1)
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@onlyActive = 0 OR IsActive = 1)
             ORDER BY BrandName";
-        return await connection.QueryAsync<Brand>(sql, new { onlyActive });
+        return await connection.QueryAsync<Brand>(sql, new { companyId, onlyActive });
     }
 
-    public async Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, bool onlyActive = false)
+    public async Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR BrandName LIKE @pattern)
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@search IS NULL OR BrandName LIKE @pattern)
               AND (@onlyActive = 0 OR IsActive = 1)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Brands {whereClause}";
@@ -47,6 +49,7 @@ public class BrandRepository : IBrandRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
@@ -70,9 +73,9 @@ public class BrandRepository : IBrandRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Brands (BrandName, Description, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Brands (BrandName, Description, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.BrandId
-            VALUES (@BrandName, @Description, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@BrandName, @Description, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, brand);
     }
 
@@ -95,11 +98,11 @@ public class BrandRepository : IBrandRepository
         return rows > 0;
     }
 
-    public async Task<bool> NameExistsAsync(string name, int? excludeId = null)
+    public async Task<bool> NameExistsAsync(int companyId, string name, int? excludeId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT COUNT(1) FROM dbo.Brands WHERE BrandName = @name AND (@excludeId IS NULL OR BrandId <> @excludeId)";
-        var count = await connection.ExecuteScalarAsync<int>(sql, new { name, excludeId });
+        const string sql = "SELECT COUNT(1) FROM dbo.Brands WHERE CompanyId = @companyId AND BrandName = @name AND (@excludeId IS NULL OR BrandId <> @excludeId)";
+        var count = await connection.ExecuteScalarAsync<int>(sql, new { companyId, name, excludeId });
         return count > 0;
     }
 

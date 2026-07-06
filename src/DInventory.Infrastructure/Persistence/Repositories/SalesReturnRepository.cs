@@ -52,13 +52,14 @@ public class SalesReturnRepository : ISalesReturnRepository
         return salesReturn;
     }
 
-    public async Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int? salesOrderId = null)
+    public async Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int companyId, int? salesOrderId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@search IS NULL OR sr.ReturnNo LIKE @pattern OR so.InvoiceNo LIKE @pattern)
-              AND (@salesOrderId IS NULL OR sr.SalesOrderId = @salesOrderId)";
+              AND (@salesOrderId IS NULL OR sr.SalesOrderId = @salesOrderId)
+              AND (@companyId = 0 OR sr.CompanyId = @companyId)";
 
         var countSql = $@"
             SELECT COUNT(1) FROM dbo.SalesReturns sr
@@ -75,6 +76,7 @@ public class SalesReturnRepository : ISalesReturnRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             salesOrderId,
+            companyId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };
@@ -117,9 +119,9 @@ public class SalesReturnRepository : ISalesReturnRepository
     private static async Task<int> InsertReturnAsync(System.Data.IDbConnection connection, SalesReturn salesReturn, System.Data.IDbTransaction? transaction)
     {
         const string headerSql = @"
-            INSERT INTO dbo.SalesReturns (ReturnNo, SalesOrderId, ReturnDate, SubTotal, NetAmount, Reason, Remarks, CreatedAt, CreatedBy)
+            INSERT INTO dbo.SalesReturns (ReturnNo, SalesOrderId, ReturnDate, SubTotal, NetAmount, Reason, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SalesReturnId
-            VALUES (@ReturnNo, @SalesOrderId, @ReturnDate, @SubTotal, @NetAmount, @Reason, @Remarks, @CreatedAt, @CreatedBy)";
+            VALUES (@ReturnNo, @SalesOrderId, @ReturnDate, @SubTotal, @NetAmount, @Reason, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
 
         var salesReturnId = await connection.ExecuteScalarAsync<int>(headerSql, salesReturn, transaction);
 

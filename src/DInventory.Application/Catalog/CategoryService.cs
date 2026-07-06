@@ -15,15 +15,15 @@ public class CategoryService : ICategoryService
 
     public Task<Category?> GetByIdAsync(int categoryId) => _categoryRepository.GetByIdAsync(categoryId);
 
-    public Task<IEnumerable<Category>> GetAllAsync(string? search = null, bool onlyActive = false)
-        => _categoryRepository.GetAllAsync(search, onlyActive);
+    public Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false)
+        => _categoryRepository.GetAllAsync(companyId, search, onlyActive);
 
-    public Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, bool onlyActive = false)
-        => _categoryRepository.GetPagedAsync(request, onlyActive);
+    public Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+        => _categoryRepository.GetPagedAsync(request, companyId, onlyActive);
 
     public async Task<Result<int>> CreateAsync(Category category, int? actingUserId)
     {
-        if (await _categoryRepository.NameExistsAsync(category.CategoryName))
+        if (await _categoryRepository.NameExistsAsync(category.CompanyId, category.CategoryName))
         {
             return Result<int>.Failure("A category with this name already exists.");
         }
@@ -43,7 +43,7 @@ public class CategoryService : ICategoryService
             return Result.Failure("Category not found.");
         }
 
-        if (await _categoryRepository.NameExistsAsync(category.CategoryName, category.CategoryId))
+        if (await _categoryRepository.NameExistsAsync(existing.CompanyId, category.CategoryName, category.CategoryId))
         {
             return Result.Failure("A category with this name already exists.");
         }

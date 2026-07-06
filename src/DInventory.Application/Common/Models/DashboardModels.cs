@@ -26,6 +26,23 @@ public class DashboardStats
     /// shop's "how much cash do I actually have right now" check, not full accounting reconciliation).</summary>
     public decimal CashInHand { get; set; }
 
+    /// <summary>The range the four stats below are computed over - one of "today", "7day",
+    /// "1month", "1year" - driven by the dashboard's range filter dropdown.</summary>
+    public string Range { get; set; } = "today";
+    public decimal RangeSales { get; set; }
+    public int TotalOrders { get; set; }
+    public int TotalProductSold { get; set; }
+    public decimal RangeProfit { get; set; }
+
+    /// <summary>Percent change of RangeSales vs. the immediately preceding period of the same
+    /// length (e.g. this week vs last week). Null when there's no prior-period sales to compare
+    /// against (division by zero would otherwise be meaningless).</summary>
+    public decimal? RangeGrowthPercent { get; set; }
+
+    /// <summary>Last 6 calendar months of completed sales revenue, oldest first - feeds the
+    /// "Monthly Sales Growth" bar chart.</summary>
+    public List<SalesSummaryPoint> MonthlyTrend { get; set; } = new();
+
     public List<SalesSummaryPoint> Trend { get; set; } = new();
     public List<TopProduct> TopProducts { get; set; } = new();
 }

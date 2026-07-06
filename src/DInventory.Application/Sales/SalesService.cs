@@ -29,8 +29,8 @@ public class SalesService : ISalesService
 
     public Task<SalesOrder?> GetByIdAsync(int salesOrderId) => _salesOrderRepository.GetByIdAsync(salesOrderId);
 
-    public Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null)
-        => _salesOrderRepository.GetPagedAsync(request, fromDate, toDate);
+    public Task<PagedResult<SalesOrder>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null, DateTime? fromDate = null, DateTime? toDate = null)
+        => _salesOrderRepository.GetPagedAsync(request, companyId, businessUnitId, fromDate, toDate);
 
     public Task<IEnumerable<Customer>> GetCustomersAsync(string? search = null) => _customerRepository.GetAllAsync(search);
 
@@ -60,7 +60,7 @@ public class SalesService : ISalesService
         return Result<ProductVariant>.Success(variant);
     }
 
-    public async Task<Result<int>> CreateSaleAsync(CreateSaleRequest request, int actingUserId)
+    public async Task<Result<int>> CreateSaleAsync(CreateSaleRequest request, int actingUserId, int companyId, int? businessUnitId)
     {
         if (request.Items is null || request.Items.Count == 0)
         {
@@ -90,6 +90,7 @@ public class SalesService : ISalesService
             customerId = await _customerRepository.CreateAsync(new Customer
             {
                 CustomerName = request.NewCustomerName.Trim(),
+                Phone = string.IsNullOrWhiteSpace(request.NewCustomerMobile) ? null : request.NewCustomerMobile.Trim(),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
@@ -184,6 +185,8 @@ public class SalesService : ISalesService
             PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "CASH" : request.PaymentMethod,
             Status = "COMPLETED",
             Remarks = request.Remarks,
+            CompanyId = companyId,
+            BusinessUnitId = businessUnitId,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = actingUserId,
             Items = items

@@ -1,5 +1,8 @@
 @{
     ViewData["Title"] = "Barcode Generator";
+    bool isSuperCompany = ViewBag.IsSuperCompany ?? false;
+    int effectiveCompanyId = ViewBag.EffectiveCompanyId ?? 0;
+    bool canGenerate = !isSuperCompany || effectiveCompanyId > 0;
 }
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <p class="text-muted mb-0">
@@ -17,9 +20,28 @@
                 <div id="generateError" class="alert alert-danger d-none"></div>
                 <div id="generateWarning" class="alert alert-warning d-none"></div>
                 <div class="mb-3">
-                    <label class="form-label">Company Name (optional)</label>
-                    <input id="companyName" class="form-control" placeholder="e.g. Epyllion Group" />
-                    <div class="form-text">Printed above the product name on the label. Stays filled in for the next label you generate.</div>
+                    <label class="form-label">Company</label>
+                    @if (canGenerate)
+                    {
+                        <input id="companyName" class="form-control" value="@ViewBag.CompanyName" readonly />
+                        <div class="form-text">
+                            Printed above the product name on the label.
+                            @if (isSuperCompany)
+                            {
+                                <text>Change it any time from the Company selector in the top navigation bar.</text>
+                            }
+                            else
+                            {
+                                <text>Your own company's name, not editable here.</text>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning mb-0">
+                            Select a company from the <strong>Company</strong> dropdown in the top navigation bar before generating labels - "All Companies" can't own a label.
+                        </div>
+                    }
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Product Name <span class="text-danger">*</span></label>
@@ -59,7 +81,7 @@
                         Leave blank and DInventory will generate a fresh unique barcode.
                     </div>
                 </div>
-                <button type="button" id="generateBtn" class="btn btn-primary w-100">
+                <button type="button" id="generateBtn" class="btn btn-primary w-100" disabled="@(!canGenerate)">
                     <i class="bi bi-upc-scan me-1"></i>Generate Label
                 </button>
             </div>
@@ -96,6 +118,7 @@
     const clearAllBtn = document.getElementById('clearAllBtn');
     const errorBox = document.getElementById('generateError');
     const warningBox = document.getElementById('generateWarning');
+    const companyNameInput = document.getElementById('companyName');
 
     function updateCounters() {
         const count = labelsContainer.querySelectorAll('.print-label').length;
@@ -125,7 +148,7 @@
                     <i class="bi bi-x"></i>
                 </button>
                 ${data.companyName ? `<div class="fw-bold small text-truncate">${data.companyName}</div>` : ''}
-                <div class="fw-semibold small text-truncate">${data.productName}</div>
+                <div class="fw-semibold text-truncate small">${data.productName}</div>
                 <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
                 <svg id="${svgId}" class="my-1"></svg>
                 <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
@@ -151,7 +174,7 @@
                 width: barcodeWidth || 2,
                 height: barcodeHeight || 50,
                 displayValue: true,
-                fontSize: 14,
+                fontSize: 22,
                 margin: 4
             });
         } catch (err) {
@@ -184,7 +207,7 @@
             productName: productName,
             brandName: document.getElementById('brandName').value.trim() || null,
             sizeName: document.getElementById('sizeName').value.trim() || null,
-            companyName: document.getElementById('companyName').value.trim() || null,
+            companyName: companyNameInput ? (companyNameInput.value.trim() || null) : null,
             price: document.getElementById('price').value ? parseFloat(document.getElementById('price').value) : null,
             barcodeWidth: document.getElementById('barcodeWidth').value ? parseInt(document.getElementById('barcodeWidth').value, 10) : null,
             barcodeHeight: document.getElementById('barcodeHeight').value ? parseInt(document.getElementById('barcodeHeight').value, 10) : null

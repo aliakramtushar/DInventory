@@ -21,12 +21,13 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
             "SELECT * FROM dbo.GeneratedBarcodeLabels WHERE Barcode = @barcode", new { barcode });
     }
 
-    public async Task<PagedResult<GeneratedBarcodeLabel>> GetPagedAsync(PagedRequest request)
+    public async Task<PagedResult<GeneratedBarcodeLabel>> GetPagedAsync(PagedRequest request, int companyId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR Barcode LIKE @pattern OR ProductName LIKE @pattern)";
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@search IS NULL OR Barcode LIKE @pattern OR ProductName LIKE @pattern)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.GeneratedBarcodeLabels {whereClause}";
         var pagedSql = $@"
@@ -37,6 +38,7 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             offset = (request.PageNumber - 1) * request.PageSize,
@@ -59,9 +61,9 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.GeneratedBarcodeLabels (Barcode, ProductName, BrandName, SizeName, CompanyName, Price, BarcodeWidth, BarcodeHeight, IsLinked, LinkedProductVariantId, CreatedAt, CreatedBy)
+            INSERT INTO dbo.GeneratedBarcodeLabels (Barcode, ProductName, BrandName, SizeName, CompanyName, Price, BarcodeWidth, BarcodeHeight, CompanyId, BusinessUnitId, IsLinked, LinkedProductVariantId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.LabelId
-            VALUES (@Barcode, @ProductName, @BrandName, @SizeName, @CompanyName, @Price, @BarcodeWidth, @BarcodeHeight, @IsLinked, @LinkedProductVariantId, @CreatedAt, @CreatedBy)";
+            VALUES (@Barcode, @ProductName, @BrandName, @SizeName, @CompanyName, @Price, @BarcodeWidth, @BarcodeHeight, @CompanyId, @BusinessUnitId, @IsLinked, @LinkedProductVariantId, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, label);
     }
 
@@ -83,10 +85,10 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
         return count > 0;
     }
 
-    public async Task<string> GetLastBarcodeAsync()
+    public async Task<string> GetLastBarcodeAsync(string prefix)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT TOP 1 Barcode FROM dbo.GeneratedBarcodeLabels ORDER BY LabelId DESC";
-        return await connection.QuerySingleOrDefaultAsync<string>(sql) ?? string.Empty;
+        const string sql = "SELECT TOP 1 Barcode FROM dbo.GeneratedBarcodeLabels WHERE Barcode LIKE @pattern ORDER BY LabelId DESC";
+        return await connection.QuerySingleOrDefaultAsync<string>(sql, new { pattern = $"{prefix}%" }) ?? string.Empty;
     }
 }

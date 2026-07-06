@@ -4,6 +4,7 @@ using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Customers;
 using DInventory.Application.Sales;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -18,40 +19,65 @@ public class SalesController : Controller
     private readonly ISalesService _salesService;
     private readonly IProductVariantService _productVariantService;
     private readonly ILoyaltyService _loyaltyService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
     public SalesController(
         ISalesService salesService,
         IProductVariantService productVariantService,
         ILoyaltyService loyaltyService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _salesService = salesService;
         _productVariantService = productVariantService;
         _loyaltyService = loyaltyService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate, int page = 1)
+    public async Task<IActionResult> Index(int? businessUnitId, DateTime? fromDate, DateTime? toDate, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20 };
-        var result = await _salesService.GetPagedAsync(request, fromDate, toDate?.AddDays(1));
+        var result = await _salesService.GetPagedAsync(request, effectiveCompanyId, businessUnitId, fromDate, toDate?.AddDays(1));
 
         ViewData["FromDate"] = fromDate?.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = toDate?.ToString("yyyy-MM-dd");
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
 
         return View(result);
     }
 
     public async Task<IActionResult> Details(int id)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
         var order = await _salesService.GetByIdAsync(id);
         if (order is null)
         {
             return NotFound();
+        }
+
+        if (!currentUser.IsSuperCompany && order.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(order);
@@ -61,6 +87,11 @@ public class SalesController : Controller
     [PermissionAuthorize("SALES", PermissionAction.Create)]
     public async Task<IActionResult> Create()
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+        ViewBag.EffectiveCompanyId = effectiveCompanyId;
+
         await PopulateFormDataAsync();
         return View();
     }
@@ -68,13 +99,26 @@ public class SalesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("SALES", PermissionAction.Create)]
-    public async Task<IActionResult> Create(int? customerId, string? newCustomerName, string? discountType, decimal discountValue,
+    public async Task<IActionResult> Create(int? customerId, string? newCustomerName, string? newCustomerMobile, string? discountType, decimal discountValue,
         decimal taxAmount, string paymentStatus, string? paymentMethod, string? remarks, int redeemPoints, string itemsJson)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
+        if (effectiveCompanyId <= 0)
+        {
+            TempData["ErrorMessage"] = "Please select a company from the top navigation bar before recording a sale.";
+            ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+            ViewBag.EffectiveCompanyId = effectiveCompanyId;
+            await PopulateFormDataAsync();
+            return View();
+        }
+
         var request = new CreateSaleRequest
         {
             CustomerId = customerId,
             NewCustomerName = newCustomerName,
+            NewCustomerMobile = newCustomerMobile,
             DiscountType = string.Equals(discountType, "FIXED", StringComparison.OrdinalIgnoreCase) ? "FIXED" : "PERCENT",
             DiscountValue = discountValue,
             TaxAmount = taxAmount,
@@ -94,12 +138,14 @@ public class SalesController : Controller
             request.Items = new List<CreateSaleItem>();
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
-        var result = await _salesService.CreateSaleAsync(request, currentUser.UserId);
+        var effectiveBusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+        var result = await _salesService.CreateSaleAsync(request, currentUser.UserId, effectiveCompanyId, effectiveBusinessUnitId);
 
         if (!result.Succeeded)
         {
             TempData["ErrorMessage"] = result.Error;
+            ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+            ViewBag.EffectiveCompanyId = effectiveCompanyId;
             await PopulateFormDataAsync();
             return View();
         }

@@ -6,7 +6,7 @@ namespace DInventory.Application.Common.Interfaces;
 public interface ISalesReturnRepository
 {
     Task<SalesReturn?> GetByIdAsync(int salesReturnId);
-    Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int? salesOrderId = null);
+    Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int companyId, int? salesOrderId = null);
     Task<int> CreateAsync(SalesReturn salesReturn);
     Task<string> GenerateNextReturnNoAsync();
 }

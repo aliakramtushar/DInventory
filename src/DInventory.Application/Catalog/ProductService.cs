@@ -35,13 +35,13 @@ public class ProductService : IProductService
 
     public Task<Product?> GetByIdAsync(int productId) => _productRepository.GetByIdAsync(productId);
 
-    public Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
-        => _productRepository.GetPagedAsync(request, categoryId, subcategoryId, brandId, onlyActive);
+    public Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
+        => _productRepository.GetPagedAsync(request, companyId, categoryId, subcategoryId, brandId, onlyActive);
 
     public Task<PagedResult<Product>> GetPublicPagedAsync(PagedRequest request, int? categoryId = null)
         => _productRepository.GetPublicPagedAsync(request, categoryId);
 
-    public Task<IEnumerable<Product>> GetAllAsync(bool onlyActive = false) => _productRepository.GetAllAsync(onlyActive);
+    public Task<IEnumerable<Product>> GetAllAsync(int companyId, bool onlyActive = false) => _productRepository.GetAllAsync(companyId, onlyActive);
 
     private async Task<string> BuildAutoSkuAsync(string productCode, int sizeId, int? colorId)
     {
@@ -87,9 +87,9 @@ public class ProductService : IProductService
 
         if (string.IsNullOrWhiteSpace(product.ProductCode))
         {
-            product.ProductCode = await _productRepository.GenerateNextProductCodeAsync();
+            product.ProductCode = await _productRepository.GenerateNextProductCodeAsync(product.CompanyId);
         }
-        else if (await _productRepository.CodeExistsAsync(product.ProductCode))
+        else if (await _productRepository.CodeExistsAsync(product.CompanyId, product.ProductCode))
         {
             return Result<int>.Failure("A product with this code already exists.");
         }
@@ -116,7 +116,7 @@ public class ProductService : IProductService
             var barcode = v.Barcode?.Trim();
             if (string.IsNullOrWhiteSpace(barcode))
             {
-                barcode = await _barcodeNumberGenerator.GenerateNextAsync();
+                barcode = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
             }
 
             var sku = string.IsNullOrWhiteSpace(v.SKU) ? await BuildAutoSkuAsync(product.ProductCode, v.SizeId, v.ColorId) : v.SKU.Trim();
@@ -168,7 +168,7 @@ public class ProductService : IProductService
         }
 
         if (!string.Equals(existing.ProductCode, product.ProductCode, StringComparison.OrdinalIgnoreCase)
-            && await _productRepository.CodeExistsAsync(product.ProductCode, product.ProductId))
+            && await _productRepository.CodeExistsAsync(existing.CompanyId, product.ProductCode, product.ProductId))
         {
             return Result.Failure("A product with this code already exists.");
         }

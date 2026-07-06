@@ -15,8 +15,8 @@ public class ExpenseService : IExpenseService
 
     public Task<Expense?> GetByIdAsync(int expenseId) => _expenseRepository.GetByIdAsync(expenseId);
 
-    public Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null)
-        => _expenseRepository.GetPagedAsync(request, fromDate, toDate, category);
+    public Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null, int companyId = 0)
+        => _expenseRepository.GetPagedAsync(request, fromDate, toDate, category, companyId);
 
     public async Task<Result<int>> CreateAsync(Expense expense, int? actingUserId)
     {
@@ -58,6 +58,7 @@ public class ExpenseService : IExpenseService
         existing.Category = expense.Category;
         existing.Amount = expense.Amount;
         existing.Remarks = expense.Remarks;
+        existing.BusinessUnitId = expense.BusinessUnitId;
 
         var ok = await _expenseRepository.UpdateAsync(existing);
         return ok ? Result.Success() : Result.Failure("Unable to update expense.");

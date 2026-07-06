@@ -3,6 +3,7 @@ using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Purchasing;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -17,39 +18,65 @@ public class PurchasesController : Controller
     private readonly IPurchaseService _purchaseService;
     private readonly ISupplierService _supplierService;
     private readonly IProductVariantService _productVariantService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
     public PurchasesController(
         IPurchaseService purchaseService,
         ISupplierService supplierService,
         IProductVariantService productVariantService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _purchaseService = purchaseService;
         _supplierService = supplierService;
         _productVariantService = productVariantService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(int? supplierId, int page = 1)
+    public async Task<IActionResult> Index(int? businessUnitId, int? supplierId, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20 };
-        var result = await _purchaseService.GetPagedAsync(request, supplierId);
+        var result = await _purchaseService.GetPagedAsync(request, effectiveCompanyId, businessUnitId, supplierId);
 
         ViewData["SupplierId"] = supplierId;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.Suppliers = await _supplierService.GetAllAsync(onlyActive: true);
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
+
         return View(result);
     }
 
     public async Task<IActionResult> Details(int id)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
         var purchase = await _purchaseService.GetByIdAsync(id);
         if (purchase is null)
         {
             return NotFound();
+        }
+
+        if (!currentUser.IsSuperCompany && purchase.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(purchase);
@@ -59,6 +86,11 @@ public class PurchasesController : Controller
     [PermissionAuthorize("PURCHASES", PermissionAction.Create)]
     public async Task<IActionResult> Create(int? supplierId)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+        ViewBag.EffectiveCompanyId = effectiveCompanyId;
+
         await PopulateFormDataAsync();
         ViewData["SupplierId"] = supplierId;
         return View();
@@ -69,6 +101,19 @@ public class PurchasesController : Controller
     [PermissionAuthorize("PURCHASES", PermissionAction.Create)]
     public async Task<IActionResult> Create(int supplierId, decimal paidAmount, string? remarks, string itemsJson)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
+        if (effectiveCompanyId <= 0)
+        {
+            TempData["ErrorMessage"] = "Please select a company from the top navigation bar before receiving a purchase.";
+            ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+            ViewBag.EffectiveCompanyId = effectiveCompanyId;
+            await PopulateFormDataAsync();
+            ViewData["SupplierId"] = supplierId;
+            return View();
+        }
+
         var request = new CreatePurchaseRequest
         {
             SupplierId = supplierId,
@@ -89,17 +134,21 @@ public class PurchasesController : Controller
         if (request.Items.Count == 0)
         {
             TempData["ErrorMessage"] = "Add at least one item to receive.";
+            ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+            ViewBag.EffectiveCompanyId = effectiveCompanyId;
             await PopulateFormDataAsync();
             ViewData["SupplierId"] = supplierId;
             return View();
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
-        var result = await _purchaseService.CreateAsync(request, currentUser.UserId);
+        var effectiveBusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+        var result = await _purchaseService.CreateAsync(request, currentUser.UserId, effectiveCompanyId, effectiveBusinessUnitId);
 
         if (!result.Succeeded)
         {
             TempData["ErrorMessage"] = result.Error;
+            ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+            ViewBag.EffectiveCompanyId = effectiveCompanyId;
             await PopulateFormDataAsync();
             ViewData["SupplierId"] = supplierId;
             return View();

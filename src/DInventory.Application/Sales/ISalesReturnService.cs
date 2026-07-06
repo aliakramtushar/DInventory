@@ -20,7 +20,7 @@ public class CreateSalesReturnRequest
 public interface ISalesReturnService
 {
     Task<SalesReturn?> GetByIdAsync(int salesReturnId);
-    Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int? salesOrderId = null);
+    Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int companyId, int? salesOrderId = null);
 
     /// <summary>Records a return against a completed sale (always linked to the original
     /// SalesOrder) and immediately restores stock for every returned line, one StockTransaction

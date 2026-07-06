@@ -13,7 +13,7 @@ public interface IExpenseService
     };
 
     Task<Expense?> GetByIdAsync(int expenseId);
-    Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null);
+    Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null, int companyId = 0);
     Task<Result<int>> CreateAsync(Expense expense, int? actingUserId);
     Task<Result> UpdateAsync(Expense expense, int? actingUserId);
     Task<Result> DeleteAsync(int expenseId);

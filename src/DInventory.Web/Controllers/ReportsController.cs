@@ -1,4 +1,5 @@
 using System.Text;
+using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Reports;
 using DInventory.Web.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -11,10 +12,12 @@ namespace DInventory.Web.Controllers;
 public class ReportsController : Controller
 {
     private readonly IReportService _reportService;
+    private readonly ICompanyContextService _companyContextService;
 
-    public ReportsController(IReportService reportService)
+    public ReportsController(IReportService reportService, ICompanyContextService companyContextService)
     {
         _reportService = reportService;
+        _companyContextService = companyContextService;
     }
 
     /// <summary>Reports hub - the sidebar's "Reports" menu item links here (a single top-level menu
@@ -29,7 +32,8 @@ public class ReportsController : Controller
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
 
-        var rows = await _reportService.GetSalesReportAsync(from, to);
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetSalesReportAsync(from, to, effectiveCompanyId);
         return View(rows);
     }
 
@@ -37,7 +41,8 @@ public class ReportsController : Controller
     {
         var from = fromDate ?? DateTime.UtcNow.Date.AddDays(-29);
         var to = toDate ?? DateTime.UtcNow.Date;
-        var rows = await _reportService.GetSalesReportAsync(from, to);
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetSalesReportAsync(from, to, effectiveCompanyId);
 
         var csv = new StringBuilder();
         csv.AppendLine("Date,Invoice No,Customer,Sub Total,Discount,Tax,Net Amount,Status,Created By");
@@ -51,13 +56,15 @@ public class ReportsController : Controller
 
     public async Task<IActionResult> Stock()
     {
-        var rows = await _reportService.GetStockReportAsync();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetStockReportAsync(effectiveCompanyId);
         return View(rows);
     }
 
     public async Task<IActionResult> StockExport()
     {
-        var rows = await _reportService.GetStockReportAsync();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetStockReportAsync(effectiveCompanyId);
 
         var csv = new StringBuilder();
         csv.AppendLine("Product Code,Product Name,Category,Quantity On Hand,Reorder Level,Cost Price,Selling Price,Stock Value,Low Stock");
@@ -77,7 +84,8 @@ public class ReportsController : Controller
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
 
-        var rows = await _reportService.GetProductProfitReportAsync(from, to.AddDays(1));
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetProductProfitReportAsync(from, to.AddDays(1), effectiveCompanyId);
         return View(rows);
     }
 
@@ -89,7 +97,8 @@ public class ReportsController : Controller
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
 
-        var rows = await _reportService.GetCategorySalesReportAsync(from, to.AddDays(1));
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetCategorySalesReportAsync(from, to.AddDays(1), effectiveCompanyId);
         return View(rows);
     }
 
@@ -97,7 +106,8 @@ public class ReportsController : Controller
     /// view (loyalty points, total spend since day one), not a period snapshot.</summary>
     public async Task<IActionResult> Customers()
     {
-        var rows = await _reportService.GetCustomerReportAsync();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetCustomerReportAsync(effectiveCompanyId);
         return View(rows);
     }
 
@@ -109,8 +119,9 @@ public class ReportsController : Controller
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
 
-        var rows = await _reportService.GetExpenseReportAsync(from, to.AddDays(1));
-        var summary = await _reportService.GetExpenseSummaryAsync(from, to.AddDays(1));
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetExpenseReportAsync(from, to.AddDays(1), effectiveCompanyId);
+        var summary = await _reportService.GetExpenseSummaryAsync(from, to.AddDays(1), effectiveCompanyId);
 
         ViewBag.Summary = summary;
         return View(rows);

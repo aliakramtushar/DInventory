@@ -1,10 +1,17 @@
 @model DInventory.Domain.Entities.User
 @{
     ViewData["Title"] = "New User";
+    bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating a user - "All Companies" can't own one.
+            </div>
+        }
         <form method="post">
             <div class="row g-3">
                 <div class="col-md-6">
@@ -27,9 +34,27 @@
                     <label class="form-label">Role</label>
                     <select asp-for="RoleId" class="form-select" asp-items="@(new SelectList(ViewBag.Roles, "RoleId", "RoleName"))" required></select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">Company</label>
+                    @if ((bool)ViewBag.IsSuperCompany)
+                    {
+                        <input asp-for="CompanyId" type="hidden" />
+                    }
+                    else
+                    {
+                        <input class="form-control" value="@ViewBag.CurrentCompanyName" readonly />
+                        <input asp-for="CompanyId" type="hidden" />
+                    }
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Business Unit (optional)</label>
+                    <select asp-for="BusinessUnitId" class="form-select" asp-items="@(new SelectList(ViewBag.BusinessUnits, "BusinessUnitId", "BusinessUnitName"))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
             </div>
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">Create User</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create User</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

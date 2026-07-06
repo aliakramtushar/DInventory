@@ -15,7 +15,7 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         _barcodeNumberGenerator = barcodeNumberGenerator;
     }
 
-    public Task<PagedResult<GeneratedBarcodeLabel>> GetPagedAsync(PagedRequest request) => _labelRepository.GetPagedAsync(request);
+    public Task<PagedResult<GeneratedBarcodeLabel>> GetPagedAsync(PagedRequest request, int companyId) => _labelRepository.GetPagedAsync(request, companyId);
 
     public Task<GeneratedBarcodeLabel?> GetByBarcodeAsync(string barcode) => _labelRepository.GetByBarcodeAsync(barcode.Trim());
 
@@ -27,7 +27,7 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
     private const int MinBarcodeHeight = 20;
     private const int MaxBarcodeHeight = 150;
 
-    public async Task<Result<GeneratedBarcodeLabel>> GenerateAsync(string? manualBarcode, string productName, string? brandName, string? sizeName, string? companyName, decimal? price, int? barcodeWidth, int? barcodeHeight, int? actingUserId)
+    public async Task<Result<GeneratedBarcodeLabel>> GenerateAsync(int companyId, int? businessUnitId, string? manualBarcode, string productName, string? brandName, string? sizeName, string? companyName, decimal? price, int? barcodeWidth, int? barcodeHeight, int? actingUserId)
     {
         if (string.IsNullOrWhiteSpace(productName))
         {
@@ -37,7 +37,7 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         var barcode = manualBarcode?.Trim();
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            barcode = await _barcodeNumberGenerator.GenerateNextAsync();
+            barcode = await _barcodeNumberGenerator.GenerateNextAsync(companyId);
         }
         else if (await _labelRepository.BarcodeExistsAsync(barcode))
         {
@@ -49,6 +49,8 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
 
         var label = new GeneratedBarcodeLabel
         {
+            CompanyId = companyId,
+            BusinessUnitId = businessUnitId,
             Barcode = barcode,
             ProductName = productName.Trim(),
             BrandName = brandName,

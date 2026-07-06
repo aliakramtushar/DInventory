@@ -68,7 +68,7 @@ public class ProductVariantService : IProductVariantService
         var code = barcode?.Trim();
         if (string.IsNullOrWhiteSpace(code))
         {
-            code = await _barcodeNumberGenerator.GenerateNextAsync();
+            code = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
         }
         else if (await _variantRepository.BarcodeExistsAsync(code))
         {

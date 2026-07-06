@@ -12,6 +12,11 @@ public class GeneratedBarcodeLabel
     public string? CompanyName { get; set; }
     public decimal? Price { get; set; }
 
+    /// <summary>Which company this label belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
+
     /// <summary>CODE128 module (bar) width in px, as printed. Default 2.</summary>
     public int BarcodeWidth { get; set; } = 2;
 

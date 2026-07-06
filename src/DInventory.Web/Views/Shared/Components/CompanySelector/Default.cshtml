@@ -1,0 +1,27 @@
+@model DInventory.Web.Models.CompanySelectorViewModel
+<form asp-controller="CompanyContext" asp-action="Switch" method="post" class="d-flex align-items-center gap-2 me-2 erp-company-selector">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+    <label class="small text-muted mb-0 d-none d-md-inline">Company</label>
+    <select name="companyId" class="form-select form-select-sm" style="min-width:180px" onchange="this.form.submit()">
+        @if (Model.SelectedCompanyId == 0)
+        {
+            <option value="0" selected>All Companies</option>
+        }
+        else
+        {
+            <option value="0">All Companies</option>
+        }
+        @foreach (var company in Model.Companies)
+        {
+            if (Model.SelectedCompanyId == company.CompanyId)
+            {
+                <option value="@company.CompanyId" selected>@company.CompanyName</option>
+            }
+            else
+            {
+                <option value="@company.CompanyId">@company.CompanyName</option>
+            }
+        }
+    </select>
+</form>

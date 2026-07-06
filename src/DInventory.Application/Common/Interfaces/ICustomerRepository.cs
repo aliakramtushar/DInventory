@@ -12,10 +12,10 @@ public interface ICustomerRepository
     Task<Customer?> GetByIdWithStatsAsync(int customerId);
 
     Task<IEnumerable<Customer>> GetAllAsync(string? search = null);
-    Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, bool onlyActive = false);
+    Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false);
     Task<int> CreateAsync(Customer customer);
     Task<bool> UpdateAsync(Customer customer);
     Task<bool> DeleteAsync(int customerId);
     Task<bool> HasSalesAsync(int customerId);
-    Task<int> GetTotalCountAsync();
+    Task<int> GetTotalCountAsync(int companyId = 0);
 }

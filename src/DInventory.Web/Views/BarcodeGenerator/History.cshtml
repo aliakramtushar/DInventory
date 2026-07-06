@@ -1,25 +1,27 @@
 @model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.GeneratedBarcodeLabel>
 @{
     ViewData["Title"] = "Barcode Labels";
+    var itemsList = Model.Items.ToList();
 }
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <form class="d-flex gap-2" method="get">
         <input type="text" name="search" value="@ViewData["Search"]" class="form-control form-control-sm" placeholder="Search by barcode/product..." />
         <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
     </form>
     <a asp-action="Index" class="btn btn-primary btn-sm"><i class="bi bi-upc-scan me-1"></i>Generate Labels</a>
 </div>
-<div class="card shadow-sm">
+<div class="card shadow-sm no-print">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead class="table-light"><tr><th>Barcode</th><th>Product Name</th><th>Company</th><th>Brand</th><th>Size</th><th>Price</th><th>Linked?</th><th>Generated</th></tr></thead>
+            <thead class="table-light"><tr><th>Barcode</th><th>Product Name</th><th>Company</th><th>Brand</th><th>Size</th><th>Price</th><th>Linked?</th><th>Generated</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
-                @if (!Model.Items.Any())
+                @if (!itemsList.Any())
                 {
-                    <tr><td colspan="8" class="text-center text-muted py-4">No labels generated yet.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">No labels generated yet.</td></tr>
                 }
-                @foreach (var label in Model.Items)
+                @for (var i = 0; i < itemsList.Count; i++)
                 {
+                    var label = itemsList[i];
                     <tr>
                         <td><code>@label.Barcode</code></td>
                         <td>@label.ProductName</td>
@@ -38,6 +40,11 @@
                             }
                         </td>
                         <td class="small text-muted">@label.CreatedAt.ToString("g")</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="reprintBarcodeLabel(@i)" title="Reprint this label">
+                                <i class="bi bi-printer"></i>
+                            </button>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -52,8 +59,76 @@
                 TotalPages = Model.TotalPages,
                 HasPreviousPage = Model.HasPreviousPage,
                 HasNextPage = Model.HasNextPage,
-                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()))
+                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()), ("companyId", ViewData["CompanyId"]?.ToString()))
             })
         </div>
     }
 </div>
+
+<!-- Hidden until a reprint is requested - only this shows up in the print output (see .no-print
+     above on everything else on the page), so reprinting one label never prints the whole table. -->
+<div id="reprintLabelsContainer" class="d-none"></div>
+
+@section Scripts {
+<script src="~/js/dinv-barcode128.js" asp-append-version="true"></script>
+<script>
+    const dinvHistoryLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(itemsList.Select(l => new
+    {
+        barcode = l.Barcode,
+        productName = l.ProductName,
+        brandName = l.BrandName,
+        sizeName = l.SizeName,
+        companyName = l.CompanyName,
+        price = l.Price,
+        barcodeWidth = l.BarcodeWidth,
+        barcodeHeight = l.BarcodeHeight
+    })));
+
+    function reprintBarcodeLabel(index) {
+        const data = dinvHistoryLabels[index];
+        if (!data) return;
+
+        const container = document.getElementById('reprintLabelsContainer');
+        const svgId = 'reprint-svg-' + index;
+        container.innerHTML = `
+            <div class="card shadow-sm print-label" style="width: 260px;">
+                <div class="card-body text-center p-2">
+                    ${data.companyName ? `<div class="fw-bold small text-truncate">${data.companyName}</div>` : ''}
+                    <div class="fw-semibold text-truncate small">${data.productName}</div>
+                    <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
+                    <svg id="${svgId}" class="my-1"></svg>
+                    <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
+                </div>
+            </div>
+        `;
+
+        try {
+            DinvBarcode.render(svgId, data.barcode, {
+                width: data.barcodeWidth || 2,
+                height: data.barcodeHeight || 50,
+                displayValue: true,
+                fontSize: 22,
+                margin: 4
+            });
+        } catch (err) {
+            const svgEl = document.getElementById(svgId);
+            if (svgEl) {
+                svgEl.outerHTML = `<div class="fs-5 fw-bold font-monospace">${data.barcode}</div>`;
+            }
+        }
+
+        container.classList.remove('d-none');
+        container.id = 'labelsContainer';
+        window.print();
+    }
+
+    window.addEventListener('afterprint', () => {
+        const container = document.getElementById('labelsContainer');
+        if (container) {
+            container.classList.add('d-none');
+            container.innerHTML = '';
+            container.id = 'reprintLabelsContainer';
+        }
+    });
+</script>
+}

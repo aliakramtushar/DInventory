@@ -31,12 +31,14 @@ public class ReportService : IReportService
         _expenseRepository = expenseRepository;
     }
 
-    public Task<IEnumerable<SalesReportRow>> GetSalesReportAsync(DateTime fromDate, DateTime toDate)
-        => _salesOrderRepository.GetReportRowsAsync(fromDate.Date, toDate.Date.AddDays(1));
+    public Task<IEnumerable<SalesReportRow>> GetSalesReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
+        => _salesOrderRepository.GetReportRowsAsync(fromDate.Date, toDate.Date.AddDays(1), companyId);
 
-    public async Task<IEnumerable<StockReportRow>> GetStockReportAsync()
+    public async Task<IEnumerable<StockReportRow>> GetStockReportAsync(int companyId = 0)
     {
-        var stockRows = (await _stockRepository.GetAllAsync()).ToList();
+        // Reports are company-scoped via the caller's effective companyId (0 = SuperAdmin "All
+        // Companies" view - a valid aggregate read for report pages, never for creates).
+        var stockRows = (await _stockRepository.GetAllAsync(companyId)).ToList();
         var result = new List<StockReportRow>();
         var deadStockCutoff = DateTime.UtcNow.AddDays(-DeadStockDays);
 
@@ -66,25 +68,25 @@ public class ReportService : IReportService
         return result;
     }
 
-    public Task<IEnumerable<ProductProfitRow>> GetProductProfitReportAsync(DateTime fromDate, DateTime toDate)
-        => _salesOrderRepository.GetProductProfitReportAsync(fromDate.Date, toDate.Date.AddDays(1));
+    public Task<IEnumerable<ProductProfitRow>> GetProductProfitReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
+        => _salesOrderRepository.GetProductProfitReportAsync(fromDate.Date, toDate.Date.AddDays(1), companyId);
 
-    public Task<IEnumerable<CategorySalesRow>> GetCategorySalesReportAsync(DateTime fromDate, DateTime toDate)
-        => _salesOrderRepository.GetCategorySalesReportAsync(fromDate.Date, toDate.Date.AddDays(1));
+    public Task<IEnumerable<CategorySalesRow>> GetCategorySalesReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
+        => _salesOrderRepository.GetCategorySalesReportAsync(fromDate.Date, toDate.Date.AddDays(1), companyId);
 
-    public Task<IEnumerable<CustomerReportRow>> GetCustomerReportAsync()
-        => _salesOrderRepository.GetCustomerSummaryReportAsync();
+    public Task<IEnumerable<CustomerReportRow>> GetCustomerReportAsync(int companyId = 0)
+        => _salesOrderRepository.GetCustomerSummaryReportAsync(companyId);
 
-    public async Task<IEnumerable<Expense>> GetExpenseReportAsync(DateTime fromDate, DateTime toDate)
+    public async Task<IEnumerable<Expense>> GetExpenseReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
     {
         // Reuse the paged repository method with a page size large enough to cover a normal report
         // range in one page - this stays a reporting/export view, not a paginated list of its own.
-        var result = await _expenseRepository.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 5000 }, fromDate.Date, toDate.Date.AddDays(1));
+        var result = await _expenseRepository.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 5000 }, fromDate.Date, toDate.Date.AddDays(1), category: null, companyId: companyId);
         return result.Items;
     }
 
-    public Task<IEnumerable<ExpenseCategoryTotal>> GetExpenseSummaryAsync(DateTime fromDate, DateTime toDate)
-        => _expenseRepository.GetSummaryByCategoryAsync(fromDate.Date, toDate.Date.AddDays(1));
+    public Task<IEnumerable<ExpenseCategoryTotal>> GetExpenseSummaryAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
+        => _expenseRepository.GetSummaryByCategoryAsync(fromDate.Date, toDate.Date.AddDays(1), companyId);
 
     private static string BuildDisplayName(string? productName, string? sizeName)
     {

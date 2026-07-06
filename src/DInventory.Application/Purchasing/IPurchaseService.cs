@@ -21,10 +21,10 @@ public class CreatePurchaseRequest
 public interface IPurchaseService
 {
     Task<Purchase?> GetByIdAsync(int purchaseId);
-    Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int? supplierId = null);
+    Task<PagedResult<Purchase>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null, int? supplierId = null);
 
     /// <summary>Records a purchase invoice and immediately increases stock for every line item (one
     /// StockTransaction per variant, ReferenceType = "PURCHASE") - the "Auto Stock Update" the Phase 1
     /// spec asks for, using the exact same stock-adjustment plumbing sales/manual adjustments use.</summary>
-    Task<Result<int>> CreateAsync(CreatePurchaseRequest request, int actingUserId);
+    Task<Result<int>> CreateAsync(CreatePurchaseRequest request, int actingUserId, int companyId, int? businessUnitId);
 }

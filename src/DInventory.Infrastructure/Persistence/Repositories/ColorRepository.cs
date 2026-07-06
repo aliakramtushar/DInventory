@@ -20,21 +20,22 @@ public class ColorRepository : IColorRepository
         return await connection.QuerySingleOrDefaultAsync<Color>("SELECT * FROM dbo.Colors WHERE ColorId = @colorId", new { colorId });
     }
 
-    public async Task<IEnumerable<Color>> GetAllAsync(bool onlyActive = false)
+    public async Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Colors
-            WHERE (@onlyActive = 0 OR IsActive = 1)
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@onlyActive = 0 OR IsActive = 1)
             ORDER BY DisplayOrder, ColorName";
-        return await connection.QueryAsync<Color>(sql, new { onlyActive });
+        return await connection.QueryAsync<Color>(sql, new { companyId, onlyActive });
     }
 
-    public async Task<PagedResult<Color>> GetPagedAsync(PagedRequest request)
+    public async Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var whereClause = "WHERE (@search IS NULL OR ColorName LIKE @pattern)";
+        var whereClause = "WHERE (@companyId = 0 OR CompanyId = @companyId) AND (@search IS NULL OR ColorName LIKE @pattern)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Colors {whereClause}";
         var pagedSql = $@"
@@ -45,6 +46,7 @@ public class ColorRepository : IColorRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             offset = (request.PageNumber - 1) * request.PageSize,
@@ -67,9 +69,9 @@ public class ColorRepository : IColorRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Colors (ColorName, HexCode, DisplayOrder, IsActive, CreatedAt)
+            INSERT INTO dbo.Colors (ColorName, HexCode, DisplayOrder, CompanyId, BusinessUnitId, IsActive, CreatedAt)
             OUTPUT INSERTED.ColorId
-            VALUES (@ColorName, @HexCode, @DisplayOrder, @IsActive, @CreatedAt)";
+            VALUES (@ColorName, @HexCode, @DisplayOrder, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt)";
         return await connection.ExecuteScalarAsync<int>(sql, color);
     }
 
@@ -91,11 +93,11 @@ public class ColorRepository : IColorRepository
         return rows > 0;
     }
 
-    public async Task<bool> NameExistsAsync(string name, int? excludeId = null)
+    public async Task<bool> NameExistsAsync(int companyId, string name, int? excludeId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT COUNT(1) FROM dbo.Colors WHERE ColorName = @name AND (@excludeId IS NULL OR ColorId <> @excludeId)";
-        var count = await connection.ExecuteScalarAsync<int>(sql, new { name, excludeId });
+        const string sql = "SELECT COUNT(1) FROM dbo.Colors WHERE CompanyId = @companyId AND ColorName = @name AND (@excludeId IS NULL OR ColorId <> @excludeId)";
+        var count = await connection.ExecuteScalarAsync<int>(sql, new { companyId, name, excludeId });
         return count > 0;
     }
 

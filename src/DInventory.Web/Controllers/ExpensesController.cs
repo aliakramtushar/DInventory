@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Expenses;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -15,13 +16,17 @@ namespace DInventory.Web.Controllers;
 public class ExpensesController : Controller
 {
     private readonly IExpenseService _expenseService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public ExpensesController(IExpenseService expenseService, ICurrentUserService currentUserService, IAuditLogService auditLogService)
+    public ExpensesController(IExpenseService expenseService, IBusinessUnitService businessUnitService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IAuditLogService auditLogService)
     {
         _expenseService = expenseService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
         _auditLogService = auditLogService;
     }
 
@@ -29,9 +34,10 @@ public class ExpensesController : Controller
     {
         var from = fromDate ?? DateTime.UtcNow.Date.AddDays(-29);
         var to = toDate ?? DateTime.UtcNow.Date;
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20 };
-        var result = await _expenseService.GetPagedAsync(request, from, to.AddDays(1), category);
+        var result = await _expenseService.GetPagedAsync(request, from, to.AddDays(1), category, effectiveCompanyId);
 
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
@@ -43,9 +49,15 @@ public class ExpensesController : Controller
 
     [HttpGet]
     [PermissionAuthorize("EXPENSES", PermissionAction.Create)]
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         ViewBag.Categories = IExpenseService.Categories;
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+
+        await PopulateBusinessUnitsAsync();
         return View(new Expense { ExpenseDate = DateTime.UtcNow.Date });
     }
 
@@ -54,19 +66,30 @@ public class ExpensesController : Controller
     [PermissionAuthorize("EXPENSES", PermissionAction.Create)]
     public async Task<IActionResult> Create(Expense model)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        model.CompanyId = effectiveCompanyId;
+
+        if (model.CompanyId <= 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating an expense.");
+        }
+
         if (!ModelState.IsValid)
         {
             ViewBag.Categories = IExpenseService.Categories;
+            await PopulateBusinessUnitsAsync();
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _expenseService.CreateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to create expense.");
             ViewBag.Categories = IExpenseService.Categories;
+            await PopulateBusinessUnitsAsync();
             return View(model);
         }
 
@@ -85,7 +108,14 @@ public class ExpensesController : Controller
             return NotFound();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && expense.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         ViewBag.Categories = IExpenseService.Categories;
+        await PopulateBusinessUnitsAsync();
         return View(expense);
     }
 
@@ -97,6 +127,7 @@ public class ExpensesController : Controller
         if (!ModelState.IsValid)
         {
             ViewBag.Categories = IExpenseService.Categories;
+            await PopulateBusinessUnitsAsync();
             return View(model);
         }
 
@@ -107,6 +138,7 @@ public class ExpensesController : Controller
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to update expense.");
             ViewBag.Categories = IExpenseService.Categories;
+            await PopulateBusinessUnitsAsync();
             return View(model);
         }
 
@@ -134,5 +166,13 @@ public class ExpensesController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task PopulateBusinessUnitsAsync()
+    {
+        var companyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.BusinessUnits = companyId > 0
+            ? await _businessUnitService.GetAllAsync(companyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
     }
 }

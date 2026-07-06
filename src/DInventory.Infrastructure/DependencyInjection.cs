@@ -22,10 +22,14 @@ public static class DependencyInjection
         services.AddSingleton<IDbConnectionFactory, DapperDbConnectionFactory>();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ICompanyContextService, CompanyContextService>();
+        services.AddScoped<IBusinessUnitContextService, BusinessUnitContextService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
 
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<IBusinessUnitRepository, BusinessUnitRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IMenuRepository, MenuRepository>();

@@ -51,7 +51,10 @@ public class HomeController : Controller
         var result = await _productService.GetPublicPagedAsync(request, categoryId);
 
         ViewBag.Pages = (await _contentPageService.GetAllAsync(onlyPublished: true)).ToList();
-        ViewBag.Categories = await _categoryService.GetAllAsync(onlyActive: true);
+        // Public storefront is shared across every tenant on this install (not yet scoped per
+        // company), so companyId 0 here means "show every company's categories", same bypass
+        // semantics as the admin-side superuser - not an actual superuser request.
+        ViewBag.Categories = await _categoryService.GetAllAsync(companyId: 0, onlyActive: true);
         ViewData["CategoryId"] = categoryId;
         ViewData["Search"] = search;
         ViewData["Title"] = "Our Products";

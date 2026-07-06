@@ -205,7 +205,10 @@ public class AccountController : Controller
             new("fullName", user.FullName),
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.Role, roleName),
-            new("roleId", user.RoleId.ToString())
+            new("roleId", user.RoleId.ToString()),
+            new("companyId", user.CompanyId.ToString()),
+            new("businessUnitId", (user.BusinessUnitId ?? 0).ToString()),
+            new("companyName", user.CompanyName ?? string.Empty)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

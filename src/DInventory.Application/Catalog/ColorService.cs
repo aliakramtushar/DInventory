@@ -15,9 +15,9 @@ public class ColorService : IColorService
 
     public Task<Color?> GetByIdAsync(int colorId) => _colorRepository.GetByIdAsync(colorId);
 
-    public Task<IEnumerable<Color>> GetAllAsync(bool onlyActive = false) => _colorRepository.GetAllAsync(onlyActive);
+    public Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false) => _colorRepository.GetAllAsync(companyId, onlyActive);
 
-    public Task<PagedResult<Color>> GetPagedAsync(PagedRequest request) => _colorRepository.GetPagedAsync(request);
+    public Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId) => _colorRepository.GetPagedAsync(request, companyId);
 
     public async Task<Result<int>> CreateAsync(Color color, int? actingUserId)
     {
@@ -26,7 +26,7 @@ public class ColorService : IColorService
             return Result<int>.Failure("Color name is required.");
         }
 
-        if (await _colorRepository.NameExistsAsync(color.ColorName))
+        if (await _colorRepository.NameExistsAsync(color.CompanyId, color.ColorName))
         {
             return Result<int>.Failure("This color already exists.");
         }
@@ -45,7 +45,7 @@ public class ColorService : IColorService
             return Result.Failure("Color not found.");
         }
 
-        if (await _colorRepository.NameExistsAsync(color.ColorName, color.ColorId))
+        if (await _colorRepository.NameExistsAsync(existing.CompanyId, color.ColorName, color.ColorId))
         {
             return Result.Failure("This color already exists.");
         }

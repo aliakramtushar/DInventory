@@ -53,13 +53,14 @@ public class PurchaseReturnRepository : IPurchaseReturnRepository
         return purchaseReturn;
     }
 
-    public async Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int? purchaseId = null)
+    public async Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int companyId, int? purchaseId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@search IS NULL OR pr.ReturnNo LIKE @pattern OR p.PurchaseInvoiceNo LIKE @pattern)
-              AND (@purchaseId IS NULL OR pr.PurchaseId = @purchaseId)";
+              AND (@purchaseId IS NULL OR pr.PurchaseId = @purchaseId)
+              AND (@companyId = 0 OR pr.CompanyId = @companyId)";
 
         var countSql = $@"
             SELECT COUNT(1) FROM dbo.PurchaseReturns pr
@@ -76,6 +77,7 @@ public class PurchaseReturnRepository : IPurchaseReturnRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             purchaseId,
+            companyId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };
@@ -118,9 +120,9 @@ public class PurchaseReturnRepository : IPurchaseReturnRepository
     private static async Task<int> InsertReturnAsync(System.Data.IDbConnection connection, PurchaseReturn purchaseReturn, System.Data.IDbTransaction? transaction)
     {
         const string headerSql = @"
-            INSERT INTO dbo.PurchaseReturns (ReturnNo, PurchaseId, ReturnDate, TotalAmount, Reason, Remarks, CreatedAt, CreatedBy)
+            INSERT INTO dbo.PurchaseReturns (ReturnNo, PurchaseId, ReturnDate, TotalAmount, Reason, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.PurchaseReturnId
-            VALUES (@ReturnNo, @PurchaseId, @ReturnDate, @TotalAmount, @Reason, @Remarks, @CreatedAt, @CreatedBy)";
+            VALUES (@ReturnNo, @PurchaseId, @ReturnDate, @TotalAmount, @Reason, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
 
         var purchaseReturnId = await connection.ExecuteScalarAsync<int>(headerSql, purchaseReturn, transaction);
 

@@ -17,26 +17,38 @@ public class CustomersController : Controller
     private readonly ICustomerService _customerService;
     private readonly ILoyaltyService _loyaltyService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
     public CustomersController(
         ICustomerService customerService,
         ILoyaltyService loyaltyService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _customerService = customerService;
         _loyaltyService = loyaltyService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(string? search, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _customerService.GetPagedAsync(request);
+        var result = await _customerService.GetPagedAsync(request, effectiveCompanyId);
 
         ViewData["Search"] = search;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
         return View(result);
     }
 
@@ -48,6 +60,12 @@ public class CustomersController : Controller
             return NotFound();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && customer.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         ViewBag.SalesHistory = await _customerService.GetSalesHistoryAsync(id);
         ViewBag.LoyaltyHistory = await _loyaltyService.GetHistoryAsync(id);
         return View(customer);
@@ -55,19 +73,35 @@ public class CustomersController : Controller
 
     [HttpGet]
     [PermissionAuthorize("CUSTOMERS", PermissionAction.Create)]
-    public IActionResult Create() => View(new Customer());
+    public async Task<IActionResult> Create()
+    {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        return View(new Customer { CompanyId = effectiveCompanyId, BusinessUnitId = currentUser.BusinessUnitId });
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("CUSTOMERS", PermissionAction.Create)]
     public async Task<IActionResult> Create(Customer model)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        model.CompanyId = effectiveCompanyId;
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+
+        if (model.CompanyId <= 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a customer.");
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _customerService.CreateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -89,6 +123,12 @@ public class CustomersController : Controller
         if (customer is null)
         {
             return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && customer.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(customer);
@@ -188,4 +228,5 @@ public class CustomersController : Controller
 
         return RedirectToAction(nameof(Details), new { id = customerId });
     }
+
 }

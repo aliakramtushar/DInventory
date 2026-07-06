@@ -26,23 +26,25 @@ public class SubcategoryRepository : ISubcategoryRepository
         return await connection.QuerySingleOrDefaultAsync<Subcategory>($"{SelectBase} WHERE s.SubcategoryId = @subcategoryId", new { subcategoryId });
     }
 
-    public async Task<IEnumerable<Subcategory>> GetAllAsync(int? categoryId = null, string? search = null, bool onlyActive = false)
+    public async Task<IEnumerable<Subcategory>> GetAllAsync(int companyId, int? categoryId = null, string? search = null, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
         var sql = $@"{SelectBase}
-            WHERE (@categoryId IS NULL OR s.CategoryId = @categoryId)
+            WHERE (@companyId = 0 OR s.CompanyId = @companyId)
+              AND (@categoryId IS NULL OR s.CategoryId = @categoryId)
               AND (@search IS NULL OR s.SubcategoryName LIKE @pattern)
               AND (@onlyActive = 0 OR s.IsActive = 1)
             ORDER BY s.SubcategoryName";
-        return await connection.QueryAsync<Subcategory>(sql, new { categoryId, search, pattern = $"%{search}%", onlyActive });
+        return await connection.QueryAsync<Subcategory>(sql, new { companyId, categoryId, search, pattern = $"%{search}%", onlyActive });
     }
 
-    public async Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int? categoryId = null, bool onlyActive = false)
+    public async Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@categoryId IS NULL OR s.CategoryId = @categoryId)
+            WHERE (@companyId = 0 OR s.CompanyId = @companyId)
+              AND (@categoryId IS NULL OR s.CategoryId = @categoryId)
               AND (@search IS NULL OR s.SubcategoryName LIKE @pattern)
               AND (@onlyActive = 0 OR s.IsActive = 1)";
 
@@ -59,6 +61,7 @@ public class SubcategoryRepository : ISubcategoryRepository
 
         var parameters = new
         {
+            companyId,
             categoryId,
             search = request.Search,
             pattern = $"%{request.Search}%",
@@ -83,9 +86,9 @@ public class SubcategoryRepository : ISubcategoryRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Subcategories (CategoryId, SubcategoryName, Description, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Subcategories (CategoryId, SubcategoryName, Description, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SubcategoryId
-            VALUES (@CategoryId, @SubcategoryName, @Description, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@CategoryId, @SubcategoryName, @Description, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, subcategory);
     }
 

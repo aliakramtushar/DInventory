@@ -8,7 +8,7 @@ public interface IContentPageRepository
     Task<ContentPage?> GetByIdAsync(int contentPageId);
     Task<ContentPage?> GetBySlugAsync(string slug);
     Task<IEnumerable<ContentPage>> GetAllAsync(bool onlyPublished = false);
-    Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request);
+    Task<PagedResult<ContentPage>> GetPagedAsync(PagedRequest request, int companyId);
     Task<int> CreateAsync(ContentPage page);
     Task<bool> UpdateAsync(ContentPage page);
     Task<bool> DeleteAsync(int contentPageId);

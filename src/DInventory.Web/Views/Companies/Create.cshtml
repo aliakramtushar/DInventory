@@ -1,0 +1,34 @@
+@model DInventory.Domain.Entities.Company
+@{
+    ViewData["Title"] = "New Company";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Company Name</label>
+                <input asp-for="CompanyName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Short Name</label>
+                <input asp-for="ShortName" class="form-control text-uppercase" style="letter-spacing: 0.05em;" required minlength="3" maxlength="15" pattern="[A-Za-z0-9]{3,15}" oninput="this.value = this.value.toUpperCase();" placeholder="e.g. ABC" />
+                <div class="form-text">At least 3 letters/numbers, shown in capitals - used as the barcode prefix for this company (e.g. ABC000000123).</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Phone</label>
+                <input asp-for="Phone" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input asp-for="Email" type="email" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Address</label>
+                <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Company</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

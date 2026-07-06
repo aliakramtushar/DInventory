@@ -1,7 +1,7 @@
 using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
-using DInventory.Application.Common.Models;
 using DInventory.Application.Common.Interfaces;
+using DInventory.Application.Common.Models;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -16,39 +16,64 @@ public class CategoriesController : Controller
 {
     private readonly ICategoryService _categoryService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public CategoriesController(ICategoryService categoryService, ICurrentUserService currentUserService, IAuditLogService auditLogService)
+    public CategoriesController(ICategoryService categoryService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
     {
         _categoryService = categoryService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(string? search, int page = 1)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _categoryService.GetPagedAsync(request);
+        var result = await _categoryService.GetPagedAsync(request, effectiveCompanyId);
 
         ViewData["Search"] = search;
+        ViewData["CompanyId"] = effectiveCompanyId;
+        ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
         return View(result);
     }
 
     [HttpGet]
     [PermissionAuthorize("CATEGORIES", PermissionAction.Create)]
-    public IActionResult Create() => View(new Category());
+    public async Task<IActionResult> Create()
+    {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        return View(new Category { CompanyId = effectiveCompanyId, BusinessUnitId = currentUser.BusinessUnitId });
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("CATEGORIES", PermissionAction.Create)]
     public async Task<IActionResult> Create(Category model)
     {
-        if (!ModelState.IsValid)
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+        model.CompanyId = effectiveCompanyId;
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
+
+        if (!ModelState.IsValid || model.CompanyId <= 0)
         {
+            if (model.CompanyId <= 0)
+            {
+                ModelState.AddModelError(string.Empty, "Select a company from the Company dropdown in the top navigation bar before creating a category.");
+            }
             return View(model);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _categoryService.CreateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -70,6 +95,12 @@ public class CategoriesController : Controller
         if (category is null)
         {
             return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && category.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(category);
@@ -119,4 +150,5 @@ public class CategoriesController : Controller
 
         return RedirectToAction(nameof(Index));
     }
+
 }

@@ -15,6 +15,11 @@ public class Product
     [DisplayFormat(ConvertEmptyStringToNull = false)]
     public string ProductCode { get; set; } = String.Empty;
     public string ProductName { get; set; } = String.Empty;
+
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public int CategoryId { get; set; }
     public int? SubcategoryId { get; set; }
     public int? BrandId { get; set; }

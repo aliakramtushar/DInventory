@@ -20,7 +20,7 @@ public class CreatePurchaseReturnRequest
 public interface IPurchaseReturnService
 {
     Task<PurchaseReturn?> GetByIdAsync(int purchaseReturnId);
-    Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int? purchaseId = null);
+    Task<PagedResult<PurchaseReturn>> GetPagedAsync(PagedRequest request, int companyId, int? purchaseId = null);
 
     /// <summary>Records a return of stock back to the supplier against an original purchase
     /// (always linked to it) and immediately reduces stock for every returned line, one

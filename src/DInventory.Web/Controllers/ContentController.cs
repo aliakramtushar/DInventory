@@ -16,25 +16,30 @@ public class ContentController : Controller
 {
     private readonly IContentPageService _contentPageService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
     private readonly IWebHostEnvironment _hostEnvironment;
 
     public ContentController(
         IContentPageService contentPageService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
         IAuditLogService auditLogService,
         IWebHostEnvironment hostEnvironment)
     {
         _contentPageService = contentPageService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
         _auditLogService = auditLogService;
         _hostEnvironment = hostEnvironment;
     }
 
     public async Task<IActionResult> Index(string? search, int page = 1)
     {
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _contentPageService.GetPagedAsync(request);
+        var result = await _contentPageService.GetPagedAsync(request, effectiveCompanyId);
 
         ViewData["Search"] = search;
         return View(result);
@@ -42,15 +47,35 @@ public class ContentController : Controller
 
     [HttpGet]
     [PermissionAuthorize("CONTENT", PermissionAction.Create)]
-    public IActionResult Create() => View(new ContentPage());
+    public async Task<IActionResult> Create()
+    {
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
+        ViewBag.CanCreate = effectiveCompanyId > 0;
+
+        return View(new ContentPage());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermissionAuthorize("CONTENT", PermissionAction.Create)]
     public async Task<IActionResult> Create(ContentPage model, IFormFile? imageFile)
     {
+        var currentUser = _currentUserService.GetCurrentUser();
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+
+        if (effectiveCompanyId <= 0)
+        {
+            ModelState.AddModelError(string.Empty, "Please select a company from the top navigation bar first.");
+        }
+        else
+        {
+            model.CompanyId = effectiveCompanyId;
+        }
+
         if (!ModelState.IsValid)
         {
+            ViewBag.CanCreate = effectiveCompanyId > 0;
             return View(model);
         }
 
@@ -59,7 +84,6 @@ public class ContentController : Controller
             model.ImagePath = await SaveContentImageAsync(imageFile);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _contentPageService.CreateAsync(model, currentUser.UserId);
 
         await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "CREATE", "ContentPages", result.Data.ToString(), ipAddress: currentUser.IpAddress);
@@ -75,6 +99,12 @@ public class ContentController : Controller
         if (page is null)
         {
             return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && page.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(page);

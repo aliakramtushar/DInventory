@@ -1,0 +1,25 @@
+@model DInventory.Domain.Entities.BusinessUnit
+@{
+    ViewData["Title"] = "New Business Unit";
+    bool canCreate = ViewBag.CanCreate ?? false;
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating a business unit - "All Companies" can't own one.
+            </div>
+        }
+        <form method="post">
+            <input asp-for="CompanyId" type="hidden" />
+            <div class="mb-3">
+                <label class="form-label">Business Unit Name</label>
+                <input asp-for="BusinessUnitName" class="form-control" placeholder="e.g. Downtown Branch" required />
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create Business Unit</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

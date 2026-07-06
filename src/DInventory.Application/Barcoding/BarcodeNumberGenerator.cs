@@ -8,22 +8,32 @@ namespace DInventory.Application.Barcoding;
 /// </summary>
 public class BarcodeNumberGenerator : IBarcodeNumberGenerator
 {
-    private const string Prefix = "DIN";
+    /// <summary>Used only if a company can't be resolved or hasn't set a ShortName yet - every real
+    /// company should have its own prefix via Companies.ShortName instead.</summary>
+    private const string FallbackPrefix = "DIN";
     private readonly IGeneratedBarcodeLabelRepository _labelRepository;
     private readonly IProductVariantRepository _variantRepository;
+    private readonly ICompanyRepository _companyRepository;
 
-    public BarcodeNumberGenerator(IGeneratedBarcodeLabelRepository labelRepository, IProductVariantRepository variantRepository)
+    public BarcodeNumberGenerator(
+        IGeneratedBarcodeLabelRepository labelRepository,
+        IProductVariantRepository variantRepository,
+        ICompanyRepository companyRepository)
     {
         _labelRepository = labelRepository;
         _variantRepository = variantRepository;
+        _companyRepository = companyRepository;
     }
 
-    public async Task<string> GenerateNextAsync()
+    public async Task<string> GenerateNextAsync(int companyId)
     {
-        var last = await _labelRepository.GetLastBarcodeAsync();
+        var company = await _companyRepository.GetByIdAsync(companyId);
+        var prefix = !string.IsNullOrWhiteSpace(company?.ShortName) ? company.ShortName : FallbackPrefix;
+
+        var last = await _labelRepository.GetLastBarcodeAsync(prefix);
         var next = 1;
-        if (!string.IsNullOrWhiteSpace(last) && last.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(last[Prefix.Length..], out var lastNumber))
+        if (!string.IsNullOrWhiteSpace(last) && last.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(last[prefix.Length..], out var lastNumber))
         {
             next = lastNumber + 1;
         }
@@ -31,7 +41,7 @@ public class BarcodeNumberGenerator : IBarcodeNumberGenerator
         string candidate;
         do
         {
-            candidate = $"{Prefix}{next:D9}";
+            candidate = $"{prefix}{next:D9}";
             next++;
         }
         while (await _labelRepository.BarcodeExistsAsync(candidate) || await _variantRepository.BarcodeExistsAsync(candidate));

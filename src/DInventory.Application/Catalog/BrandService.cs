@@ -15,10 +15,10 @@ public class BrandService : IBrandService
 
     public Task<Brand?> GetByIdAsync(int brandId) => _brandRepository.GetByIdAsync(brandId);
 
-    public Task<IEnumerable<Brand>> GetAllAsync(bool onlyActive = false) => _brandRepository.GetAllAsync(onlyActive);
+    public Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false) => _brandRepository.GetAllAsync(companyId, onlyActive);
 
-    public Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, bool onlyActive = false)
-        => _brandRepository.GetPagedAsync(request, onlyActive);
+    public Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+        => _brandRepository.GetPagedAsync(request, companyId, onlyActive);
 
     public async Task<Result<int>> CreateAsync(Brand brand, int? actingUserId)
     {
@@ -27,7 +27,7 @@ public class BrandService : IBrandService
             return Result<int>.Failure("Brand name is required.");
         }
 
-        if (await _brandRepository.NameExistsAsync(brand.BrandName))
+        if (await _brandRepository.NameExistsAsync(brand.CompanyId, brand.BrandName))
         {
             return Result<int>.Failure("A brand with this name already exists.");
         }
@@ -47,7 +47,7 @@ public class BrandService : IBrandService
             return Result.Failure("Brand not found.");
         }
 
-        if (await _brandRepository.NameExistsAsync(brand.BrandName, brand.BrandId))
+        if (await _brandRepository.NameExistsAsync(existing.CompanyId, brand.BrandName, brand.BrandId))
         {
             return Result.Failure("A brand with this name already exists.");
         }

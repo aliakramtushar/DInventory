@@ -24,6 +24,19 @@
                     <label class="form-label">Role</label>
                     <select asp-for="RoleId" class="form-select" asp-items="@(new SelectList(ViewBag.Roles, "RoleId", "RoleName"))" required></select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">Company</label>
+                    @* Edit never lets anyone move a user to a different company - the record's own
+                       CompanyId is fixed, same guard as the controller's server-side check. *@
+                    <input class="form-control" value="@Model.CompanyName" readonly />
+                    <input asp-for="CompanyId" type="hidden" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Business Unit (optional)</label>
+                    <select asp-for="BusinessUnitId" class="form-select" asp-items="@(new SelectList(ViewBag.BusinessUnits, "BusinessUnitId", "BusinessUnitName", Model.BusinessUnitId))">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
             </div>
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary">Save Changes</button>

@@ -17,6 +17,7 @@ public class ProductRepository : IProductRepository
     private const string SelectBase = @"
         SELECT p.ProductId, p.ProductCode, p.ProductName, p.CategoryId, p.SubcategoryId, p.BrandId, p.Unit,
                p.Description, p.ImagePath, p.ReorderLevel, p.IsShowOnWebsite, p.ShowPriceOnWebsite,
+               p.CompanyId, p.BusinessUnitId,
                p.IsActive, p.CreatedAt, p.UpdatedAt, p.CreatedBy, p.UpdatedBy,
                c.CategoryName, sc.SubcategoryName, b.BrandName,
                pr.SellingPrice, pr.CostPrice,
@@ -40,18 +41,22 @@ public class ProductRepository : IProductRepository
         return await connection.QuerySingleOrDefaultAsync<Product>($"{SelectBase} WHERE p.ProductId = @productId", new { productId });
     }
 
-    public async Task<Product?> GetByCodeAsync(string productCode)
+    public async Task<Product?> GetByCodeAsync(int companyId, string productCode)
     {
         using var connection = _connectionFactory.CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<Product>($"{SelectBase} WHERE p.ProductCode = @productCode", new { productCode });
+        return await connection.QuerySingleOrDefaultAsync<Product>(
+            $"{SelectBase} WHERE (@companyId = 0 OR p.CompanyId = @companyId) AND p.ProductCode = @productCode",
+            new { companyId, productCode });
     }
 
-    public async Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
+    /// <summary>companyId = 0 (superuser) bypasses the filter and returns products across every company.</summary>
+    public async Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern)
+            WHERE (@companyId = 0 OR p.CompanyId = @companyId)
+              AND (@search IS NULL OR p.ProductName LIKE @pattern OR p.ProductCode LIKE @pattern)
               AND (@categoryId IS NULL OR p.CategoryId = @categoryId)
               AND (@subcategoryId IS NULL OR p.SubcategoryId = @subcategoryId)
               AND (@brandId IS NULL OR p.BrandId = @brandId)
@@ -65,6 +70,7 @@ public class ProductRepository : IProductRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             categoryId,
@@ -87,6 +93,10 @@ public class ProductRepository : IProductRepository
         };
     }
 
+    /// <summary>Public storefront listing - not company-scoped yet (single shared storefront across
+    /// every tenant on this install). Scoping the public site per-company is a separate, bigger
+    /// piece of work (e.g. per-company subdomain/routing) than the admin-side multi-tenancy this
+    /// migration covers.</summary>
     public async Task<PagedResult<Product>> GetPublicPagedAsync(PagedRequest request, int? categoryId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -124,11 +134,11 @@ public class ProductRepository : IProductRepository
         };
     }
 
-    public async Task<IEnumerable<Product>> GetAllAsync(bool onlyActive = false)
+    public async Task<IEnumerable<Product>> GetAllAsync(int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var sql = $"{SelectBase} WHERE (@onlyActive = 0 OR p.IsActive = 1) ORDER BY p.ProductName";
-        return await connection.QueryAsync<Product>(sql, new { onlyActive });
+        var sql = $"{SelectBase} WHERE (@companyId = 0 OR p.CompanyId = @companyId) AND (@onlyActive = 0 OR p.IsActive = 1) ORDER BY p.ProductName";
+        return await connection.QueryAsync<Product>(sql, new { companyId, onlyActive });
     }
 
     public async Task<int> CreateAsync(Product product)
@@ -136,10 +146,10 @@ public class ProductRepository : IProductRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             INSERT INTO dbo.Products (ProductCode, ProductName, CategoryId, SubcategoryId, BrandId, Unit, Description,
-                                       ImagePath, ReorderLevel, IsShowOnWebsite, ShowPriceOnWebsite, IsActive, CreatedAt, CreatedBy)
+                                       ImagePath, ReorderLevel, IsShowOnWebsite, ShowPriceOnWebsite, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.ProductId
             VALUES (@ProductCode, @ProductName, @CategoryId, @SubcategoryId, @BrandId, @Unit, @Description,
-                    @ImagePath, @ReorderLevel, @IsShowOnWebsite, @ShowPriceOnWebsite, @IsActive, @CreatedAt, @CreatedBy)";
+                    @ImagePath, @ReorderLevel, @IsShowOnWebsite, @ShowPriceOnWebsite, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, product);
     }
 
@@ -165,32 +175,37 @@ public class ProductRepository : IProductRepository
         return rows > 0;
     }
 
-    public async Task<bool> CodeExistsAsync(string code, int? excludeId = null)
+    /// <summary>Product codes only need to be unique within a company - two tenants can both have a
+    /// "PRD-0001".</summary>
+    public async Task<bool> CodeExistsAsync(int companyId, string code, int? excludeId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT COUNT(1) FROM dbo.Products WHERE ProductCode = @code AND (@excludeId IS NULL OR ProductId <> @excludeId)";
-        var count = await connection.ExecuteScalarAsync<int>(sql, new { code, excludeId });
+        const string sql = "SELECT COUNT(1) FROM dbo.Products WHERE CompanyId = @companyId AND ProductCode = @code AND (@excludeId IS NULL OR ProductId <> @excludeId)";
+        var count = await connection.ExecuteScalarAsync<int>(sql, new { companyId, code, excludeId });
         return count > 0;
     }
 
-    public async Task<int> GetTotalActiveCountAsync()
+    public async Task<int> GetTotalActiveCountAsync(int companyId)
     {
         using var connection = _connectionFactory.CreateConnection();
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM dbo.Products WHERE IsActive = 1");
+        return await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM dbo.Products WHERE (@companyId = 0 OR CompanyId = @companyId) AND IsActive = 1",
+            new { companyId });
     }
 
     // Uses MAX(numeric suffix) rather than "last inserted row" so it's correct even if products
     // were deleted or a manual PRD-#### code was entered out of order, then loops re-checking
     // CodeExistsAsync (same collision-safe pattern as BarcodeNumberGenerator) so a generated code
-    // can never collide with one already in use, however it got there.
-    public async Task<string> GenerateNextProductCodeAsync()
+    // can never collide with one already in use, however it got there. Scoped per-company so every
+    // tenant gets its own PRD-0001, PRD-0002... sequence.
+    public async Task<string> GenerateNextProductCodeAsync(int companyId)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT MAX(TRY_CAST(SUBSTRING(ProductCode, 5, 50) AS INT))
             FROM dbo.Products
-            WHERE ProductCode LIKE 'PRD-%'";
-        var maxNumber = await connection.ExecuteScalarAsync<int?>(sql);
+            WHERE ProductCode LIKE 'PRD-%' AND CompanyId = @companyId";
+        var maxNumber = await connection.ExecuteScalarAsync<int?>(sql, new { companyId });
         var next = (maxNumber ?? 0) + 1;
 
         string candidate;
@@ -199,7 +214,7 @@ public class ProductRepository : IProductRepository
             candidate = $"PRD-{next:D4}";
             next++;
         }
-        while (await CodeExistsAsync(candidate));
+        while (await CodeExistsAsync(companyId, candidate));
 
         return candidate;
     }

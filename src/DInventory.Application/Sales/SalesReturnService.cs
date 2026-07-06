@@ -22,8 +22,8 @@ public class SalesReturnService : ISalesReturnService
 
     public Task<SalesReturn?> GetByIdAsync(int salesReturnId) => _salesReturnRepository.GetByIdAsync(salesReturnId);
 
-    public Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int? salesOrderId = null)
-        => _salesReturnRepository.GetPagedAsync(request, salesOrderId);
+    public Task<PagedResult<SalesReturn>> GetPagedAsync(PagedRequest request, int companyId, int? salesOrderId = null)
+        => _salesReturnRepository.GetPagedAsync(request, companyId, salesOrderId);
 
     public async Task<Result<int>> CreateReturnAsync(CreateSalesReturnRequest request, int actingUserId)
     {
@@ -86,6 +86,8 @@ public class SalesReturnService : ISalesReturnService
         {
             ReturnNo = await _salesReturnRepository.GenerateNextReturnNoAsync(),
             SalesOrderId = order.SalesOrderId,
+            CompanyId = order.CompanyId,
+            BusinessUnitId = order.BusinessUnitId,
             ReturnDate = DateTime.UtcNow,
             SubTotal = subTotal,
             NetAmount = subTotal,

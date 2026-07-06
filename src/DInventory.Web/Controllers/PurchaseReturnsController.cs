@@ -16,24 +16,28 @@ public class PurchaseReturnsController : Controller
     private readonly IPurchaseReturnService _purchaseReturnService;
     private readonly IPurchaseService _purchaseService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
 
     public PurchaseReturnsController(
         IPurchaseReturnService purchaseReturnService,
         IPurchaseService purchaseService,
         ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
         IAuditLogService auditLogService)
     {
         _purchaseReturnService = purchaseReturnService;
         _purchaseService = purchaseService;
         _currentUserService = currentUserService;
+        _companyContextService = companyContextService;
         _auditLogService = auditLogService;
     }
 
     public async Task<IActionResult> Index(int page = 1)
     {
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
         var request = new PagedRequest { PageNumber = page, PageSize = 20 };
-        var result = await _purchaseReturnService.GetPagedAsync(request);
+        var result = await _purchaseReturnService.GetPagedAsync(request, effectiveCompanyId);
         return View(result);
     }
 
@@ -43,6 +47,12 @@ public class PurchaseReturnsController : Controller
         if (purchaseReturn is null)
         {
             return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && purchaseReturn.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
         }
 
         return View(purchaseReturn);
@@ -56,7 +66,7 @@ public class PurchaseReturnsController : Controller
     {
         if (purchaseId is null && !string.IsNullOrWhiteSpace(invoiceNo))
         {
-            var matches = await _purchaseService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 10, Search = invoiceNo });
+            var matches = await _purchaseService.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 10, Search = invoiceNo }, _companyContextService.GetEffectiveCompanyId());
             var exact = matches.Items.FirstOrDefault(p => string.Equals(p.PurchaseInvoiceNo, invoiceNo, StringComparison.OrdinalIgnoreCase));
             if (exact is not null)
             {

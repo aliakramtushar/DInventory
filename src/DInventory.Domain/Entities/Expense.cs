@@ -10,6 +10,10 @@ public class Expense
     /// lookup table for something this small and fixed).</summary>
     public string Category { get; set; } = string.Empty;
     public decimal Amount { get; set; }
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public string? Remarks { get; set; }
     public DateTime CreatedAt { get; set; }
     public int? CreatedBy { get; set; }

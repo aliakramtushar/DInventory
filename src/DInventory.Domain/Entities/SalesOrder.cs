@@ -5,6 +5,10 @@ public class SalesOrder
     public int SalesOrderId { get; set; }
     public string InvoiceNo { get; set; } = string.Empty;
     public int? CustomerId { get; set; }
+    /// <summary>Which company this record belongs to. 0 = the built-in superuser company
+    /// (bypasses company filtering everywhere); every other value is a real tenant.</summary>
+    public int CompanyId { get; set; }
+    public int? BusinessUnitId { get; set; }
     public DateTime SaleDate { get; set; }
     public decimal SubTotal { get; set; }
 
@@ -37,6 +41,7 @@ public class SalesOrder
     // Populated via joins, not DB columns
     public string? CustomerName { get; set; }
     public string? CreatedByName { get; set; }
+    public string? CompanyName { get; set; }
 
     /// <summary>Sum of NetAmount across all SalesReturns filed against this order - not a DB
     /// column, joined in by the repository purely for display ("Net after returns").</summary>

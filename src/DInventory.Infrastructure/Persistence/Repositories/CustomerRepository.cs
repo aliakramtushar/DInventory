@@ -51,12 +51,13 @@ public class CustomerRepository : ICustomerRepository
         return await connection.QueryAsync<Customer>(sql, new { search, pattern = $"%{search}%" });
     }
 
-    public async Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, bool onlyActive = false)
+    public async Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR c.CustomerName LIKE @pattern OR c.Phone LIKE @pattern OR c.Email LIKE @pattern)
+            WHERE (@companyId = 0 OR c.CompanyId = @companyId)
+              AND (@search IS NULL OR c.CustomerName LIKE @pattern OR c.Phone LIKE @pattern OR c.Email LIKE @pattern)
               AND (@onlyActive = 0 OR c.IsActive = 1)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Customers c {whereClause}";
@@ -67,6 +68,7 @@ public class CustomerRepository : ICustomerRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
@@ -90,9 +92,9 @@ public class CustomerRepository : ICustomerRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Customers (CustomerName, Phone, Email, Address, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Customers (CustomerName, Phone, Email, Address, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.CustomerId
-            VALUES (@CustomerName, @Phone, @Email, @Address, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@CustomerName, @Phone, @Email, @Address, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, customer);
     }
 
@@ -122,9 +124,10 @@ public class CustomerRepository : ICustomerRepository
         return count > 0;
     }
 
-    public async Task<int> GetTotalCountAsync()
+    public async Task<int> GetTotalCountAsync(int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(1) FROM dbo.Customers WHERE IsActive = 1");
+        const string sql = "SELECT COUNT(1) FROM dbo.Customers WHERE IsActive = 1 AND (@companyId = 0 OR CompanyId = @companyId)";
+        return await connection.ExecuteScalarAsync<int>(sql, new { companyId });
     }
 }

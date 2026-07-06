@@ -1226,3 +1226,174 @@ GO
 
 PRINT 'DInventoryDB schema and seed data created successfully.';
 PRINT 'Login: superadmin / 12345  or  admin / 12345';
+
+/* =====================================================================
+   26. MULTI-TENANCY: COMPANIES / BUSINESS UNITS
+       Every company-owned table gets a mandatory CompanyId + optional
+       BusinessUnitId. CompanyId = 0 is reserved for the built-in "Super
+       Admin / All Companies" row - a user whose Users.CompanyId = 0 is a
+       superuser and every company-scoped query bypasses its filter for
+       them (see application-layer WHERE (@companyId = 0 OR t.CompanyId =
+       @companyId) pattern). IDENTITY(0,1) below guarantees that row (the
+       very first insert into an empty table) actually gets id 0.
+   ===================================================================== */
+IF OBJECT_ID('dbo.Companies', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Companies
+    (
+        CompanyId     INT IDENTITY(0,1) PRIMARY KEY,
+        CompanyName   NVARCHAR(150) NOT NULL,
+        ShortName     NVARCHAR(15) NOT NULL,
+        Phone         NVARCHAR(30) NULL,
+        Email         NVARCHAR(150) NULL,
+        Address       NVARCHAR(255) NULL,
+        IsActive      BIT NOT NULL DEFAULT (1),
+        CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt     DATETIME2 NULL,
+        CreatedBy     INT NULL,
+        UpdatedBy     INT NULL,
+        CONSTRAINT UQ_Companies_ShortName UNIQUE (ShortName)
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.BusinessUnits', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.BusinessUnits
+    (
+        BusinessUnitId    INT IDENTITY(1,1) PRIMARY KEY,
+        CompanyId         INT NOT NULL,
+        BusinessUnitName  NVARCHAR(150) NOT NULL,
+        IsActive          BIT NOT NULL DEFAULT (1),
+        CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt         DATETIME2 NULL,
+        CreatedBy         INT NULL,
+        UpdatedBy         INT NULL,
+        CONSTRAINT FK_BusinessUnits_Companies FOREIGN KEY (CompanyId) REFERENCES dbo.Companies(CompanyId),
+        CONSTRAINT UQ_BusinessUnits_CompanyName UNIQUE (CompanyId, BusinessUnitName)
+    );
+END
+GO
+
+-- Seed: row 1 becomes CompanyId 0 (superuser/system, sees every company), row 2 becomes CompanyId 1
+-- (the real default tenant - everything that existed before this migration belongs here).
+IF NOT EXISTS (SELECT 1 FROM dbo.Companies)
+BEGIN
+    INSERT INTO dbo.Companies (CompanyName, ShortName, IsActive) VALUES (N'Super Admin / All Companies', N'SUP', 1);
+    INSERT INTO dbo.Companies (CompanyName, ShortName, IsActive) VALUES (N'DInventory', N'DINV', 1);
+END
+GO
+
+-- Safe additive upgrade: give every existing company-owned table a mandatory CompanyId (backfilled
+-- to CompanyId = 1, the default tenant seeded above) + an optional BusinessUnitId. Two-step
+-- (nullable -> backfill -> NOT NULL) so this works on a table that already has rows.
+DECLARE @t TABLE (TableName SYSNAME);
+INSERT INTO @t (TableName) VALUES
+    (N'Users'), (N'Categories'), (N'Subcategories'), (N'Brands'), (N'Sizes'), (N'Colors'),
+    (N'Products'), (N'Customers'), (N'Suppliers'), (N'SalesOrders'), (N'Purchases'),
+    (N'SalesReturns'), (N'PurchaseReturns'), (N'Expenses'), (N'ContentPages'), (N'LoyaltySettings'),
+    (N'GeneratedBarcodeLabels');
+
+DECLARE @tbl SYSNAME, @sql NVARCHAR(MAX);
+DECLARE tbl_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT TableName FROM @t;
+OPEN tbl_cursor;
+FETCH NEXT FROM tbl_cursor INTO @tbl;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF OBJECT_ID('dbo.' + @tbl, 'U') IS NOT NULL
+    BEGIN
+        -- CompanyId and BusinessUnitId are checked and added INDEPENDENTLY of each other (not as one
+        -- combined "has this table been migrated at all" check on CompanyId alone) - a database that
+        -- picked up CompanyId from an earlier partial run of this migration but never got
+        -- BusinessUnitId (because an older version of this script only added CompanyId) would
+        -- otherwise have BusinessUnitId silently skipped forever, since CompanyId already existing
+        -- would short-circuit the whole block. That exact gap is what broke barcode generation with
+        -- "Invalid column name 'BusinessUnitId'" even after re-running this script.
+        IF COL_LENGTH('dbo.' + @tbl, 'CompanyId') IS NULL
+        BEGIN
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CompanyId INT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'UPDATE dbo.' + @tbl + N' SET CompanyId = 1 WHERE CompanyId IS NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ALTER COLUMN CompanyId INT NOT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CONSTRAINT FK_' + @tbl + N'_Companies FOREIGN KEY (CompanyId) REFERENCES dbo.Companies(CompanyId);';
+            EXEC sp_executesql @sql;
+        END
+
+        IF COL_LENGTH('dbo.' + @tbl, 'BusinessUnitId') IS NULL
+        BEGIN
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD BusinessUnitId INT NULL;';
+            EXEC sp_executesql @sql;
+
+            SET @sql = N'ALTER TABLE dbo.' + @tbl + N' ADD CONSTRAINT FK_' + @tbl + N'_BusinessUnits FOREIGN KEY (BusinessUnitId) REFERENCES dbo.BusinessUnits(BusinessUnitId);';
+            EXEC sp_executesql @sql;
+        END
+    END
+    FETCH NEXT FROM tbl_cursor INTO @tbl;
+END
+CLOSE tbl_cursor;
+DEALLOCATE tbl_cursor;
+GO
+
+-- The two seed users (superadmin/admin) predate CompanyId. superadmin is the one true superuser
+-- (CompanyId 0 = sees every company); admin is a normal company-level admin under the default
+-- tenant (CompanyId 1) seeded above.
+IF COL_LENGTH('dbo.Users', 'CompanyId') IS NOT NULL
+BEGIN
+    UPDATE u SET u.CompanyId = 0
+    FROM dbo.Users u
+    INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
+    WHERE r.RoleName = N'SuperAdmin';
+END
+GO
+
+PRINT 'Company / BusinessUnit multi-tenancy migration complete.';
+GO
+
+-- Menu grouping (round 5): Companies (SuperAdmin only) + Business Units (SuperAdmin/Admin) under Admin.
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'COMPANIES')
+BEGIN
+    DECLARE @GAdmin5 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_ADMIN');
+    IF @GAdmin5 IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'COMPANIES', N'Companies', N'bi-building', N'/Companies', @GAdmin5, 1, 1);
+
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'BUSINESSUNITS', N'Business Units', N'bi-diagram-3', N'/BusinessUnits', @GAdmin5, 2, 1);
+    END
+
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1
+             ELSE 0 END,
+        CASE WHEN m.MenuKey = N'COMPANIES' AND r.RoleName = N'SuperAdmin' THEN 1
+             WHEN m.MenuKey = N'BUSINESSUNITS' AND r.RoleName = N'SuperAdmin' THEN 1
+             ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey IN (N'COMPANIES', N'BUSINESSUNITS')
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+
+    UPDATE g
+    SET CanView = 1
+    FROM dbo.RoleMenuPermissions g
+    WHERE g.MenuId IN (SELECT MenuId FROM dbo.Menus WHERE ParentId IS NULL AND MenuKey LIKE N'GROUP_%')
+      AND EXISTS (
+          SELECT 1 FROM dbo.RoleMenuPermissions child
+          INNER JOIN dbo.Menus cm ON cm.MenuId = child.MenuId
+          WHERE cm.ParentId = g.MenuId AND child.RoleId = g.RoleId AND child.CanView = 1
+      );
+END
+GO

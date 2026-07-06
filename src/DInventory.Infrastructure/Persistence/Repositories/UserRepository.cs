@@ -17,9 +17,12 @@ public class UserRepository : IUserRepository
     private const string SelectBase = @"
         SELECT u.UserId, u.Username, u.Email, u.PasswordHash, u.FullName, u.RoleId, u.IsActive,
                u.ProfileImage, u.LastLoginAt, u.CreatedAt, u.UpdatedAt, u.CreatedBy, u.UpdatedBy,
-               r.RoleName
+               u.CompanyId, u.BusinessUnitId,
+               r.RoleName, c.CompanyName, bu.BusinessUnitName
         FROM dbo.Users u
-        INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId";
+        INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
+        LEFT JOIN dbo.Companies c ON c.CompanyId = u.CompanyId
+        LEFT JOIN dbo.BusinessUnits bu ON bu.BusinessUnitId = u.BusinessUnitId";
 
     public async Task<User?> GetByIdAsync(int userId)
     {
@@ -46,11 +49,14 @@ public class UserRepository : IUserRepository
         return await connection.QueryAsync<User>(sql, new { search, pattern = $"%{search}%" });
     }
 
-    public async Task<PagedResult<User>> GetPagedAsync(PagedRequest request)
+    public async Task<PagedResult<User>> GetPagedAsync(PagedRequest request, int? companyId = null, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var whereClause = "WHERE (@search IS NULL OR u.Username LIKE @pattern OR u.FullName LIKE @pattern OR u.Email LIKE @pattern)";
+        var whereClause = @"
+            WHERE (@search IS NULL OR u.Username LIKE @pattern OR u.FullName LIKE @pattern OR u.Email LIKE @pattern)
+              AND (@companyId IS NULL OR u.CompanyId = @companyId)
+              AND (@businessUnitId IS NULL OR u.BusinessUnitId = @businessUnitId)";
 
         var countSql = $@"
             SELECT COUNT(1)
@@ -67,6 +73,8 @@ public class UserRepository : IUserRepository
         {
             search = request.Search,
             pattern = $"%{request.Search}%",
+            companyId,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };
@@ -87,9 +95,9 @@ public class UserRepository : IUserRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Users (Username, Email, PasswordHash, FullName, RoleId, IsActive, ProfileImage, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Users (Username, Email, PasswordHash, FullName, RoleId, IsActive, ProfileImage, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.UserId
-            VALUES (@Username, @Email, @PasswordHash, @FullName, @RoleId, @IsActive, @ProfileImage, @CreatedAt, @CreatedBy)";
+            VALUES (@Username, @Email, @PasswordHash, @FullName, @RoleId, @IsActive, @ProfileImage, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, user);
     }
 
@@ -99,7 +107,8 @@ public class UserRepository : IUserRepository
         const string sql = @"
             UPDATE dbo.Users
             SET Username = @Username, Email = @Email, FullName = @FullName, RoleId = @RoleId,
-                ProfileImage = @ProfileImage, UpdatedAt = @UpdatedAt, UpdatedBy = @UpdatedBy
+                ProfileImage = @ProfileImage, CompanyId = @CompanyId, BusinessUnitId = @BusinessUnitId,
+                UpdatedAt = @UpdatedAt, UpdatedBy = @UpdatedBy
             WHERE UserId = @UserId";
         var rows = await connection.ExecuteAsync(sql, user);
         return rows > 0;

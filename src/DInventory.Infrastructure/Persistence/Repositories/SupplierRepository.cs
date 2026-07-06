@@ -48,12 +48,13 @@ public class SupplierRepository : ISupplierRepository
         return await connection.QueryAsync<Supplier>(sql, new { onlyActive });
     }
 
-    public async Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, bool onlyActive = false)
+    public async Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR SupplierName LIKE @pattern OR Phone LIKE @pattern)
+            WHERE (@companyId = 0 OR CompanyId = @companyId)
+              AND (@search IS NULL OR SupplierName LIKE @pattern OR Phone LIKE @pattern)
               AND (@onlyActive = 0 OR IsActive = 1)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Suppliers {whereClause}";
@@ -65,6 +66,7 @@ public class SupplierRepository : ISupplierRepository
 
         var parameters = new
         {
+            companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
@@ -88,9 +90,9 @@ public class SupplierRepository : ISupplierRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Suppliers (SupplierName, Phone, Address, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Suppliers (SupplierName, Phone, Address, CompanyId, BusinessUnitId, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.SupplierId
-            VALUES (@SupplierName, @Phone, @Address, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@SupplierName, @Phone, @Address, @CompanyId, @BusinessUnitId, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, supplier);
     }
 
