@@ -5,9 +5,10 @@
 
 <!-- Intro -->
 <section class="text-center mb-5 mx-auto" style="max-width:680px;">
-    <span class="badge rounded-pill bg-primary-subtle text-primary fw-semibold px-3 py-2 mb-4">
-        <i class="bi bi-boxes me-1"></i> About DInventory
-    </span>
+    <div class="dinv-eyebrow justify-content-center text-primary mb-3 d-flex">
+        <span class="dinv-eyebrow-rule"></span>
+        <span>About DInventory</span>
+    </div>
     <h1 class="fw-bold mb-3">Built for shop owners, not spreadsheets.</h1>
     <p class="lead text-muted mb-0">
         DInventory is a custom Inventory + POS system for retailers who'd rather run their shop
@@ -28,17 +29,17 @@
 <section class="mb-5">
     <div class="row g-4 text-center">
         <div class="col-md-4">
-            <i class="bi bi-shield-check text-success fs-3 mb-2 d-block"></i>
+            <div class="dinv-pillar-icon"><i class="bi bi-shield-check"></i></div>
             <h6 class="fw-semibold mb-1">No pressure</h6>
             <p class="text-muted small mb-0">Free install, pay only once you're convinced.</p>
         </div>
         <div class="col-md-4">
-            <i class="bi bi-people-fill text-info fs-3 mb-2 d-block"></i>
+            <div class="dinv-pillar-icon"><i class="bi bi-people-fill"></i></div>
             <h6 class="fw-semibold mb-1">Built with users</h6>
             <p class="text-muted small mb-0">Every feature comes from real shop owner feedback.</p>
         </div>
         <div class="col-md-4">
-            <i class="bi bi-palette-fill text-warning fs-3 mb-2 d-block"></i>
+            <div class="dinv-pillar-icon"><i class="bi bi-palette-fill"></i></div>
             <h6 class="fw-semibold mb-1">Made your way</h6>
             <p class="text-muted small mb-0">Any theme, any branding &mdash; it adapts to you.</p>
         </div>
@@ -46,23 +47,10 @@
 </section>
 
 <!-- CTA -->
-<section class="dinv-about-cta rounded-4 p-4 p-md-5 text-center text-white">
+<section class="dinv-cta dinv-dotgrid rounded-4 p-4 p-md-5 text-center">
     <h3 class="fw-bold mb-2">See it in your shop, free.</h3>
-    <p class="mb-4 opacity-90">Install today, use it for real, and pay only when it's proven itself.</p>
+    <p class="mb-4 text-muted-hero">Install today, use it for real, and pay only when it's proven itself.</p>
     <a asp-controller="Account" asp-action="Login" class="btn btn-light btn-lg fw-semibold">
         <i class="bi bi-box-arrow-in-right me-2"></i>Admin Login
     </a>
 </section>
-
-@section Styles {
-<style>
-    .dinv-quote {
-        border-left: 3px solid var(--erp-primary, #0d6efd);
-        padding-left: 1.5rem;
-        text-align: left !important;
-    }
-    .dinv-about-cta {
-        background: linear-gradient(135deg, var(--erp-primary, #0d6efd) 0%, var(--erp-primary-dark, #0a58ca) 100%);
-    }
-</style>
-}

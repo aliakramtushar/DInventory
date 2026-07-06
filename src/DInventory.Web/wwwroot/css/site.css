@@ -1,26 +1,67 @@
 :root {
+    /* ---------- Brand palette: deep teal + warm amber accent -------------------------------
+       A deliberate departure from stock Bootstrap blue - teal reads as trustworthy/financial
+       without being generic, amber gives warmth for highlights/CTAs. Every "-primary" Bootstrap
+       utility actually used in this app (text-primary, bg-primary-subtle, text-bg-primary,
+       plain links, focus rings) is retinted below via Bootstrap 5.3's own --bs-* custom
+       properties; components that hardcode literals instead of chaining through --bs-primary
+       (btn-outline-primary, pagination active state, form-check-input) get explicit overrides
+       further down, matching this file's existing convention. ------------------------------- */
+    --erp-primary: #0f766e;
+    --erp-primary-dark: #0b5c56;
+    --erp-primary-rgb: 15, 118, 110;
+    --erp-primary-subtle: #e3f4f2;
+    --erp-primary-border-subtle: #9bd6cf;
+    --erp-primary-text-emphasis: #0a4842;
+    --erp-accent: #c2760f;
+    --erp-accent-dark: #9c5e0c;
+    --erp-accent-subtle: #fbf0de;
+
     --erp-sidebar-width: 260px;
-    --erp-sidebar-bg: #101828;
-    --erp-sidebar-bg-hover: #1d2939;
-    --erp-primary: #0d6efd;
-    --erp-primary-dark: #0a58ca;
+    --erp-sidebar-bg: #0d1e1c;
+    --erp-sidebar-bg-hover: #16332f;
     --erp-success: #12b76a;
     --erp-danger: #f04438;
     --erp-warning: #f79009;
     --erp-info: #0dcaf0;
     --erp-text-muted: #667085;
-    --erp-border: #eaecf0;
+    --erp-border: #e5e9e8;
     --erp-radius: 0.75rem;
     --erp-radius-sm: 0.5rem;
-    --erp-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
-    --erp-shadow: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+    --erp-shadow-sm: 0 1px 2px rgba(13, 30, 28, 0.06), 0 1px 3px rgba(13, 30, 28, 0.08);
+    --erp-shadow: 0 4px 8px -2px rgba(13, 30, 28, 0.08), 0 2px 4px -2px rgba(13, 30, 28, 0.06);
     --bs-body-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* Backwards-compatible aliases - some inline view styles reference these shorter names. */
+    --erp-primary-alias: var(--erp-primary);
+
+    /* ---------- Retint Bootstrap 5.3's own variable-driven utilities ---------- */
+    --bs-primary: var(--erp-primary);
+    --bs-primary-rgb: var(--erp-primary-rgb);
+    --bs-primary-bg-subtle: var(--erp-primary-subtle);
+    --bs-primary-border-subtle: var(--erp-primary-border-subtle);
+    --bs-primary-text-emphasis: var(--erp-primary-text-emphasis);
+    --bs-link-color: var(--erp-primary);
+    --bs-link-color-rgb: var(--erp-primary-rgb);
+    --bs-link-hover-color: var(--erp-primary-dark);
+    --bs-link-hover-color-rgb: 11, 92, 86;
+    --bs-focus-ring-color: rgba(var(--erp-primary-rgb), 0.25);
 }
 
 body {
-    background-color: #f7f8fa;
+    background-color: #f7f8f8;
     font-family: var(--bs-body-font-family);
-    color: #1d2939;
+    color: #1a2b29;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 /* ---------- Professional-polish overrides (applied globally, every page) ---------- */
@@ -50,12 +91,26 @@ body {
 .btn-primary {
     background: var(--erp-primary);
     border-color: var(--erp-primary);
-    box-shadow: 0 1px 2px rgba(13, 110, 253, 0.25);
+    box-shadow: 0 1px 2px rgba(var(--erp-primary-rgb), 0.25);
 }
 
 .btn-primary:hover, .btn-primary:focus {
     background: var(--erp-primary-dark);
     border-color: var(--erp-primary-dark);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--erp-primary);
+    --bs-btn-border-color: var(--erp-primary);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--erp-primary);
+    --bs-btn-hover-border-color: var(--erp-primary);
+    --bs-btn-focus-shadow-rgb: var(--erp-primary-rgb);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--erp-primary);
+    --bs-btn-active-border-color: var(--erp-primary);
+    --bs-btn-disabled-color: var(--erp-primary);
+    --bs-btn-disabled-border-color: var(--erp-primary);
 }
 
 .form-control, .form-select {
@@ -65,7 +120,17 @@ body {
 
 .form-control:focus, .form-select:focus {
     border-color: var(--erp-primary);
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    box-shadow: 0 0 0 0.2rem rgba(var(--erp-primary-rgb), 0.15);
+}
+
+.form-check-input:checked {
+    background-color: var(--erp-primary);
+    border-color: var(--erp-primary);
+}
+
+.form-check-input:focus {
+    border-color: var(--erp-primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--erp-primary-rgb), 0.25);
 }
 
 .badge {
@@ -91,6 +156,15 @@ body {
 .table > :not(caption) > * > * {
     padding-top: 0.65rem;
     padding-bottom: 0.65rem;
+}
+
+/* Pagination active state - Bootstrap hardcodes these to its stock blue at the .pagination
+   selector level rather than chaining through --bs-primary, so they need an explicit repaint
+   (every list page in the app uses this control, so it's a highly visible surface). */
+.pagination {
+    --bs-pagination-active-bg: var(--erp-primary);
+    --bs-pagination-active-border-color: var(--erp-primary);
+    --bs-pagination-focus-box-shadow: 0 0 0 0.25rem rgba(var(--erp-primary-rgb), 0.25);
 }
 
 ::-webkit-scrollbar {
@@ -121,7 +195,7 @@ body {
     width: var(--erp-sidebar-width);
     flex-shrink: 0;
     background: var(--erp-sidebar-bg);
-    color: #cbd5e1;
+    color: #b7c4c2;
     display: flex;
     flex-direction: column;
     position: sticky;
@@ -140,12 +214,14 @@ body {
     font-size: 1.15rem;
     font-weight: 700;
     color: #fff;
+    letter-spacing: -0.01em;
     border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 .erp-brand i {
-    color: var(--erp-primary);
+    color: var(--erp-accent);
     font-size: 1.4rem;
+    filter: drop-shadow(0 0 6px rgba(var(--erp-primary-rgb), 0.45));
 }
 
 .erp-nav {
@@ -163,7 +239,7 @@ body {
     align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 1.25rem;
-    color: #cbd5e1;
+    color: #b7c4c2;
     text-decoration: none;
     font-size: 0.92rem;
     border-left: 3px solid transparent;
@@ -178,7 +254,7 @@ body {
 .erp-nav-list li.active a {
     background-color: var(--erp-sidebar-bg-hover);
     color: #fff;
-    border-left-color: var(--erp-primary);
+    border-left-color: var(--erp-accent);
     font-weight: 600;
 }
 
@@ -201,7 +277,7 @@ body {
     z-index: 1020;
     background: #fff;
     border-bottom: 1px solid var(--erp-border);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    box-shadow: 0 1px 2px rgba(13, 30, 28, 0.04);
     padding: 0.75rem 1.5rem;
     display: flex;
     align-items: center;
@@ -234,10 +310,6 @@ body {
     box-shadow: var(--erp-shadow) !important;
 }
 
-.erp-brand i {
-    filter: drop-shadow(0 0 6px rgba(13, 110, 253, 0.45));
-}
-
 .setup-tile {
     transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     color: inherit;
@@ -245,7 +317,7 @@ body {
 
 .setup-tile:hover {
     transform: translateY(-3px);
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
+    box-shadow: 0 0.5rem 1rem rgba(13, 30, 28, 0.1) !important;
 }
 
 @media (max-width: 991.98px) {
@@ -262,7 +334,7 @@ body {
 
 /* ---------- Auth pages ---------- */
 .auth-body {
-    background: linear-gradient(135deg, #0d6efd 0%, #101828 100%);
+    background: linear-gradient(160deg, var(--erp-sidebar-bg) 0%, var(--erp-primary-dark) 65%, var(--erp-primary) 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -299,7 +371,7 @@ body {
     align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 1.25rem;
-    color: #cbd5e1;
+    color: #b7c4c2;
     text-decoration: none;
     font-size: 0.92rem;
     font-weight: 600;
@@ -336,7 +408,7 @@ body {
     list-style: none;
     margin: 0;
     padding: 0;
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: rgba(0, 0, 0, 0.18);
 }
 
 .erp-nav-sublist li a {
@@ -344,7 +416,7 @@ body {
     align-items: center;
     gap: 0.75rem;
     padding: 0.55rem 1.25rem 0.55rem 2.75rem;
-    color: #a8b3c5;
+    color: #93a5a2;
     text-decoration: none;
     font-size: 0.88rem;
     border-left: 3px solid transparent;
@@ -359,7 +431,7 @@ body {
 .erp-nav-sublist li.active a {
     background-color: var(--erp-sidebar-bg-hover);
     color: #fff;
-    border-left-color: var(--erp-primary);
+    border-left-color: var(--erp-accent);
     font-weight: 600;
 }
 
@@ -407,4 +479,116 @@ body {
     .print-label .btn {
         display: none !important;
     }
+}
+
+/* ---------- Public marketing pages (Home/Index, Home/About) ------------------------------
+   Shared building blocks so the landing/about pages read as one distinctive, cohesive brand
+   rather than a stock Bootstrap template - eyebrow labels instead of pill badges, a subtle
+   dot-grid texture instead of blurry gradient orbs, and a warm amber accent used sparingly for
+   emphasis (numbers, underlines) against the deep teal brand color. ------------------------- */
+.dinv-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.dinv-eyebrow .dinv-eyebrow-rule {
+    display: inline-block;
+    width: 28px;
+    height: 2px;
+    background: var(--erp-accent);
+    border-radius: 2px;
+}
+
+.dinv-dotgrid {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1.5px, transparent 1.5px);
+    background-size: 18px 18px;
+}
+
+.dinv-hero {
+    background: linear-gradient(155deg, var(--erp-sidebar-bg) 0%, var(--erp-primary-dark) 55%, var(--erp-primary) 100%);
+    color: #eaf3f2;
+}
+
+.dinv-hero .text-muted-hero {
+    color: rgba(234, 243, 242, 0.78) !important;
+}
+
+.dinv-stat-strip {
+    border: 1px solid var(--erp-border);
+    border-radius: var(--erp-radius);
+    background: #fff;
+}
+
+@media (min-width: 768px) {
+    .dinv-stat-strip .dinv-stat + .dinv-stat {
+        border-left: 1px solid var(--erp-border);
+    }
+}
+
+.dinv-stat {
+    padding: 0.5rem 1rem;
+}
+
+.dinv-stat-number {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--erp-primary);
+    letter-spacing: -0.02em;
+}
+
+.dinv-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.dinv-steps {
+    border-top: 1px solid var(--erp-border);
+    border-bottom: 1px solid var(--erp-border);
+}
+
+.dinv-step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--erp-primary);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dinv-quote {
+    border-left: 3px solid var(--erp-accent);
+    padding-left: 1.5rem;
+    text-align: left !important;
+}
+
+.dinv-cta {
+    background: linear-gradient(155deg, var(--erp-sidebar-bg) 0%, var(--erp-primary-dark) 55%, var(--erp-primary) 100%);
+    color: #eaf3f2;
+}
+
+.dinv-pillar-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 0.75rem;
+    background: var(--erp-primary-subtle);
+    color: var(--erp-primary);
 }

@@ -5,21 +5,43 @@
 }
 
 <!-- Hero -->
-<section class="dinv-hero rounded-4 px-4 px-md-5 py-5 mb-5 text-white text-center position-relative overflow-hidden">
-    <div class="dinv-hero-orb dinv-hero-orb-1"></div>
-    <div class="dinv-hero-orb dinv-hero-orb-2"></div>
-    <div class="position-relative mx-auto" style="max-width:680px;">
-        <span class="badge rounded-pill bg-white text-primary fw-semibold px-3 py-2 mb-4">
-            <i class="bi bi-gift-fill me-1"></i> Free installation &mdash; use it first, pay later
-        </span>
-        <h1 class="display-5 fw-bold mb-3">Inventory + POS, made simple.</h1>
-        <p class="lead opacity-90 mb-4">
+<section class="dinv-hero dinv-dotgrid rounded-4 px-4 px-md-5 py-5 mb-5 position-relative overflow-hidden">
+    <div class="position-relative mx-auto text-center" style="max-width:700px;">
+        <div class="dinv-eyebrow text-white mb-3">
+            <span class="dinv-eyebrow-rule"></span>
+            <span>Free installation &mdash; use it first, pay later</span>
+        </div>
+        <h1 class="display-5 mb-3">Inventory + POS, made simple.</h1>
+        <p class="lead text-muted-hero mb-4">
             DInventory keeps your stock, sales, and reports in one place &mdash; so running the shop
             takes less effort and less guesswork.
         </p>
-        <a asp-controller="Account" asp-action="Login" class="btn btn-light btn-lg fw-semibold shadow-sm">
-            <i class="bi bi-box-arrow-in-right me-2"></i>Admin Login
-        </a>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <a asp-controller="Account" asp-action="Login" class="btn btn-light btn-lg fw-semibold shadow-sm">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Admin Login
+            </a>
+            <a asp-controller="Home" asp-action="Products" class="btn btn-outline-light btn-lg fw-semibold">
+                Browse Products
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Stat strip -->
+<section class="mb-5">
+    <div class="dinv-stat-strip row g-0 text-center py-4 px-2">
+        <div class="col-md-4 dinv-stat">
+            <div class="dinv-stat-number">Live</div>
+            <div class="text-muted small">Stock tracked in real time</div>
+        </div>
+        <div class="col-md-4 dinv-stat">
+            <div class="dinv-stat-number">1</div>
+            <div class="text-muted small">Place for sales, profit &amp; expenses</div>
+        </div>
+        <div class="col-md-4 dinv-stat">
+            <div class="dinv-stat-number">3+</div>
+            <div class="text-muted small">Separate roles: owner, manager, cashier</div>
+        </div>
     </div>
 </section>
 
@@ -58,6 +80,10 @@
 
 <!-- How it works -->
 <section class="dinv-steps mb-5 py-5">
+    <div class="dinv-eyebrow justify-content-center text-primary mb-2 d-flex">
+        <span class="dinv-eyebrow-rule"></span>
+        <span>How it works</span>
+    </div>
     <h2 class="fw-bold text-center mb-5">Try it first. Pay when you're sure.</h2>
     <div class="row g-4 text-center">
         <div class="col-md-4">
@@ -83,46 +109,4 @@
     <section class="mb-5">
         @Html.Raw(Model.Body)
     </section>
-}
-
-@section Styles {
-<style>
-    .dinv-hero {
-        background: linear-gradient(135deg, var(--erp-primary, #0d6efd) 0%, var(--erp-primary-dark, #0a58ca) 100%);
-        isolation: isolate;
-    }
-    .dinv-hero-orb {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.08);
-        z-index: -1;
-    }
-    .dinv-hero-orb-1 { width: 260px; height: 260px; top: -80px; left: -60px; }
-    .dinv-hero-orb-2 { width: 200px; height: 200px; bottom: -70px; right: -40px; }
-    .dinv-icon {
-        width: 48px;
-        height: 48px;
-        min-width: 48px;
-        border-radius: 0.85rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-    }
-    .dinv-steps {
-        border-top: 1px solid var(--erp-border, #e5e7eb);
-        border-bottom: 1px solid var(--erp-border, #e5e7eb);
-    }
-    .dinv-step-number {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: var(--erp-primary, #0d6efd);
-        color: #fff;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-</style>
 }
