@@ -44,7 +44,7 @@ public class BrandRepository : IBrandRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Brands
             {whereClause}
-            ORDER BY BrandName
+            ORDER BY BrandName, BrandId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

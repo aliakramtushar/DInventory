@@ -98,26 +98,33 @@ public class SalesReturnService : ISalesReturnService
             Items = returnItems
         };
 
-        var salesReturnId = await _salesReturnRepository.CreateAsync(salesReturn);
-
-        // Return-to-stock: mirrors CancelSaleAsync's stock restoration, but per-line/partial
-        // instead of the whole order, and tagged SALE_RETURN so it's distinguishable in history.
-        foreach (var item in returnItems)
+        try
         {
-            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
-            await _stockRepository.CreateTransactionAsync(new StockTransaction
-            {
-                ProductVariantId = item.ProductVariantId,
-                TransactionType = "IN",
-                Quantity = item.Quantity,
-                ReferenceType = "SALE_RETURN",
-                ReferenceId = salesReturnId,
-                Remarks = $"Return {salesReturn.ReturnNo} against sale {order.InvoiceNo}",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
+            var salesReturnId = await _salesReturnRepository.CreateAsync(salesReturn);
 
-        return Result<int>.Success(salesReturnId);
+            // Return-to-stock: mirrors CancelSaleAsync's stock restoration, but per-line/partial
+            // instead of the whole order, and tagged SALE_RETURN so it's distinguishable in history.
+            foreach (var item in returnItems)
+            {
+                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
+                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                {
+                    ProductVariantId = item.ProductVariantId,
+                    TransactionType = "IN",
+                    Quantity = item.Quantity,
+                    ReferenceType = "SALE_RETURN",
+                    ReferenceId = salesReturnId,
+                    Remarks = $"Return {salesReturn.ReturnNo} against sale {order.InvoiceNo}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
+            }
+
+            return Result<int>.Success(salesReturnId);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to process sales return: {ex.Message}");
+        }
     }
 }

@@ -71,32 +71,39 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         var width = Math.Clamp(barcodeWidth ?? 2, MinBarcodeWidth, MaxBarcodeWidth);
         var height = Math.Clamp(barcodeHeight ?? 50, MinBarcodeHeight, MaxBarcodeHeight);
 
-        var label = new GeneratedBarcodeLabel
+        try
         {
-            CompanyId = companyId,
-            BusinessUnitId = businessUnitId,
-            BusinessUnitName = string.IsNullOrWhiteSpace(businessUnitName) ? null : businessUnitName.Trim(),
-            PriceCode = resolvedPriceCode,
-            // The company code is now always part of the barcode - this flag exists purely for
-            // historical/audit reference on older rows and is always true going forward.
-            IncludeCompanyCode = true,
-            Barcode = barcode,
-            ProductName = productName.Trim(),
-            BrandName = brandName,
-            SizeName = sizeName,
-            // Company name is optional - null unless the caller explicitly opted to include it (the
-            // "Include company name on the label" checkbox), so it's resolved to null upstream when unchecked.
-            CompanyName = string.IsNullOrWhiteSpace(companyName) ? null : companyName.Trim(),
-            Price = price,
-            BarcodeWidth = width,
-            BarcodeHeight = height,
-            IsLinked = false,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actingUserId
-        };
+            var label = new GeneratedBarcodeLabel
+            {
+                CompanyId = companyId,
+                BusinessUnitId = businessUnitId,
+                BusinessUnitName = string.IsNullOrWhiteSpace(businessUnitName) ? null : businessUnitName.Trim(),
+                PriceCode = resolvedPriceCode,
+                // The company code is now always part of the barcode - this flag exists purely for
+                // historical/audit reference on older rows and is always true going forward.
+                IncludeCompanyCode = true,
+                Barcode = barcode,
+                ProductName = productName.Trim(),
+                BrandName = brandName,
+                SizeName = sizeName,
+                // Company name is optional - null unless the caller explicitly opted to include it (the
+                // "Include company name on the label" checkbox), so it's resolved to null upstream when unchecked.
+                CompanyName = string.IsNullOrWhiteSpace(companyName) ? null : companyName.Trim(),
+                Price = price,
+                BarcodeWidth = width,
+                BarcodeHeight = height,
+                IsLinked = false,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            };
 
-        await _labelRepository.CreateAsync(label);
-        return Result<GeneratedBarcodeLabel>.Success(label);
+            await _labelRepository.CreateAsync(label);
+            return Result<GeneratedBarcodeLabel>.Success(label);
+        }
+        catch (Exception ex)
+        {
+            return Result<GeneratedBarcodeLabel>.Failure($"Unable to save barcode label: {ex.Message}");
+        }
     }
 
     /// <summary>Builds the mandatory "CompanyCode-PriceCode-GeneratedCode" barcode. Reuses

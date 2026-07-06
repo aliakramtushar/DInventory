@@ -135,29 +135,36 @@ public class AuthService : IAuthService
             return Result.Success();
         }
 
-        await _resetTokenRepository.InvalidateAllForUserAsync(user.UserId);
-
-        var rawToken = GenerateSecureToken();
-        var tokenHash = _jwtTokenService.HashToken(rawToken);
-
-        await _resetTokenRepository.CreateAsync(new PasswordResetToken
+        try
         {
-            UserId = user.UserId,
-            TokenHash = tokenHash,
-            ExpiresAt = DateTime.UtcNow.AddHours(1),
-            IsUsed = false,
-            CreatedAt = DateTime.UtcNow
-        });
+            await _resetTokenRepository.InvalidateAllForUserAsync(user.UserId);
 
-        var resetLink = $"{resetUrlBase.TrimEnd('/')}?token={Uri.EscapeDataString(rawToken)}&email={Uri.EscapeDataString(user.Email)}";
-        var body = $@"<p>Hello {user.FullName},</p>
+            var rawToken = GenerateSecureToken();
+            var tokenHash = _jwtTokenService.HashToken(rawToken);
+
+            await _resetTokenRepository.CreateAsync(new PasswordResetToken
+            {
+                UserId = user.UserId,
+                TokenHash = tokenHash,
+                ExpiresAt = DateTime.UtcNow.AddHours(1),
+                IsUsed = false,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            var resetLink = $"{resetUrlBase.TrimEnd('/')}?token={Uri.EscapeDataString(rawToken)}&email={Uri.EscapeDataString(user.Email)}";
+            var body = $@"<p>Hello {user.FullName},</p>
 <p>We received a request to reset your DInventory password. Click the link below to choose a new password. This link expires in 1 hour.</p>
 <p><a href=""{resetLink}"">Reset your password</a></p>
 <p>If you did not request this, you can safely ignore this email.</p>";
 
-        await _emailService.SendEmailAsync(user.Email, "DInventory - Password Reset", body);
+            await _emailService.SendEmailAsync(user.Email, "DInventory - Password Reset", body);
 
-        return Result.Success();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to process password reset request: {ex.Message}");
+        }
     }
 
     public async Task<Result> ResetPasswordAsync(ResetPasswordRequest request)
@@ -182,11 +189,19 @@ public class AuthService : IAuthService
         }
 
         var newHash = _passwordHasher.Hash(request.NewPassword);
-        await _userRepository.UpdatePasswordAsync(user.UserId, newHash);
-        await _resetTokenRepository.MarkUsedAsync(resetToken.ResetTokenId);
-        await _refreshTokenRepository.RevokeAllForUserAsync(user.UserId);
 
-        return Result.Success();
+        try
+        {
+            await _userRepository.UpdatePasswordAsync(user.UserId, newHash);
+            await _resetTokenRepository.MarkUsedAsync(resetToken.ResetTokenId);
+            await _refreshTokenRepository.RevokeAllForUserAsync(user.UserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to reset password: {ex.Message}");
+        }
     }
 
     public async Task<Result> ChangePasswordAsync(ChangePasswordRequest request)
@@ -208,9 +223,17 @@ public class AuthService : IAuthService
         }
 
         var newHash = _passwordHasher.Hash(request.NewPassword);
-        await _userRepository.UpdatePasswordAsync(user.UserId, newHash);
 
-        return Result.Success();
+        try
+        {
+            await _userRepository.UpdatePasswordAsync(user.UserId, newHash);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to change password: {ex.Message}");
+        }
     }
 
     private async Task<TokenPair> IssueTokensAsync(User user, string roleName, string? ipAddress)

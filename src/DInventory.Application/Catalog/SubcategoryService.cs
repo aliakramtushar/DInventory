@@ -26,8 +26,16 @@ public class SubcategoryService : ISubcategoryService
         subcategory.CreatedBy = actingUserId;
         subcategory.CreatedAt = DateTime.UtcNow;
         subcategory.IsActive = true;
-        var id = await _subcategoryRepository.CreateAsync(subcategory);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _subcategoryRepository.CreateAsync(subcategory);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save subcategory: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Subcategory subcategory, int? actingUserId)
@@ -45,8 +53,15 @@ public class SubcategoryService : ISubcategoryService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _subcategoryRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update subcategory.");
+        try
+        {
+            var ok = await _subcategoryRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update subcategory.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update subcategory: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int subcategoryId)
@@ -56,7 +71,14 @@ public class SubcategoryService : ISubcategoryService
             return Result.Failure("Cannot delete a subcategory that still has products assigned to it.");
         }
 
-        var ok = await _subcategoryRepository.DeleteAsync(subcategoryId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete subcategory.");
+        try
+        {
+            var ok = await _subcategoryRepository.DeleteAsync(subcategoryId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete subcategory.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete subcategory: {ex.Message}");
+        }
     }
 }

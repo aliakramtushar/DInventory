@@ -33,7 +33,7 @@ public class GeneratedBarcodeLabelRepository : IGeneratedBarcodeLabelRepository
         var pagedSql = $@"
             SELECT * FROM dbo.GeneratedBarcodeLabels
             {whereClause}
-            ORDER BY CreatedAt DESC
+            ORDER BY CreatedAt DESC, LabelId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

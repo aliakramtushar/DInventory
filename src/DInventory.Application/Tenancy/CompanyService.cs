@@ -48,8 +48,16 @@ public class CompanyService : ICompanyService
         company.CreatedBy = actingUserId;
         company.CreatedAt = DateTime.UtcNow;
         company.IsActive = true;
-        var id = await _companyRepository.CreateAsync(company);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _companyRepository.CreateAsync(company);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save company: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Company company, int? actingUserId)
@@ -85,8 +93,15 @@ public class CompanyService : ICompanyService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _companyRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update company.");
+        try
+        {
+            var ok = await _companyRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update company.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update company: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int companyId)
@@ -101,8 +116,15 @@ public class CompanyService : ICompanyService
             return Result.Failure("Cannot delete a company that still has users, business units, or catalog data. Deactivate it instead.");
         }
 
-        var ok = await _companyRepository.DeleteAsync(companyId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete company.");
+        try
+        {
+            var ok = await _companyRepository.DeleteAsync(companyId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete company.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete company: {ex.Message}");
+        }
     }
 
     /// <summary>Uppercases and validates the short name used as this company's barcode prefix -

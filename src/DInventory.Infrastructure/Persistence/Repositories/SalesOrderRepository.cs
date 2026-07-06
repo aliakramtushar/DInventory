@@ -89,7 +89,7 @@ public class SalesOrderRepository : ISalesOrderRepository
 
         var pagedSql = $@"{HeaderSelect}
             {whereClause}
-            ORDER BY so.SaleDate DESC
+            ORDER BY so.SaleDate DESC, so.SalesOrderId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

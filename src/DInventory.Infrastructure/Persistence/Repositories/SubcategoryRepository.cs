@@ -56,7 +56,7 @@ public class SubcategoryRepository : ISubcategoryRepository
 
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY s.SubcategoryName
+            ORDER BY s.SubcategoryName, s.SubcategoryId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -65,7 +65,7 @@ public class ProductRepository : IProductRepository
         var countSql = $"SELECT COUNT(1) FROM dbo.Products p {whereClause}";
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY p.ProductName
+            ORDER BY p.ProductName, p.ProductId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new
@@ -110,7 +110,7 @@ public class ProductRepository : IProductRepository
         var countSql = $"SELECT COUNT(1) FROM dbo.Products p {whereClause}";
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY p.ProductName
+            ORDER BY p.ProductName, p.ProductId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -70,7 +70,7 @@ public class ProductVariantRepository : IProductVariantRepository
 
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY p.ProductName, sz.DisplayOrder
+            ORDER BY p.ProductName, sz.DisplayOrder, pv.ProductVariantId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -149,14 +149,21 @@ public class ProductVariantService : IProductVariantService
         existing.ReorderLevel = variant.ReorderLevel <= 0 ? 5 : variant.ReorderLevel;
         existing.IsActive = variant.IsActive;
 
-        var ok = await _variantRepository.UpdateAsync(existing);
-        if (ok && barcodeChanged)
+        try
         {
-            // The barcode changed to (possibly) a previously printed label - reflect that on its History row.
-            await _labelService.MarkLinkedAsync(existing.Barcode, existing.ProductVariantId);
-        }
+            var ok = await _variantRepository.UpdateAsync(existing);
+            if (ok && barcodeChanged)
+            {
+                // The barcode changed to (possibly) a previously printed label - reflect that on its History row.
+                await _labelService.MarkLinkedAsync(existing.Barcode, existing.ProductVariantId);
+            }
 
-        return ok ? Result.Success() : Result.Failure("Unable to update product variant.");
+            return ok ? Result.Success() : Result.Failure("Unable to update product variant.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update product variant: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int productVariantId)

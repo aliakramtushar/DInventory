@@ -93,26 +93,33 @@ public class PurchaseReturnService : IPurchaseReturnService
             Items = returnItems
         };
 
-        var purchaseReturnId = await _purchaseReturnRepository.CreateAsync(purchaseReturn);
-
-        // Sending stock back to the supplier reduces stock the same way a sale does, just tagged
-        // PURCHASE_RETURN so it's distinguishable from a SALE in stock history.
-        foreach (var item in returnItems)
+        try
         {
-            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
-            await _stockRepository.CreateTransactionAsync(new StockTransaction
-            {
-                ProductVariantId = item.ProductVariantId,
-                TransactionType = "OUT",
-                Quantity = item.Quantity,
-                ReferenceType = "PURCHASE_RETURN",
-                ReferenceId = purchaseReturnId,
-                Remarks = $"Return {purchaseReturn.ReturnNo} against purchase {purchase.PurchaseInvoiceNo}",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
+            var purchaseReturnId = await _purchaseReturnRepository.CreateAsync(purchaseReturn);
 
-        return Result<int>.Success(purchaseReturnId);
+            // Sending stock back to the supplier reduces stock the same way a sale does, just tagged
+            // PURCHASE_RETURN so it's distinguishable from a SALE in stock history.
+            foreach (var item in returnItems)
+            {
+                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
+                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                {
+                    ProductVariantId = item.ProductVariantId,
+                    TransactionType = "OUT",
+                    Quantity = item.Quantity,
+                    ReferenceType = "PURCHASE_RETURN",
+                    ReferenceId = purchaseReturnId,
+                    Remarks = $"Return {purchaseReturn.ReturnNo} against purchase {purchase.PurchaseInvoiceNo}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
+            }
+
+            return Result<int>.Success(purchaseReturnId);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to process purchase return: {ex.Message}");
+        }
     }
 }

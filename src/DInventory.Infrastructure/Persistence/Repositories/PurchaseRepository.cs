@@ -77,7 +77,7 @@ public class PurchaseRepository : IPurchaseRepository
 
         var pagedSql = $@"{HeaderSelect}
             {whereClause}
-            ORDER BY p.PurchaseDate DESC
+            ORDER BY p.PurchaseDate DESC, p.PurchaseId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

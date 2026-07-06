@@ -101,64 +101,71 @@ public class ProductService : IProductService
         product.CreatedAt = DateTime.UtcNow;
         product.IsActive = true;
 
-        var productId = await _productRepository.CreateAsync(product);
-
-        await _priceRepository.CreateAsync(new Price
+        try
         {
-            ProductId = productId,
-            CostPrice = costPrice,
-            SellingPrice = sellingPrice,
-            EffectiveFrom = DateTime.UtcNow,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actingUserId
-        });
+            var productId = await _productRepository.CreateAsync(product);
 
-        foreach (var v in variants)
-        {
-            var barcode = v.Barcode?.Trim();
-            if (string.IsNullOrWhiteSpace(barcode))
-            {
-                barcode = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
-            }
-
-            var sku = string.IsNullOrWhiteSpace(v.SKU) ? await BuildAutoSkuAsync(product.ProductCode, v.SizeId, v.ColorId) : v.SKU.Trim();
-
-            var variantId = await _variantRepository.CreateAsync(new ProductVariant
+            await _priceRepository.CreateAsync(new Price
             {
                 ProductId = productId,
-                SizeId = v.SizeId,
-                ColorId = v.ColorId,
-                Barcode = barcode,
-                SKU = sku,
-                ReorderLevel = v.ReorderLevel <= 0 ? 5 : v.ReorderLevel,
+                CostPrice = costPrice,
+                SellingPrice = sellingPrice,
+                EffectiveFrom = DateTime.UtcNow,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = actingUserId
             });
 
-            // If this barcode was printed ahead of time via the Barcode Generator, flip its label over
-            // to "Linked" now that it's actually been entered into inventory (no-op otherwise).
-            await _labelService.MarkLinkedAsync(barcode, variantId);
-
-            await _stockRepository.EnsureStockRowExistsAsync(variantId);
-            if (v.InitialQuantity > 0)
+            foreach (var v in variants)
             {
-                await _stockRepository.AdjustQuantityAsync(variantId, v.InitialQuantity);
-                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                var barcode = v.Barcode?.Trim();
+                if (string.IsNullOrWhiteSpace(barcode))
                 {
-                    ProductVariantId = variantId,
-                    TransactionType = "IN",
-                    Quantity = v.InitialQuantity,
-                    ReferenceType = "MANUAL",
-                    Remarks = "Initial stock on product creation",
+                    barcode = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
+                }
+
+                var sku = string.IsNullOrWhiteSpace(v.SKU) ? await BuildAutoSkuAsync(product.ProductCode, v.SizeId, v.ColorId) : v.SKU.Trim();
+
+                var variantId = await _variantRepository.CreateAsync(new ProductVariant
+                {
+                    ProductId = productId,
+                    SizeId = v.SizeId,
+                    ColorId = v.ColorId,
+                    Barcode = barcode,
+                    SKU = sku,
+                    ReorderLevel = v.ReorderLevel <= 0 ? 5 : v.ReorderLevel,
+                    IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = actingUserId
                 });
-            }
-        }
 
-        return Result<int>.Success(productId);
+                // If this barcode was printed ahead of time via the Barcode Generator, flip its label over
+                // to "Linked" now that it's actually been entered into inventory (no-op otherwise).
+                await _labelService.MarkLinkedAsync(barcode, variantId);
+
+                await _stockRepository.EnsureStockRowExistsAsync(variantId);
+                if (v.InitialQuantity > 0)
+                {
+                    await _stockRepository.AdjustQuantityAsync(variantId, v.InitialQuantity);
+                    await _stockRepository.CreateTransactionAsync(new StockTransaction
+                    {
+                        ProductVariantId = variantId,
+                        TransactionType = "IN",
+                        Quantity = v.InitialQuantity,
+                        ReferenceType = "MANUAL",
+                        Remarks = "Initial stock on product creation",
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = actingUserId
+                    });
+                }
+            }
+
+            return Result<int>.Success(productId);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save product: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Product product, decimal costPrice, decimal sellingPrice, int? actingUserId)
@@ -198,29 +205,36 @@ public class ProductService : IProductService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _productRepository.UpdateAsync(existing);
-        if (!ok)
+        try
         {
-            return Result.Failure("Unable to update product.");
-        }
-
-        var activePrice = await _priceRepository.GetActivePriceAsync(product.ProductId);
-        if (activePrice is null || activePrice.CostPrice != costPrice || activePrice.SellingPrice != sellingPrice)
-        {
-            await _priceRepository.DeactivateAllForProductAsync(product.ProductId);
-            await _priceRepository.CreateAsync(new Price
+            var ok = await _productRepository.UpdateAsync(existing);
+            if (!ok)
             {
-                ProductId = product.ProductId,
-                CostPrice = costPrice,
-                SellingPrice = sellingPrice,
-                EffectiveFrom = DateTime.UtcNow,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
+                return Result.Failure("Unable to update product.");
+            }
 
-        return Result.Success();
+            var activePrice = await _priceRepository.GetActivePriceAsync(product.ProductId);
+            if (activePrice is null || activePrice.CostPrice != costPrice || activePrice.SellingPrice != sellingPrice)
+            {
+                await _priceRepository.DeactivateAllForProductAsync(product.ProductId);
+                await _priceRepository.CreateAsync(new Price
+                {
+                    ProductId = product.ProductId,
+                    CostPrice = costPrice,
+                    SellingPrice = sellingPrice,
+                    EffectiveFrom = DateTime.UtcNow,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update product: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int productId)

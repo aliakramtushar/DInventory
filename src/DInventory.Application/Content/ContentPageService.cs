@@ -34,8 +34,15 @@ public partial class ContentPageService : IContentPageService
         page.CreatedBy = actingUserId;
         page.CreatedAt = DateTime.UtcNow;
 
-        var id = await _contentPageRepository.CreateAsync(page);
-        return Result<int>.Success(id);
+        try
+        {
+            var id = await _contentPageRepository.CreateAsync(page);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save page: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(ContentPage page, int? actingUserId)
@@ -65,14 +72,28 @@ public partial class ContentPageService : IContentPageService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _contentPageRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update page.");
+        try
+        {
+            var ok = await _contentPageRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update page.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update page: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int contentPageId)
     {
-        var ok = await _contentPageRepository.DeleteAsync(contentPageId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete page.");
+        try
+        {
+            var ok = await _contentPageRepository.DeleteAsync(contentPageId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete page.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete page: {ex.Message}");
+        }
     }
 
     private static string Slugify(string input)

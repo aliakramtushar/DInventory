@@ -46,7 +46,7 @@ public class CategoryRepository : ICategoryRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Categories
             {whereClause}
-            ORDER BY CategoryName
+            ORDER BY CategoryName, CategoryId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -40,8 +40,16 @@ public class CustomerService : ICustomerService
         customer.CreatedBy = actingUserId;
         customer.CreatedAt = DateTime.UtcNow;
         customer.IsActive = true;
-        var id = await _customerRepository.CreateAsync(customer);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _customerRepository.CreateAsync(customer);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save customer: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Customer customer, int? actingUserId)
@@ -70,8 +78,15 @@ public class CustomerService : ICustomerService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _customerRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update customer.");
+        try
+        {
+            var ok = await _customerRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update customer.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update customer: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int customerId)
@@ -81,8 +96,15 @@ public class CustomerService : ICustomerService
             return Result.Failure("Cannot delete a customer that already has sales history. Consider deactivating it instead.");
         }
 
-        var ok = await _customerRepository.DeleteAsync(customerId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete customer.");
+        try
+        {
+            var ok = await _customerRepository.DeleteAsync(customerId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete customer.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete customer: {ex.Message}");
+        }
     }
 
     public Task<IEnumerable<SalesOrder>> GetSalesHistoryAsync(int customerId) => _salesOrderRepository.GetForCustomerAsync(customerId);

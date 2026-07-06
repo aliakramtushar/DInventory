@@ -63,7 +63,7 @@ public class CustomerRepository : ICustomerRepository
         var countSql = $"SELECT COUNT(1) FROM dbo.Customers c {whereClause}";
         var pagedSql = $@"{StatsSelect}
             {whereClause}
-            ORDER BY c.CustomerName
+            ORDER BY c.CustomerName, c.CustomerId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -192,35 +192,42 @@ public class SalesService : ISalesService
             Items = items
         };
 
-        var salesOrderId = await _salesOrderRepository.CreateAsync(order);
-
-        foreach (var item in order.Items)
+        try
         {
-            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
-            await _stockRepository.CreateTransactionAsync(new StockTransaction
+            var salesOrderId = await _salesOrderRepository.CreateAsync(order);
+
+            foreach (var item in order.Items)
             {
-                ProductVariantId = item.ProductVariantId,
-                TransactionType = "OUT",
-                Quantity = item.Quantity,
-                ReferenceType = "SALE",
-                ReferenceId = salesOrderId,
-                Remarks = $"Sale {order.InvoiceNo}",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
+                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
+                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                {
+                    ProductVariantId = item.ProductVariantId,
+                    TransactionType = "OUT",
+                    Quantity = item.Quantity,
+                    ReferenceType = "SALE",
+                    ReferenceId = salesOrderId,
+                    Remarks = $"Sale {order.InvoiceNo}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
+            }
 
-        if (customerId.HasValue && redeemPoints > 0)
+            if (customerId.HasValue && redeemPoints > 0)
+            {
+                await _loyaltyService.RedeemAsync(customerId.Value, redeemPoints, "SALE", salesOrderId, $"Redeemed on sale {order.InvoiceNo}", actingUserId);
+            }
+
+            if (customerId.HasValue && pointsEarned > 0)
+            {
+                await _loyaltyService.EarnAsync(customerId.Value, pointsEarned, "SALE", salesOrderId, $"Earned from sale {order.InvoiceNo}", actingUserId);
+            }
+
+            return Result<int>.Success(salesOrderId);
+        }
+        catch (Exception ex)
         {
-            await _loyaltyService.RedeemAsync(customerId.Value, redeemPoints, "SALE", salesOrderId, $"Redeemed on sale {order.InvoiceNo}", actingUserId);
+            return Result<int>.Failure($"Unable to save sale: {ex.Message}");
         }
-
-        if (customerId.HasValue && pointsEarned > 0)
-        {
-            await _loyaltyService.EarnAsync(customerId.Value, pointsEarned, "SALE", salesOrderId, $"Earned from sale {order.InvoiceNo}", actingUserId);
-        }
-
-        return Result<int>.Success(salesOrderId);
     }
 
     // Default is PERCENT: only an explicit "FIXED" is treated as a flat amount, so a missing/
@@ -261,44 +268,51 @@ public class SalesService : ISalesService
             return Result.Failure("This sale is already cancelled.");
         }
 
-        // Return stock
-        foreach (var item in order.Items)
+        try
         {
-            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
-            await _stockRepository.CreateTransactionAsync(new StockTransaction
+            // Return stock
+            foreach (var item in order.Items)
             {
-                ProductVariantId = item.ProductVariantId,
-                TransactionType = "IN",
-                Quantity = item.Quantity,
-                ReferenceType = "SALE",
-                ReferenceId = salesOrderId,
-                Remarks = $"Cancellation of sale {order.InvoiceNo}",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
-
-        // Reverse whatever loyalty effect this sale had: take back any points it earned, and
-        // hand back any points it redeemed. Uses enforceBalanceFloor: false because this is a
-        // system-initiated reversal, not a staff-entered adjustment - it must go through even if
-        // the customer's balance has moved since (e.g. they've already redeemed the earned points
-        // elsewhere), same reasoning as CancelSaleAsync unconditionally restoring stock above.
-        if (order.CustomerId.HasValue)
-        {
-            if (order.LoyaltyPointsEarned > 0)
-            {
-                await _loyaltyService.AdjustAsync(order.CustomerId.Value, -order.LoyaltyPointsEarned,
-                    $"Reversal: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
+                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
+                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                {
+                    ProductVariantId = item.ProductVariantId,
+                    TransactionType = "IN",
+                    Quantity = item.Quantity,
+                    ReferenceType = "SALE",
+                    ReferenceId = salesOrderId,
+                    Remarks = $"Cancellation of sale {order.InvoiceNo}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
             }
 
-            if (order.LoyaltyPointsRedeemed > 0)
+            // Reverse whatever loyalty effect this sale had: take back any points it earned, and
+            // hand back any points it redeemed. Uses enforceBalanceFloor: false because this is a
+            // system-initiated reversal, not a staff-entered adjustment - it must go through even if
+            // the customer's balance has moved since (e.g. they've already redeemed the earned points
+            // elsewhere), same reasoning as CancelSaleAsync unconditionally restoring stock above.
+            if (order.CustomerId.HasValue)
             {
-                await _loyaltyService.AdjustAsync(order.CustomerId.Value, order.LoyaltyPointsRedeemed,
-                    $"Refund: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
-            }
-        }
+                if (order.LoyaltyPointsEarned > 0)
+                {
+                    await _loyaltyService.AdjustAsync(order.CustomerId.Value, -order.LoyaltyPointsEarned,
+                        $"Reversal: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
+                }
 
-        var ok = await _salesOrderRepository.CancelAsync(salesOrderId);
-        return ok ? Result.Success() : Result.Failure("Unable to cancel this sale.");
+                if (order.LoyaltyPointsRedeemed > 0)
+                {
+                    await _loyaltyService.AdjustAsync(order.CustomerId.Value, order.LoyaltyPointsRedeemed,
+                        $"Refund: cancelled sale {order.InvoiceNo}", actingUserId, enforceBalanceFloor: false);
+                }
+            }
+
+            var ok = await _salesOrderRepository.CancelAsync(salesOrderId);
+            return ok ? Result.Success() : Result.Failure("Unable to cancel this sale.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to cancel sale: {ex.Message}");
+        }
     }
 }

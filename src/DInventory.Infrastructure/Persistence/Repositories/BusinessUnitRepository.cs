@@ -56,7 +56,7 @@ public class BusinessUnitRepository : IBusinessUnitRepository
 
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY bu.BusinessUnitName
+            ORDER BY bu.BusinessUnitName, bu.BusinessUnitId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

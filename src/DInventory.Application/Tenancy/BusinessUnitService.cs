@@ -36,8 +36,16 @@ public class BusinessUnitService : IBusinessUnitService
         businessUnit.CreatedBy = actingUserId;
         businessUnit.CreatedAt = DateTime.UtcNow;
         businessUnit.IsActive = true;
-        var id = await _businessUnitRepository.CreateAsync(businessUnit);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _businessUnitRepository.CreateAsync(businessUnit);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save business unit: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(BusinessUnit businessUnit, int? actingUserId)
@@ -59,8 +67,15 @@ public class BusinessUnitService : IBusinessUnitService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _businessUnitRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update business unit.");
+        try
+        {
+            var ok = await _businessUnitRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update business unit.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update business unit: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int businessUnitId)
@@ -70,7 +85,14 @@ public class BusinessUnitService : IBusinessUnitService
             return Result.Failure("Cannot delete a business unit that still has users assigned to it.");
         }
 
-        var ok = await _businessUnitRepository.DeleteAsync(businessUnitId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete business unit.");
+        try
+        {
+            var ok = await _businessUnitRepository.DeleteAsync(businessUnitId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete business unit.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete business unit: {ex.Message}");
+        }
     }
 }

@@ -32,8 +32,16 @@ public class ExpenseService : IExpenseService
 
         expense.CreatedBy = actingUserId;
         expense.CreatedAt = DateTime.UtcNow;
-        var id = await _expenseRepository.CreateAsync(expense);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _expenseRepository.CreateAsync(expense);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save expense: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Expense expense, int? actingUserId)
@@ -60,13 +68,27 @@ public class ExpenseService : IExpenseService
         existing.Remarks = expense.Remarks;
         existing.BusinessUnitId = expense.BusinessUnitId;
 
-        var ok = await _expenseRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update expense.");
+        try
+        {
+            var ok = await _expenseRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update expense.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update expense: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int expenseId)
     {
-        var ok = await _expenseRepository.DeleteAsync(expenseId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete expense.");
+        try
+        {
+            var ok = await _expenseRepository.DeleteAsync(expenseId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete expense.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete expense: {ex.Message}");
+        }
     }
 }

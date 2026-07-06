@@ -27,19 +27,40 @@ public class MenuService : IMenuService
             return Result<int>.Failure("A menu with this key already exists.");
         }
 
-        var id = await _menuRepository.CreateAsync(menu);
-        return Result<int>.Success(id);
+        try
+        {
+            var id = await _menuRepository.CreateAsync(menu);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save menu: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Menu menu)
     {
-        var ok = await _menuRepository.UpdateAsync(menu);
-        return ok ? Result.Success() : Result.Failure("Unable to update menu.");
+        try
+        {
+            var ok = await _menuRepository.UpdateAsync(menu);
+            return ok ? Result.Success() : Result.Failure("Unable to update menu.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update menu: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int menuId)
     {
-        var ok = await _menuRepository.DeleteAsync(menuId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete menu. It may still have role permissions or submenus attached.");
+        try
+        {
+            var ok = await _menuRepository.DeleteAsync(menuId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete menu. It may still have role permissions or submenus attached.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete menu item: {ex.Message}");
+        }
     }
 }

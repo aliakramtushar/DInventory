@@ -50,8 +50,15 @@ public class UserService : IUserService
         user.CreatedAt = DateTime.UtcNow;
         user.IsActive = true;
 
-        var id = await _userRepository.CreateAsync(user);
-        return Result<int>.Success(id);
+        try
+        {
+            var id = await _userRepository.CreateAsync(user);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save user: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(User user, int? actingUserId)
@@ -81,8 +88,15 @@ public class UserService : IUserService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _userRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update user.");
+        try
+        {
+            var ok = await _userRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update user.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update user: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int userId, int actingUserId)
@@ -92,18 +106,32 @@ public class UserService : IUserService
             return Result.Failure("You cannot delete your own account.");
         }
 
-        var ok = await _userRepository.DeleteAsync(userId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete user.");
+        try
+        {
+            var ok = await _userRepository.DeleteAsync(userId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete user.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete user: {ex.Message}");
+        }
     }
 
     public async Task<Result> ToggleActiveAsync(int userId, bool isActive)
     {
-        var ok = await _userRepository.SetActiveAsync(userId, isActive);
-        if (!isActive)
+        try
         {
-            await _refreshTokenRepository.RevokeAllForUserAsync(userId);
+            var ok = await _userRepository.SetActiveAsync(userId, isActive);
+            if (!isActive)
+            {
+                await _refreshTokenRepository.RevokeAllForUserAsync(userId);
+            }
+            return ok ? Result.Success() : Result.Failure("Unable to update user status.");
         }
-        return ok ? Result.Success() : Result.Failure("Unable to update user status.");
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update user status: {ex.Message}");
+        }
     }
 
     public async Task<Result> AdminResetPasswordAsync(int userId, string newPassword)
@@ -114,8 +142,16 @@ public class UserService : IUserService
         }
 
         var hash = _passwordHasher.Hash(newPassword);
-        var ok = await _userRepository.UpdatePasswordAsync(userId, hash);
-        await _refreshTokenRepository.RevokeAllForUserAsync(userId);
-        return ok ? Result.Success() : Result.Failure("Unable to reset password.");
+
+        try
+        {
+            var ok = await _userRepository.UpdatePasswordAsync(userId, hash);
+            await _refreshTokenRepository.RevokeAllForUserAsync(userId);
+            return ok ? Result.Success() : Result.Failure("Unable to reset password.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to reset password: {ex.Message}");
+        }
     }
 }

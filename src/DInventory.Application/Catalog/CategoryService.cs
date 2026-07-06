@@ -31,8 +31,16 @@ public class CategoryService : ICategoryService
         category.CreatedBy = actingUserId;
         category.CreatedAt = DateTime.UtcNow;
         category.IsActive = true;
-        var id = await _categoryRepository.CreateAsync(category);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _categoryRepository.CreateAsync(category);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save category: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Category category, int? actingUserId)
@@ -54,8 +62,15 @@ public class CategoryService : ICategoryService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _categoryRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update category.");
+        try
+        {
+            var ok = await _categoryRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update category.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update category: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int categoryId)
@@ -65,7 +80,14 @@ public class CategoryService : ICategoryService
             return Result.Failure("Cannot delete a category that still has products assigned to it.");
         }
 
-        var ok = await _categoryRepository.DeleteAsync(categoryId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete category.");
+        try
+        {
+            var ok = await _categoryRepository.DeleteAsync(categoryId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete category.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete category: {ex.Message}");
+        }
     }
 }

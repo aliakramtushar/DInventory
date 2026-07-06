@@ -48,7 +48,7 @@ public class ContentPageRepository : IContentPageRepository
         var pagedSql = $@"
             SELECT * FROM dbo.ContentPages
             {whereClause}
-            ORDER BY DisplayOrder, Title
+            ORDER BY DisplayOrder, Title, ContentPageId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

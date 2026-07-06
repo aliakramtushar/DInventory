@@ -5,6 +5,7 @@ using DInventory.Application.Common.Models;
 using DInventory.Infrastructure;
 using DInventory.Infrastructure.Persistence;
 using DInventory.Web.Common;
+using DInventory.Web.Filters;
 using DInventory.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -15,7 +16,16 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // MVC + Razor views
-builder.Services.AddControllersWithViews();
+// GlobalExceptionFilter is a safety net: it catches whatever exceptions the service layer
+// doesn't already convert into a Result.Failure, so a bug/DB hiccup never shows a blank
+// generic error page - the user gets redirected back with the real message in the error banner.
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<GlobalExceptionFilter>();
+    // See NoCacheResultFilter for why: rules out any browser/proxy caching layer ever masking a
+    // fresh backend response (pagination, filters, live stock counts, etc.) behind a stale one.
+    options.Filters.Add<NoCacheResultFilter>();
+});
 
 // Distributed (in-memory) session store, used only to persist a SuperAdmin's globally selected
 // company (see ICompanyContextService) across pages for the rest of their login. Non-SuperAdmin

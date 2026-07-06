@@ -41,7 +41,7 @@ public class SizeRepository : ISizeRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Sizes
             {whereClause}
-            ORDER BY DisplayOrder, SizeName
+            ORDER BY DisplayOrder, SizeName, SizeId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -68,7 +68,7 @@ public class SalesReturnRepository : ISalesReturnRepository
 
         var pagedSql = $@"{HeaderSelect}
             {whereClause}
-            ORDER BY sr.ReturnDate DESC
+            ORDER BY sr.ReturnDate DESC, sr.SalesReturnId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

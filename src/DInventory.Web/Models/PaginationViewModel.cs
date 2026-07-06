@@ -12,6 +12,15 @@ public class PaginationViewModel
     public bool HasPreviousPage { get; set; }
     public bool HasNextPage { get; set; }
 
+    /// <summary>Total row count across every page (PagedResult.TotalCount) - used only to render the
+    /// "Showing X-Y of Z" range text, so a mismatch between what's requested and what's actually
+    /// returned by the backend is immediately visible on screen rather than hidden.</summary>
+    public int TotalCount { get; set; }
+
+    /// <summary>Rows per page (PagedResult.PageSize) - only needed to compute the "Showing X-Y of Z"
+    /// range text correctly instead of assuming a fixed page size.</summary>
+    public int PageSize { get; set; } = 20;
+
     /// <summary>
     /// Extra route/query values (e.g. search, categoryId) to preserve across page links. Uses
     /// Dictionary&lt;string, string&gt; (non-nullable) because the asp-all-route-data tag helper

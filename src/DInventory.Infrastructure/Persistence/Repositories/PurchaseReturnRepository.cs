@@ -69,7 +69,7 @@ public class PurchaseReturnRepository : IPurchaseReturnRepository
 
         var pagedSql = $@"{HeaderSelect}
             {whereClause}
-            ORDER BY pr.ReturnDate DESC
+            ORDER BY pr.ReturnDate DESC, pr.PurchaseReturnId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

@@ -38,7 +38,7 @@ public class AuditLogRepository : IAuditLogRepository
         var pagedSql = $@"
             SELECT * FROM dbo.AuditLogs
             {whereClause}
-            ORDER BY CreatedAt DESC
+            ORDER BY CreatedAt DESC, AuditLogId DESC
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

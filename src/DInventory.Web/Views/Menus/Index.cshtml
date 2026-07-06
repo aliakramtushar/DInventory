@@ -21,7 +21,10 @@
                 {
                     <tr><td colspan="8" class="text-center text-muted py-4">No menus found.</td></tr>
                 }
-                @foreach (var menu in Model.Items.OrderBy(m => m.DisplayOrder))
+                @* Ordering is entirely backend-driven (see MenuRepository.GetPagedAsync's ORDER BY) -
+                   never re-sort the already-paginated page here, or item order could look inconsistent
+                   with what the pager's page numbers actually mean. *@
+                @foreach (var menu in Model.Items)
                 {
                     <tr>
                         <td><i class="bi @(menu.Icon ?? "bi-dot")"></i></td>
@@ -50,6 +53,8 @@
             @await Html.PartialAsync("_Pagination", new PaginationViewModel
             {
                 PageNumber = Model.PageNumber,
+                TotalCount = Model.TotalCount,
+                PageSize = Model.PageSize,
                 TotalPages = Model.TotalPages,
                 HasPreviousPage = Model.HasPreviousPage,
                 HasNextPage = Model.HasNextPage,

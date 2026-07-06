@@ -42,7 +42,7 @@ public class MenuRepository : IMenuRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Menus
             {whereClause}
-            ORDER BY DisplayOrder, MenuName
+            ORDER BY DisplayOrder, MenuName, MenuId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

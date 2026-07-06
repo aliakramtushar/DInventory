@@ -55,40 +55,47 @@ public class StockService : IStockService
             return Result.Failure("Quantity must be greater than zero.");
         }
 
-        await _stockRepository.EnsureStockRowExistsAsync(productVariantId);
-
-        var type = transactionType.Trim().ToUpperInvariant();
-        int delta;
-        switch (type)
+        try
         {
-            case "IN":
-                delta = quantity;
-                break;
-            case "OUT":
-                var current = await _stockRepository.GetByVariantIdAsync(productVariantId);
-                if (current is null || current.QuantityOnHand < quantity)
-                {
-                    return Result.Failure("Not enough stock on hand for this deduction.");
-                }
-                delta = -quantity;
-                break;
-            default:
-                return Result.Failure("Unknown transaction type.");
+            await _stockRepository.EnsureStockRowExistsAsync(productVariantId);
+
+            var type = transactionType.Trim().ToUpperInvariant();
+            int delta;
+            switch (type)
+            {
+                case "IN":
+                    delta = quantity;
+                    break;
+                case "OUT":
+                    var current = await _stockRepository.GetByVariantIdAsync(productVariantId);
+                    if (current is null || current.QuantityOnHand < quantity)
+                    {
+                        return Result.Failure("Not enough stock on hand for this deduction.");
+                    }
+                    delta = -quantity;
+                    break;
+                default:
+                    return Result.Failure("Unknown transaction type.");
+            }
+
+            await _stockRepository.AdjustQuantityAsync(productVariantId, delta);
+            await _stockRepository.CreateTransactionAsync(new StockTransaction
+            {
+                ProductVariantId = productVariantId,
+                TransactionType = type,
+                Quantity = quantity,
+                ReferenceType = "MANUAL",
+                Remarks = remarks,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            });
+
+            return Result.Success();
         }
-
-        await _stockRepository.AdjustQuantityAsync(productVariantId, delta);
-        await _stockRepository.CreateTransactionAsync(new StockTransaction
+        catch (Exception ex)
         {
-            ProductVariantId = productVariantId,
-            TransactionType = type,
-            Quantity = quantity,
-            ReferenceType = "MANUAL",
-            Remarks = remarks,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actingUserId
-        });
-
-        return Result.Success();
+            return Result.Failure($"Unable to update stock: {ex.Message}");
+        }
     }
 
     public Task<int> GetLowStockCountAsync() => _stockRepository.GetLowStockCountAsync();

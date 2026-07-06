@@ -33,8 +33,16 @@ public class SizeService : ISizeService
 
         size.CreatedAt = DateTime.UtcNow;
         size.IsActive = true;
-        var id = await _sizeRepository.CreateAsync(size);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _sizeRepository.CreateAsync(size);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save size: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Size size, int? actingUserId)
@@ -54,8 +62,15 @@ public class SizeService : ISizeService
         existing.DisplayOrder = size.DisplayOrder;
         existing.IsActive = size.IsActive;
 
-        var ok = await _sizeRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update size.");
+        try
+        {
+            var ok = await _sizeRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update size.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update size: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int sizeId)
@@ -65,7 +80,14 @@ public class SizeService : ISizeService
             return Result.Failure("Cannot delete a size that still has product variants assigned to it.");
         }
 
-        var ok = await _sizeRepository.DeleteAsync(sizeId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete size.");
+        try
+        {
+            var ok = await _sizeRepository.DeleteAsync(sizeId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete size.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete size: {ex.Message}");
+        }
     }
 }

@@ -66,7 +66,7 @@ public class UserRepository : IUserRepository
 
         var pagedSql = $@"{SelectBase}
             {whereClause}
-            ORDER BY u.FullName
+            ORDER BY u.FullName, u.UserId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

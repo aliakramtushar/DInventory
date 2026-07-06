@@ -42,7 +42,7 @@ public class RoleRepository : IRoleRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Roles
             {whereClause}
-            ORDER BY RoleName
+            ORDER BY RoleName, RoleId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

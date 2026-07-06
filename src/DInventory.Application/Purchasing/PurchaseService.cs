@@ -90,26 +90,33 @@ public class PurchaseService : IPurchaseService
             }).ToList()
         };
 
-        var purchaseId = await _purchaseRepository.CreateAsync(purchase);
-
-        // Auto stock update: receiving a purchase increases stock the same way a sale decreases it.
-        foreach (var item in purchase.Items)
+        try
         {
-            await _stockRepository.EnsureStockRowExistsAsync(item.ProductVariantId);
-            await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
-            await _stockRepository.CreateTransactionAsync(new StockTransaction
-            {
-                ProductVariantId = item.ProductVariantId,
-                TransactionType = "IN",
-                Quantity = item.Quantity,
-                ReferenceType = "PURCHASE",
-                ReferenceId = purchaseId,
-                Remarks = $"Purchase {purchase.PurchaseInvoiceNo}",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = actingUserId
-            });
-        }
+            var purchaseId = await _purchaseRepository.CreateAsync(purchase);
 
-        return Result<int>.Success(purchaseId);
+            // Auto stock update: receiving a purchase increases stock the same way a sale decreases it.
+            foreach (var item in purchase.Items)
+            {
+                await _stockRepository.EnsureStockRowExistsAsync(item.ProductVariantId);
+                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, item.Quantity);
+                await _stockRepository.CreateTransactionAsync(new StockTransaction
+                {
+                    ProductVariantId = item.ProductVariantId,
+                    TransactionType = "IN",
+                    Quantity = item.Quantity,
+                    ReferenceType = "PURCHASE",
+                    ReferenceId = purchaseId,
+                    Remarks = $"Purchase {purchase.PurchaseInvoiceNo}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = actingUserId
+                });
+            }
+
+            return Result<int>.Success(purchaseId);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save purchase: {ex.Message}");
+        }
     }
 }

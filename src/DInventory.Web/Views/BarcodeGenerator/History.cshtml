@@ -58,10 +58,12 @@
             @await Html.PartialAsync("_Pagination", new PaginationViewModel
             {
                 PageNumber = Model.PageNumber,
+                TotalCount = Model.TotalCount,
+                PageSize = Model.PageSize,
                 TotalPages = Model.TotalPages,
                 HasPreviousPage = Model.HasPreviousPage,
                 HasNextPage = Model.HasNextPage,
-                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()), ("companyId", ViewData["CompanyId"]?.ToString()))
+                RouteValues = PaginationViewModel.Filters(("search", ViewData["Search"]?.ToString()))
             })
         </div>
     }

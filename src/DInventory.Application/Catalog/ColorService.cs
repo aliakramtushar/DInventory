@@ -33,8 +33,16 @@ public class ColorService : IColorService
 
         color.CreatedAt = DateTime.UtcNow;
         color.IsActive = true;
-        var id = await _colorRepository.CreateAsync(color);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _colorRepository.CreateAsync(color);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save color: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Color color, int? actingUserId)
@@ -55,8 +63,15 @@ public class ColorService : IColorService
         existing.DisplayOrder = color.DisplayOrder;
         existing.IsActive = color.IsActive;
 
-        var ok = await _colorRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update color.");
+        try
+        {
+            var ok = await _colorRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update color.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update color: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int colorId)
@@ -66,7 +81,14 @@ public class ColorService : IColorService
             return Result.Failure("Cannot delete a color that still has product variants assigned to it.");
         }
 
-        var ok = await _colorRepository.DeleteAsync(colorId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete color.");
+        try
+        {
+            var ok = await _colorRepository.DeleteAsync(colorId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete color.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete color: {ex.Message}");
+        }
     }
 }

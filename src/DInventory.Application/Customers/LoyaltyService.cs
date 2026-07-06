@@ -25,8 +25,15 @@ public class LoyaltyService : ILoyaltyService
         settings.UpdatedAt = DateTime.UtcNow;
         settings.UpdatedBy = actingUserId;
 
-        var ok = await _loyaltyRepository.UpdateSettingsAsync(settings);
-        return ok ? Result.Success() : Result.Failure("Unable to update loyalty settings.");
+        try
+        {
+            var ok = await _loyaltyRepository.UpdateSettingsAsync(settings);
+            return ok ? Result.Success() : Result.Failure("Unable to update loyalty settings.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update loyalty settings: {ex.Message}");
+        }
     }
 
     public Task<int> GetBalanceAsync(int customerId) => _loyaltyRepository.GetBalanceAsync(customerId);
@@ -86,19 +93,26 @@ public class LoyaltyService : ILoyaltyService
             return Result.Failure($"Customer only has {balance} point(s) available.");
         }
 
-        await _loyaltyRepository.CreateTransactionAsync(new LoyaltyTransaction
+        try
         {
-            CustomerId = customerId,
-            TransactionType = "REDEEM",
-            Points = -points,
-            ReferenceType = referenceType,
-            ReferenceId = referenceId,
-            Remarks = remarks,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actingUserId
-        });
+            await _loyaltyRepository.CreateTransactionAsync(new LoyaltyTransaction
+            {
+                CustomerId = customerId,
+                TransactionType = "REDEEM",
+                Points = -points,
+                ReferenceType = referenceType,
+                ReferenceId = referenceId,
+                Remarks = remarks,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            });
 
-        return Result.Success();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to redeem loyalty points: {ex.Message}");
+        }
     }
 
     public async Task<Result> AdjustAsync(int customerId, int points, string? remarks, int? actingUserId, bool enforceBalanceFloor = true)
@@ -117,17 +131,24 @@ public class LoyaltyService : ILoyaltyService
             }
         }
 
-        await _loyaltyRepository.CreateTransactionAsync(new LoyaltyTransaction
+        try
         {
-            CustomerId = customerId,
-            TransactionType = "ADJUST",
-            Points = points,
-            ReferenceType = "MANUAL",
-            Remarks = remarks,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actingUserId
-        });
+            await _loyaltyRepository.CreateTransactionAsync(new LoyaltyTransaction
+            {
+                CustomerId = customerId,
+                TransactionType = "ADJUST",
+                Points = points,
+                ReferenceType = "MANUAL",
+                Remarks = remarks,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actingUserId
+            });
 
-        return Result.Success();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to adjust loyalty points: {ex.Message}");
+        }
     }
 }

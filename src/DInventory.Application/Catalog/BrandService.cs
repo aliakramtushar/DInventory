@@ -35,8 +35,16 @@ public class BrandService : IBrandService
         brand.CreatedBy = actingUserId;
         brand.CreatedAt = DateTime.UtcNow;
         brand.IsActive = true;
-        var id = await _brandRepository.CreateAsync(brand);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _brandRepository.CreateAsync(brand);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save brand: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Brand brand, int? actingUserId)
@@ -58,8 +66,15 @@ public class BrandService : IBrandService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _brandRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update brand.");
+        try
+        {
+            var ok = await _brandRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update brand.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update brand: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int brandId)
@@ -69,7 +84,14 @@ public class BrandService : IBrandService
             return Result.Failure("Cannot delete a brand that still has products assigned to it.");
         }
 
-        var ok = await _brandRepository.DeleteAsync(brandId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete brand.");
+        try
+        {
+            var ok = await _brandRepository.DeleteAsync(brandId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete brand.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete brand: {ex.Message}");
+        }
     }
 }

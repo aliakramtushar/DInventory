@@ -41,7 +41,7 @@ public class ColorRepository : IColorRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Colors
             {whereClause}
-            ORDER BY DisplayOrder, ColorName
+            ORDER BY DisplayOrder, ColorName, ColorId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

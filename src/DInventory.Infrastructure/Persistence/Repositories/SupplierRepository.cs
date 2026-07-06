@@ -62,7 +62,7 @@ public class SupplierRepository : ISupplierRepository
         var pagedSql = $@"
             SELECT * FROM dbo.Suppliers
             {whereClause}
-            ORDER BY SupplierName
+            ORDER BY SupplierName, SupplierId
             OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
         var parameters = new

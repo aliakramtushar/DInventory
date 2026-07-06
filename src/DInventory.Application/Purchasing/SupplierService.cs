@@ -39,8 +39,16 @@ public class SupplierService : ISupplierService
         supplier.CreatedBy = actingUserId;
         supplier.CreatedAt = DateTime.UtcNow;
         supplier.IsActive = true;
-        var id = await _supplierRepository.CreateAsync(supplier);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _supplierRepository.CreateAsync(supplier);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save supplier: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Supplier supplier, int? actingUserId)
@@ -64,8 +72,15 @@ public class SupplierService : ISupplierService
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _supplierRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update supplier.");
+        try
+        {
+            var ok = await _supplierRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update supplier.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update supplier: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int supplierId)
@@ -75,8 +90,15 @@ public class SupplierService : ISupplierService
             return Result.Failure("Cannot delete a supplier that already has purchase history. Consider deactivating it instead.");
         }
 
-        var ok = await _supplierRepository.DeleteAsync(supplierId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete supplier.");
+        try
+        {
+            var ok = await _supplierRepository.DeleteAsync(supplierId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete supplier.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete supplier: {ex.Message}");
+        }
     }
 
     public Task<IEnumerable<Purchase>> GetPurchaseHistoryAsync(int supplierId) => _purchaseRepository.GetForSupplierAsync(supplierId);

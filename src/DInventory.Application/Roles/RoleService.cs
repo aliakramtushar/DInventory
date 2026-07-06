@@ -29,8 +29,16 @@ public class RoleService : IRoleService
 
         role.IsSystemRole = false;
         role.CreatedAt = DateTime.UtcNow;
-        var id = await _roleRepository.CreateAsync(role);
-        return Result<int>.Success(id);
+
+        try
+        {
+            var id = await _roleRepository.CreateAsync(role);
+            return Result<int>.Success(id);
+        }
+        catch (Exception ex)
+        {
+            return Result<int>.Failure($"Unable to save role: {ex.Message}");
+        }
     }
 
     public async Task<Result> UpdateAsync(Role role)
@@ -51,8 +59,15 @@ public class RoleService : IRoleService
         existing.IsActive = existing.IsSystemRole || role.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ok = await _roleRepository.UpdateAsync(existing);
-        return ok ? Result.Success() : Result.Failure("Unable to update role.");
+        try
+        {
+            var ok = await _roleRepository.UpdateAsync(existing);
+            return ok ? Result.Success() : Result.Failure("Unable to update role.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to update role: {ex.Message}");
+        }
     }
 
     public async Task<Result> DeleteAsync(int roleId)
@@ -74,7 +89,14 @@ public class RoleService : IRoleService
             return Result.Failure($"Cannot delete role: {userCount} user(s) are still assigned to it.");
         }
 
-        var ok = await _roleRepository.DeleteAsync(roleId);
-        return ok ? Result.Success() : Result.Failure("Unable to delete role.");
+        try
+        {
+            var ok = await _roleRepository.DeleteAsync(roleId);
+            return ok ? Result.Success() : Result.Failure("Unable to delete role.");
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure($"Unable to delete role: {ex.Message}");
+        }
     }
 }
