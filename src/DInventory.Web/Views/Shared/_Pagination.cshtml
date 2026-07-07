@@ -25,6 +25,19 @@
     const int window = 2;
     var startPage = Math.Max(1, Model.PageNumber - window);
     var endPage = Math.Min(Model.TotalPages, Model.PageNumber + window);
+
+    // asp-route-{name} and asp-all-route-data both bind to the AnchorTagHelper's SAME underlying
+    // RouteValues dictionary (confirmed in AnchorTagHelper.cs: both attributes target one
+    // IDictionary<string,string> property, "asp-all-route-data" via a plain setter that REPLACES
+    // the dictionary outright, "asp-route-{name}" via the indexer that mutates it in place).
+    // Combining both on one tag makes whichever is written LAST in the markup win completely, not
+    // merge - every link below used to write asp-route-page first and asp-all-route-data second,
+    // so the plain assignment from asp-all-route-data silently wiped out the page number every
+    // time, and every pagination link ended up pointing at the same (page-less) URL. Building one
+    // complete per-link dictionary here and using only asp-all-route-data avoids the conflict
+    // entirely - see https://github.com/dotnet/aspnetcore/issues/57701.
+    Dictionary<string, string> RouteValuesFor(int page) =>
+        new Dictionary<string, string>(Model.RouteValues) { ["page"] = page.ToString() };
 }
 @if (Model.TotalPages > 1)
 {
@@ -39,15 +52,13 @@
         <ul class="pagination pagination-sm mb-0 flex-wrap">
             <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
                 <a class="page-link" asp-action="@actionName" asp-controller="@controllerName"
-                   asp-route-page="1"
-                   asp-all-route-data="Model.RouteValues">
+                   asp-all-route-data="RouteValuesFor(1)">
                     <i class="bi bi-chevron-double-left"></i>
                 </a>
             </li>
             <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
                 <a class="page-link" asp-action="@actionName" asp-controller="@controllerName"
-                   asp-route-page="@(Model.PageNumber - 1)"
-                   asp-all-route-data="Model.RouteValues">
+                   asp-all-route-data="RouteValuesFor(Model.PageNumber - 1)">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             </li>
@@ -61,8 +72,7 @@
             {
                 <li class="page-item @(pageNumber == Model.PageNumber ? "active" : "")">
                     <a class="page-link" asp-action="@actionName" asp-controller="@controllerName"
-                       asp-route-page="@pageNumber"
-                       asp-all-route-data="Model.RouteValues">@pageNumber</a>
+                       asp-all-route-data="RouteValuesFor(pageNumber)">@pageNumber</a>
                 </li>
             }
 
@@ -73,15 +83,13 @@
 
             <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
                 <a class="page-link" asp-action="@actionName" asp-controller="@controllerName"
-                   asp-route-page="@(Model.PageNumber + 1)"
-                   asp-all-route-data="Model.RouteValues">
+                   asp-all-route-data="RouteValuesFor(Model.PageNumber + 1)">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
             <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
                 <a class="page-link" asp-action="@actionName" asp-controller="@controllerName"
-                   asp-route-page="@Model.TotalPages"
-                   asp-all-route-data="Model.RouteValues">
+                   asp-all-route-data="RouteValuesFor(Model.TotalPages)">
                     <i class="bi bi-chevron-double-right"></i>
                 </a>
             </li>
