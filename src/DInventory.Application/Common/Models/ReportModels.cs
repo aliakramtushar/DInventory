@@ -66,3 +66,18 @@ public class ExpenseCategoryTotal
     public string Category { get; set; } = string.Empty;
     public decimal Total { get; set; }
 }
+
+/// <summary>One row of the Gross Profit report - one calendar-month bucket within the requested
+/// date range. GrossProfit = SalesAmount - PurchaseAmount - ExpenseAmount (the company's own
+/// definition: total sales revenue for the period, less what was spent restocking and less
+/// operating expenses - deliberately not COGS/per-product margin, which is what the separate
+/// Product Profit report already covers).</summary>
+public class GrossProfitRow
+{
+    public DateTime PeriodStart { get; set; }
+    public string PeriodLabel { get; set; } = string.Empty;
+    public decimal SalesAmount { get; set; }
+    public decimal PurchaseAmount { get; set; }
+    public decimal ExpenseAmount { get; set; }
+    public decimal GrossProfit => SalesAmount - PurchaseAmount - ExpenseAmount;
+}

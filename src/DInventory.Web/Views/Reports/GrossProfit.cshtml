@@ -1,0 +1,86 @@
+@model IEnumerable<DInventory.Application.Common.Models.GrossProfitRow>
+@{
+    ViewData["Title"] = "Gross Profit Report";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form class="d-flex gap-2" method="get">
+        <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
+        <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-filter"></i> Filter</button>
+    </form>
+</div>
+
+@{
+    var totalSales = Model.Sum(r => r.SalesAmount);
+    var totalPurchases = Model.Sum(r => r.PurchaseAmount);
+    var totalExpenses = Model.Sum(r => r.ExpenseAmount);
+    var totalGrossProfit = totalSales - totalPurchases - totalExpenses;
+}
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Sales</div>
+                <div class="fs-5 fw-semibold">@totalSales.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Purchases</div>
+                <div class="fs-5 fw-semibold">@totalPurchases.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Expenses</div>
+                <div class="fs-5 fw-semibold">@totalExpenses.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100 @(totalGrossProfit >= 0 ? "border-success" : "border-danger")">
+            <div class="card-body">
+                <div class="text-muted small">Gross Profit</div>
+                <div class="fs-5 fw-semibold @(totalGrossProfit >= 0 ? "text-success" : "text-danger")">@totalGrossProfit.ToMoney()</div>
+            </div>
+        </div>
+    </div>
+</div>
+<p class="text-muted small">Gross Profit = Sales &minus; Purchases &minus; Expenses, for the selected date range.</p>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Month</th><th class="text-end">Sales</th><th class="text-end">Purchases</th><th class="text-end">Expenses</th><th class="text-end">Gross Profit</th></tr></thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="5" class="text-center text-muted py-4">No data in this date range.</td></tr>
+                }
+                @foreach (var row in Model)
+                {
+                    <tr>
+                        <td>@row.PeriodLabel</td>
+                        <td class="text-end">@row.SalesAmount.ToMoney()</td>
+                        <td class="text-end">@row.PurchaseAmount.ToMoney()</td>
+                        <td class="text-end">@row.ExpenseAmount.ToMoney()</td>
+                        <td class="text-end fw-semibold @(row.GrossProfit >= 0 ? "text-success" : "text-danger")">@row.GrossProfit.ToMoney()</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td class="text-end">Total</td>
+                    <td class="text-end">@totalSales.ToMoney()</td>
+                    <td class="text-end">@totalPurchases.ToMoney()</td>
+                    <td class="text-end">@totalExpenses.ToMoney()</td>
+                    <td class="text-end @(totalGrossProfit >= 0 ? "text-success" : "text-danger")">@totalGrossProfit.ToMoney()</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

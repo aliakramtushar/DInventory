@@ -7,27 +7,59 @@ namespace DInventory.Application.Expenses;
 public class ExpenseService : IExpenseService
 {
     private readonly IExpenseRepository _expenseRepository;
+    private readonly IExpenseCategoryRepository _expenseCategoryRepository;
+    private readonly IExpenseSubcategoryRepository _expenseSubcategoryRepository;
 
-    public ExpenseService(IExpenseRepository expenseRepository)
+    public ExpenseService(
+        IExpenseRepository expenseRepository,
+        IExpenseCategoryRepository expenseCategoryRepository,
+        IExpenseSubcategoryRepository expenseSubcategoryRepository)
     {
         _expenseRepository = expenseRepository;
+        _expenseCategoryRepository = expenseCategoryRepository;
+        _expenseSubcategoryRepository = expenseSubcategoryRepository;
     }
 
     public Task<Expense?> GetByIdAsync(int expenseId) => _expenseRepository.GetByIdAsync(expenseId);
 
-    public Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null, int companyId = 0)
-        => _expenseRepository.GetPagedAsync(request, fromDate, toDate, category, companyId);
+    public Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, int? expenseCategoryId = null, int companyId = 0)
+        => _expenseRepository.GetPagedAsync(request, fromDate, toDate, expenseCategoryId, companyId);
+
+    /// <summary>The expense category must belong to the same company the expense is being recorded
+    /// under, and the subcategory (if any) must in turn belong to that category - mirrors
+    /// ProductService's Category/Subcategory validation so a tampered or stale form field is always
+    /// rejected server-side, not just filtered out of the dropdown on the client.</summary>
+    private async Task<string?> ValidateCategoryAsync(int expenseCategoryId, int? expenseSubcategoryId, int companyId)
+    {
+        var category = await _expenseCategoryRepository.GetByIdAsync(expenseCategoryId);
+        if (category is null || category.CompanyId != companyId)
+        {
+            return "The selected expense category is invalid.";
+        }
+
+        if (expenseSubcategoryId.HasValue)
+        {
+            var subcategory = await _expenseSubcategoryRepository.GetByIdAsync(expenseSubcategoryId.Value);
+            if (subcategory is null || subcategory.ExpenseCategoryId != expenseCategoryId)
+            {
+                return "The selected expense subcategory does not belong to the selected category.";
+            }
+        }
+
+        return null;
+    }
 
     public async Task<Result<int>> CreateAsync(Expense expense, int? actingUserId)
     {
-        if (!IExpenseService.Categories.Contains(expense.Category))
-        {
-            return Result<int>.Failure("Unknown expense category.");
-        }
-
         if (expense.Amount <= 0)
         {
             return Result<int>.Failure("Amount must be greater than zero.");
+        }
+
+        var categoryError = await ValidateCategoryAsync(expense.ExpenseCategoryId, expense.ExpenseSubcategoryId, expense.CompanyId);
+        if (categoryError is not null)
+        {
+            return Result<int>.Failure(categoryError);
         }
 
         expense.CreatedBy = actingUserId;
@@ -52,21 +84,25 @@ public class ExpenseService : IExpenseService
             return Result.Failure("Expense not found.");
         }
 
-        if (!IExpenseService.Categories.Contains(expense.Category))
-        {
-            return Result.Failure("Unknown expense category.");
-        }
-
         if (expense.Amount <= 0)
         {
             return Result.Failure("Amount must be greater than zero.");
         }
 
+        var categoryError = await ValidateCategoryAsync(expense.ExpenseCategoryId, expense.ExpenseSubcategoryId, existing.CompanyId);
+        if (categoryError is not null)
+        {
+            return Result.Failure(categoryError);
+        }
+
         existing.ExpenseDate = expense.ExpenseDate;
-        existing.Category = expense.Category;
+        existing.ExpenseCategoryId = expense.ExpenseCategoryId;
+        existing.ExpenseSubcategoryId = expense.ExpenseSubcategoryId;
         existing.Amount = expense.Amount;
         existing.Remarks = expense.Remarks;
-        existing.BusinessUnitId = expense.BusinessUnitId;
+        // BusinessUnitId is intentionally left untouched - it's set once at creation from whichever
+        // BU was selected in the topbar at the time, and there's no per-entry dropdown to change it
+        // later (same rule as Category/Subcategory elsewhere in the app).
 
         try
         {

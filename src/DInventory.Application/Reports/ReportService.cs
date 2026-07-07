@@ -16,19 +16,22 @@ public class ReportService : IReportService
     private readonly IPriceRepository _priceRepository;
     private readonly IProductVariantRepository _variantRepository;
     private readonly IExpenseRepository _expenseRepository;
+    private readonly IPurchaseRepository _purchaseRepository;
 
     public ReportService(
         ISalesOrderRepository salesOrderRepository,
         IStockRepository stockRepository,
         IPriceRepository priceRepository,
         IProductVariantRepository variantRepository,
-        IExpenseRepository expenseRepository)
+        IExpenseRepository expenseRepository,
+        IPurchaseRepository purchaseRepository)
     {
         _salesOrderRepository = salesOrderRepository;
         _stockRepository = stockRepository;
         _priceRepository = priceRepository;
         _variantRepository = variantRepository;
         _expenseRepository = expenseRepository;
+        _purchaseRepository = purchaseRepository;
     }
 
     public Task<IEnumerable<SalesReportRow>> GetSalesReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
@@ -81,12 +84,49 @@ public class ReportService : IReportService
     {
         // Reuse the paged repository method with a page size large enough to cover a normal report
         // range in one page - this stays a reporting/export view, not a paginated list of its own.
-        var result = await _expenseRepository.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 5000 }, fromDate.Date, toDate.Date.AddDays(1), category: null, companyId: companyId);
+        var result = await _expenseRepository.GetPagedAsync(new PagedRequest { PageNumber = 1, PageSize = 5000 }, fromDate.Date, toDate.Date.AddDays(1), expenseCategoryId: null, companyId: companyId);
         return result.Items;
     }
 
     public Task<IEnumerable<ExpenseCategoryTotal>> GetExpenseSummaryAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
         => _expenseRepository.GetSummaryByCategoryAsync(fromDate.Date, toDate.Date.AddDays(1), companyId);
+
+    /// <summary>GrossProfit = SalesAmount - PurchaseAmount - ExpenseAmount, bucketed by calendar
+    /// month so a multi-month range reads like a simple monthly P&amp;L instead of one opaque total.
+    /// fromDate/toDate here are treated as an inclusive "to" day, same convention as
+    /// GetSalesReportAsync above - the caller passes the raw selected dates, not a pre-adjusted
+    /// exclusive bound.</summary>
+    public async Task<IEnumerable<GrossProfitRow>> GetGrossProfitReportAsync(DateTime fromDate, DateTime toDate, int companyId = 0)
+    {
+        var rangeStart = fromDate.Date;
+        var rangeEndExclusive = toDate.Date.AddDays(1);
+        var rows = new List<GrossProfitRow>();
+
+        var bucketStart = new DateTime(rangeStart.Year, rangeStart.Month, 1);
+        while (bucketStart < rangeEndExclusive)
+        {
+            var bucketEndExclusive = bucketStart.AddMonths(1);
+            var clampedStart = bucketStart < rangeStart ? rangeStart : bucketStart;
+            var clampedEndExclusive = bucketEndExclusive > rangeEndExclusive ? rangeEndExclusive : bucketEndExclusive;
+
+            var sales = await _salesOrderRepository.GetSalesTotalAsync(clampedStart, clampedEndExclusive, companyId);
+            var purchases = await _purchaseRepository.GetTotalAsync(clampedStart, clampedEndExclusive, companyId);
+            var expenses = await _expenseRepository.GetTotalAsync(clampedStart, clampedEndExclusive, companyId);
+
+            rows.Add(new GrossProfitRow
+            {
+                PeriodStart = clampedStart,
+                PeriodLabel = bucketStart.ToString("MMM yyyy"),
+                SalesAmount = sales,
+                PurchaseAmount = purchases,
+                ExpenseAmount = expenses
+            });
+
+            bucketStart = bucketEndExclusive;
+        }
+
+        return rows;
+    }
 
     private static string BuildDisplayName(string? productName, string? sizeName)
     {

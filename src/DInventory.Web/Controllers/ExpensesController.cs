@@ -16,33 +16,46 @@ namespace DInventory.Web.Controllers;
 public class ExpensesController : Controller
 {
     private readonly IExpenseService _expenseService;
-    private readonly IBusinessUnitService _businessUnitService;
+    private readonly IExpenseCategoryService _expenseCategoryService;
+    private readonly IExpenseSubcategoryService _expenseSubcategoryService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
+    private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public ExpensesController(IExpenseService expenseService, IBusinessUnitService businessUnitService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IAuditLogService auditLogService)
+    public ExpensesController(
+        IExpenseService expenseService,
+        IExpenseCategoryService expenseCategoryService,
+        IExpenseSubcategoryService expenseSubcategoryService,
+        ICurrentUserService currentUserService,
+        ICompanyContextService companyContextService,
+        IBusinessUnitContextService businessUnitContextService,
+        IAuditLogService auditLogService)
     {
         _expenseService = expenseService;
-        _businessUnitService = businessUnitService;
+        _expenseCategoryService = expenseCategoryService;
+        _expenseSubcategoryService = expenseSubcategoryService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
+        _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate, string? category, int page = 1)
+    public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate, int? expenseCategoryId, int page = 1)
     {
         var from = fromDate ?? DateTime.UtcNow.Date.AddDays(-29);
         var to = toDate ?? DateTime.UtcNow.Date;
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20 };
-        var result = await _expenseService.GetPagedAsync(request, from, to.AddDays(1), category, effectiveCompanyId);
+        var result = await _expenseService.GetPagedAsync(request, from, to.AddDays(1), expenseCategoryId, effectiveCompanyId);
 
         ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
         ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
-        ViewData["Category"] = category;
-        ViewBag.Categories = IExpenseService.Categories;
+        ViewData["ExpenseCategoryId"] = expenseCategoryId;
+        ViewBag.ExpenseCategories = effectiveCompanyId > 0
+            ? await _expenseCategoryService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<ExpenseCategory>();
 
         return View(result);
     }
@@ -54,10 +67,9 @@ public class ExpensesController : Controller
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
-        ViewBag.Categories = IExpenseService.Categories;
         ViewBag.CanCreate = effectiveCompanyId > 0;
 
-        await PopulateBusinessUnitsAsync();
+        await PopulateCategoriesAsync(effectiveCompanyId);
         return View(new Expense { ExpenseDate = DateTime.UtcNow.Date });
     }
 
@@ -70,6 +82,9 @@ public class ExpensesController : Controller
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
         ViewBag.CanCreate = effectiveCompanyId > 0;
         model.CompanyId = effectiveCompanyId;
+        // BusinessUnit is never picked per-entry - it always follows whatever is currently selected
+        // in the topbar (same rule as every other module), so there's no dropdown on this form at all.
+        model.BusinessUnitId = await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
 
         if (model.CompanyId <= 0)
         {
@@ -78,8 +93,7 @@ public class ExpensesController : Controller
 
         if (!ModelState.IsValid)
         {
-            ViewBag.Categories = IExpenseService.Categories;
-            await PopulateBusinessUnitsAsync();
+            await PopulateCategoriesAsync(effectiveCompanyId > 0 ? effectiveCompanyId : model.CompanyId);
             return View(model);
         }
 
@@ -88,8 +102,7 @@ public class ExpensesController : Controller
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to create expense.");
-            ViewBag.Categories = IExpenseService.Categories;
-            await PopulateBusinessUnitsAsync();
+            await PopulateCategoriesAsync(effectiveCompanyId > 0 ? effectiveCompanyId : model.CompanyId);
             return View(model);
         }
 
@@ -114,8 +127,7 @@ public class ExpensesController : Controller
             return Forbid();
         }
 
-        ViewBag.Categories = IExpenseService.Categories;
-        await PopulateBusinessUnitsAsync();
+        await PopulateCategoriesAsync(expense.CompanyId);
         return View(expense);
     }
 
@@ -124,13 +136,6 @@ public class ExpensesController : Controller
     [PermissionAuthorize("EXPENSES", PermissionAction.Edit)]
     public async Task<IActionResult> Edit(Expense model)
     {
-        if (!ModelState.IsValid)
-        {
-            ViewBag.Categories = IExpenseService.Categories;
-            await PopulateBusinessUnitsAsync();
-            return View(model);
-        }
-
         var existingExpense = await _expenseService.GetByIdAsync(model.ExpenseId);
         if (existingExpense is null)
         {
@@ -143,13 +148,18 @@ public class ExpensesController : Controller
             return Forbid();
         }
 
+        if (!ModelState.IsValid)
+        {
+            await PopulateCategoriesAsync(existingExpense.CompanyId);
+            return View(model);
+        }
+
         var result = await _expenseService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Unable to update expense.");
-            ViewBag.Categories = IExpenseService.Categories;
-            await PopulateBusinessUnitsAsync();
+            await PopulateCategoriesAsync(existingExpense.CompanyId);
             return View(model);
         }
 
@@ -163,8 +173,19 @@ public class ExpensesController : Controller
     [PermissionAuthorize("EXPENSES", PermissionAction.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _expenseService.DeleteAsync(id);
+        var expense = await _expenseService.GetByIdAsync(id);
+        if (expense is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && expense.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _expenseService.DeleteAsync(id);
 
         if (!result.Succeeded)
         {
@@ -179,11 +200,16 @@ public class ExpensesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private async Task PopulateBusinessUnitsAsync()
+    /// <summary>Populates both the Category dropdown and the full Subcategory list (tagged with
+    /// data-expense-category-id so client-side JS can filter it) for the given company - mirrors the
+    /// Products Create/Edit cascading Category -> Subcategory pattern.</summary>
+    private async Task PopulateCategoriesAsync(int companyId)
     {
-        var companyId = _companyContextService.GetEffectiveCompanyId();
-        ViewBag.BusinessUnits = companyId > 0
-            ? await _businessUnitService.GetAllAsync(companyId, onlyActive: true)
-            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
+        ViewBag.ExpenseCategories = companyId > 0
+            ? await _expenseCategoryService.GetAllAsync(companyId, onlyActive: true)
+            : Enumerable.Empty<ExpenseCategory>();
+        ViewBag.ExpenseSubcategories = companyId > 0
+            ? await _expenseSubcategoryService.GetAllAsync(companyId, onlyActive: true)
+            : Enumerable.Empty<ExpenseSubcategory>();
     }
 }

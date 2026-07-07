@@ -1,0 +1,33 @@
+@model DInventory.Domain.Entities.ExpenseSubcategory
+@{
+    ViewData["Title"] = "New Expense Subcategory";
+    bool canCreate = ViewBag.CanCreate ?? false;
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (!canCreate)
+        {
+            <div class="alert alert-warning">
+                Select a company from the <strong>Company</strong> dropdown in the top navigation bar before creating an expense subcategory - "All Companies" can't own one.
+            </div>
+        }
+        <form method="post">
+            <input asp-for="CompanyId" type="hidden" />
+            <div class="mb-3">
+                <label class="form-label">Category <span class="text-danger">*</span></label>
+                <select asp-for="ExpenseCategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.ExpenseCategories, "ExpenseCategoryId", "ExpenseCategoryName"))" required></select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Subcategory Name <span class="text-danger">*</span></label>
+                <input asp-for="ExpenseSubcategoryName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@(!canCreate)">Create Subcategory</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

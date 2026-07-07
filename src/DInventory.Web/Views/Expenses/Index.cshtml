@@ -1,17 +1,17 @@
 @model DInventory.Application.Common.Models.PagedResult<DInventory.Domain.Entities.Expense>
 @{
     ViewData["Title"] = "Expenses";
-    var categories = (string[])ViewBag.Categories;
+    var categories = (IEnumerable<DInventory.Domain.Entities.ExpenseCategory>)ViewBag.ExpenseCategories;
 }
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <form class="d-flex gap-2 flex-wrap" method="get">
         <input type="date" name="fromDate" value="@ViewData["FromDate"]" class="form-control form-control-sm" />
         <input type="date" name="toDate" value="@ViewData["ToDate"]" class="form-control form-control-sm" />
-        <select name="category" class="form-select form-select-sm">
+        <select name="expenseCategoryId" class="form-select form-select-sm">
             <option value="">All Categories</option>
             @foreach (var c in categories)
             {
-                <option value="@c" selected="@(ViewData["Category"]?.ToString() == c)">@c</option>
+                <option value="@c.ExpenseCategoryId" selected="@(ViewData["ExpenseCategoryId"]?.ToString() == c.ExpenseCategoryId.ToString())">@c.ExpenseCategoryName</option>
             }
         </select>
         <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-filter"></i> Filter</button>
@@ -33,7 +33,13 @@
                     totalAmount += expense.Amount;
                     <tr>
                         <td class="small">@expense.ExpenseDate.ToString("d")</td>
-                        <td><span class="badge text-bg-light text-dark">@expense.Category</span></td>
+                        <td>
+                            <span class="badge text-bg-light text-dark">@expense.ExpenseCategoryName</span>
+                            @if (!string.IsNullOrWhiteSpace(expense.ExpenseSubcategoryName))
+                            {
+                                <span class="text-muted small d-block">@expense.ExpenseSubcategoryName</span>
+                            }
+                        </td>
                         <td class="text-muted small">@expense.Remarks</td>
                         <td class="text-end">@expense.Amount.ToMoney()</td>
                         <td class="small">@expense.CreatedByName</td>
@@ -67,7 +73,7 @@
                 RouteValues = PaginationViewModel.Filters(
                     ("fromDate", ViewData["FromDate"]?.ToString()),
                     ("toDate", ViewData["ToDate"]?.ToString()),
-                    ("category", ViewData["Category"]?.ToString()))
+                    ("expenseCategoryId", ViewData["ExpenseCategoryId"]?.ToString()))
             })
         </div>
     }

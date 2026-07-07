@@ -641,20 +641,65 @@ GO
        lookup table - the fixed list below covers a typical shop's needs
        and keeps this module simple; "Other" covers anything else)
    ===================================================================== */
+/* =====================================================================
+   EXPENSE CATEGORIES (parent) / EXPENSE SUBCATEGORIES (child)
+   Company-manageable expense chart of accounts, replacing the old fixed 8-value Category
+   string list - same parent/child shape as Categories/Subcategories for Products.
+   ===================================================================== */
+IF OBJECT_ID('dbo.ExpenseCategories', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ExpenseCategories
+    (
+        ExpenseCategoryId    INT IDENTITY(1,1) PRIMARY KEY,
+        ExpenseCategoryName  NVARCHAR(100) NOT NULL,
+        Description          NVARCHAR(255) NULL,
+        CompanyId            INT NOT NULL DEFAULT (0),
+        BusinessUnitId       INT NULL,
+        IsActive             BIT NOT NULL DEFAULT (1),
+        CreatedAt            DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt            DATETIME2 NULL,
+        CreatedBy            INT NULL,
+        UpdatedBy            INT NULL
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.ExpenseSubcategories', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ExpenseSubcategories
+    (
+        ExpenseSubcategoryId    INT IDENTITY(1,1) PRIMARY KEY,
+        ExpenseCategoryId       INT NOT NULL,
+        ExpenseSubcategoryName  NVARCHAR(100) NOT NULL,
+        Description             NVARCHAR(255) NULL,
+        CompanyId               INT NOT NULL DEFAULT (0),
+        BusinessUnitId          INT NULL,
+        IsActive                BIT NOT NULL DEFAULT (1),
+        CreatedAt               DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt               DATETIME2 NULL,
+        CreatedBy               INT NULL,
+        UpdatedBy               INT NULL,
+        CONSTRAINT FK_ExpenseSubcategories_ExpenseCategories FOREIGN KEY (ExpenseCategoryId) REFERENCES dbo.ExpenseCategories(ExpenseCategoryId)
+    );
+END
+GO
+
 IF OBJECT_ID('dbo.Expenses', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Expenses
     (
-        ExpenseId     INT IDENTITY(1,1) PRIMARY KEY,
-        ExpenseDate   DATE NOT NULL,
-        Category      NVARCHAR(30) NOT NULL
-            CONSTRAINT CK_Expenses_Category CHECK (Category IN (
-                N'Shop Rent', N'Electricity', N'Salary', N'Internet',
-                N'Packaging', N'Marketing', N'Courier', N'Other')),
-        Amount        DECIMAL(18,2) NOT NULL,
-        Remarks       NVARCHAR(255) NULL,
-        CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
-        CreatedBy     INT NULL
+        ExpenseId            INT IDENTITY(1,1) PRIMARY KEY,
+        ExpenseDate          DATE NOT NULL,
+        ExpenseCategoryId    INT NOT NULL,
+        ExpenseSubcategoryId INT NULL,
+        Amount               DECIMAL(18,2) NOT NULL,
+        CompanyId            INT NOT NULL DEFAULT (0),
+        BusinessUnitId       INT NULL,
+        Remarks              NVARCHAR(255) NULL,
+        CreatedAt            DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+        CreatedBy            INT NULL,
+        CONSTRAINT FK_Expenses_ExpenseCategories FOREIGN KEY (ExpenseCategoryId) REFERENCES dbo.ExpenseCategories(ExpenseCategoryId),
+        CONSTRAINT FK_Expenses_ExpenseSubcategories FOREIGN KEY (ExpenseSubcategoryId) REFERENCES dbo.ExpenseSubcategories(ExpenseSubcategoryId)
     );
 END
 GO
@@ -1120,6 +1165,36 @@ BEGIN
     FROM dbo.Roles r
     CROSS JOIN dbo.Menus m
     WHERE m.MenuKey = N'CUSTOMERS'
+      AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
+END
+GO
+
+-- Menu grouping (round 5): Expense Categories / Expense Subcategories, siblings of EXPENSES
+-- under GROUP_ADMIN. Own outer guard, same reasoning as rounds 3/4.
+IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'EXPENSECATEGORIES')
+BEGIN
+    DECLARE @GAdmin5 INT = (SELECT MenuId FROM dbo.Menus WHERE MenuKey = N'GROUP_ADMIN');
+    IF @GAdmin5 IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+        VALUES (N'EXPENSECATEGORIES', N'Expense Categories', N'bi-tags', N'/ExpenseCategories', @GAdmin5, 21, 1);
+
+        IF NOT EXISTS (SELECT 1 FROM dbo.Menus WHERE MenuKey = N'EXPENSESUBCATEGORIES')
+            INSERT INTO dbo.Menus (MenuKey, MenuName, Icon, Url, ParentId, DisplayOrder, IsActive)
+            VALUES (N'EXPENSESUBCATEGORIES', N'Expense Subcategories', N'bi-tags', N'/ExpenseSubcategories', @GAdmin5, 22, 1);
+    END
+
+    -- Same access level as EXPENSES itself: SuperAdmin/Admin full access, Manager view/create/edit
+    -- (managing the expense chart of accounts is a manager task), Staff gets nothing.
+    INSERT INTO dbo.RoleMenuPermissions (RoleId, MenuId, CanView, CanCreate, CanEdit, CanDelete)
+    SELECT r.RoleId, m.MenuId,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin', N'Manager') THEN 1 ELSE 0 END,
+        CASE WHEN r.RoleName IN (N'SuperAdmin', N'Admin') THEN 1 ELSE 0 END
+    FROM dbo.Roles r
+    CROSS JOIN dbo.Menus m
+    WHERE m.MenuKey IN (N'EXPENSECATEGORIES', N'EXPENSESUBCATEGORIES')
       AND NOT EXISTS (SELECT 1 FROM dbo.RoleMenuPermissions p WHERE p.RoleId = r.RoleId AND p.MenuId = m.MenuId);
 END
 GO

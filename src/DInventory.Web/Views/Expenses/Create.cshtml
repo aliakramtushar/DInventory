@@ -1,7 +1,8 @@
 @model DInventory.Domain.Entities.Expense
 @{
     ViewData["Title"] = "New Expense";
-    var categories = (string[])ViewBag.Categories;
+    var categories = (IEnumerable<DInventory.Domain.Entities.ExpenseCategory>)ViewBag.ExpenseCategories;
+    var subcategories = (IEnumerable<DInventory.Domain.Entities.ExpenseSubcategory>)ViewBag.ExpenseSubcategories;
     bool canCreate = ViewBag.CanCreate ?? false;
 }
 <div class="card shadow-sm">
@@ -22,27 +23,27 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Category <span class="text-danger">*</span></label>
-                    <select asp-for="Category" class="form-select" required>
+                    <select asp-for="ExpenseCategoryId" class="form-select" required>
                         <option value="">-- Select category --</option>
                         @foreach (var c in categories)
                         {
-                            <option value="@c">@c</option>
+                            <option value="@c.ExpenseCategoryId">@c.ExpenseCategoryName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Subcategory</label>
+                    <select asp-for="ExpenseSubcategoryId" id="expenseSubcategorySelect" class="form-select">
+                        <option value="">-- None --</option>
+                        @foreach (var sub in subcategories)
+                        {
+                            <option value="@sub.ExpenseSubcategoryId" data-expense-category-id="@sub.ExpenseCategoryId">@sub.ExpenseSubcategoryName</option>
                         }
                     </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Amount <span class="text-danger">*</span></label>
                     <input asp-for="Amount" type="number" step="0.01" min="0" class="form-control" required />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Business Unit</label>
-                    <select asp-for="BusinessUnitId" class="form-select">
-                        <option value="">-- None --</option>
-                        @foreach (var bu in (IEnumerable<DInventory.Domain.Entities.BusinessUnit>)ViewBag.BusinessUnits)
-                        {
-                            <option value="@bu.BusinessUnitId">@bu.BusinessUnitName</option>
-                        }
-                    </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Remarks</label>
@@ -56,3 +57,42 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        // Subcategory must always depend on Category: only show subcategories that belong to
+        // whichever category is currently selected, and clear the pick if it no longer matches.
+        (function () {
+            const categorySelect = document.getElementById('ExpenseCategoryId');
+            const subcategorySelect = document.getElementById('expenseSubcategorySelect');
+            if (!categorySelect || !subcategorySelect) {
+                return;
+            }
+
+            function filterSubcategories() {
+                const categoryId = categorySelect.value;
+                let selectedStillValid = false;
+
+                Array.from(subcategorySelect.options).forEach((option) => {
+                    if (!option.value) {
+                        option.hidden = false;
+                        return;
+                    }
+
+                    const matches = !categoryId || option.dataset.expenseCategoryId === categoryId;
+                    option.hidden = !matches;
+                    if (matches && option.value === subcategorySelect.value) {
+                        selectedStillValid = true;
+                    }
+                });
+
+                if (!selectedStillValid) {
+                    subcategorySelect.value = '';
+                }
+            }
+
+            categorySelect.addEventListener('change', filterSubcategories);
+            filterSubcategories();
+        })();
+    </script>
+}

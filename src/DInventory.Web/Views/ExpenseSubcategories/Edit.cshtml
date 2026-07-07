@@ -1,0 +1,30 @@
+@model DInventory.Domain.Entities.ExpenseSubcategory
+@{
+    ViewData["Title"] = "Edit Expense Subcategory";
+}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <form method="post">
+            <input asp-for="ExpenseSubcategoryId" type="hidden" />
+            <div class="mb-3">
+                <label class="form-label">Category <span class="text-danger">*</span></label>
+                <select asp-for="ExpenseCategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.ExpenseCategories, "ExpenseCategoryId", "ExpenseCategoryName", Model.ExpenseCategoryId))" required></select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Subcategory Name <span class="text-danger">*</span></label>
+                <input asp-for="ExpenseSubcategoryName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-check mb-3">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label">Active</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

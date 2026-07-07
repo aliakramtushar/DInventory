@@ -56,7 +56,13 @@
                             detailTotal += expense.Amount;
                             <tr>
                                 <td class="small">@expense.ExpenseDate.ToString("d")</td>
-                                <td><span class="badge text-bg-light text-dark">@expense.Category</span></td>
+                                <td>
+                                    <span class="badge text-bg-light text-dark">@expense.ExpenseCategoryName</span>
+                                    @if (!string.IsNullOrWhiteSpace(expense.ExpenseSubcategoryName))
+                                    {
+                                        <span class="text-muted small d-block">@expense.ExpenseSubcategoryName</span>
+                                    }
+                                </td>
                                 <td class="text-muted small">@expense.Remarks</td>
                                 <td class="text-end">@expense.Amount.ToMoney()</td>
                             </tr>

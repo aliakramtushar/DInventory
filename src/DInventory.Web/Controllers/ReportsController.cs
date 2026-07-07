@@ -126,4 +126,19 @@ public class ReportsController : Controller
         ViewBag.Summary = summary;
         return View(rows);
     }
+
+    /// <summary>GrossProfit = SalesAmount - PurchaseAmount - ExpenseAmount, bucketed by calendar
+    /// month. Defaults to the last 30 days like every other date-ranged report on this page.</summary>
+    public async Task<IActionResult> GrossProfit(DateTime? fromDate, DateTime? toDate)
+    {
+        var from = fromDate ?? DateTime.UtcNow.Date.AddDays(-29);
+        var to = toDate ?? DateTime.UtcNow.Date;
+
+        ViewData["FromDate"] = from.ToString("yyyy-MM-dd");
+        ViewData["ToDate"] = to.ToString("yyyy-MM-dd");
+
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var rows = await _reportService.GetGrossProfitReportAsync(from, to, effectiveCompanyId);
+        return View(rows);
+    }
 }

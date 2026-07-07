@@ -15,9 +15,12 @@ public class ExpenseRepository : IExpenseRepository
     }
 
     private const string SelectBase = @"
-        SELECT e.ExpenseId, e.ExpenseDate, e.Category, e.Amount, e.Remarks, e.CreatedAt, e.CreatedBy,
-               u.FullName AS CreatedByName
+        SELECT e.ExpenseId, e.ExpenseDate, e.ExpenseCategoryId, e.ExpenseSubcategoryId, e.Amount,
+               e.CompanyId, e.BusinessUnitId, e.Remarks, e.CreatedAt, e.CreatedBy,
+               u.FullName AS CreatedByName, ec.ExpenseCategoryName, esc.ExpenseSubcategoryName
         FROM dbo.Expenses e
+        INNER JOIN dbo.ExpenseCategories ec ON ec.ExpenseCategoryId = e.ExpenseCategoryId
+        LEFT JOIN dbo.ExpenseSubcategories esc ON esc.ExpenseSubcategoryId = e.ExpenseSubcategoryId
         LEFT JOIN dbo.Users u ON u.UserId = e.CreatedBy";
 
     public async Task<Expense?> GetByIdAsync(int expenseId)
@@ -27,19 +30,20 @@ public class ExpenseRepository : IExpenseRepository
             $"{SelectBase} WHERE e.ExpenseId = @expenseId", new { expenseId });
     }
 
-    public async Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, string? category = null, int companyId = 0)
+    public async Task<PagedResult<Expense>> GetPagedAsync(PagedRequest request, DateTime? fromDate = null, DateTime? toDate = null, int? expenseCategoryId = null, int companyId = 0)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
-            WHERE (@search IS NULL OR e.Remarks LIKE @pattern OR e.Category LIKE @pattern)
+            WHERE (@search IS NULL OR e.Remarks LIKE @pattern OR ec.ExpenseCategoryName LIKE @pattern)
               AND (@fromDate IS NULL OR e.ExpenseDate >= @fromDate)
               AND (@toDate IS NULL OR e.ExpenseDate < @toDate)
-              AND (@category IS NULL OR e.Category = @category)
+              AND (@expenseCategoryId IS NULL OR e.ExpenseCategoryId = @expenseCategoryId)
               AND (@companyId = 0 OR e.CompanyId = @companyId)";
 
         var countSql = $@"
             SELECT COUNT(1) FROM dbo.Expenses e
+            INNER JOIN dbo.ExpenseCategories ec ON ec.ExpenseCategoryId = e.ExpenseCategoryId
             {whereClause}";
 
         var pagedSql = $@"{SelectBase}
@@ -53,7 +57,7 @@ public class ExpenseRepository : IExpenseRepository
             pattern = $"%{request.Search}%",
             fromDate,
             toDate,
-            category,
+            expenseCategoryId,
             companyId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
@@ -75,9 +79,9 @@ public class ExpenseRepository : IExpenseRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Expenses (ExpenseDate, Category, Amount, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Expenses (ExpenseDate, ExpenseCategoryId, ExpenseSubcategoryId, Amount, Remarks, CompanyId, BusinessUnitId, CreatedAt, CreatedBy)
             OUTPUT INSERTED.ExpenseId
-            VALUES (@ExpenseDate, @Category, @Amount, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
+            VALUES (@ExpenseDate, @ExpenseCategoryId, @ExpenseSubcategoryId, @Amount, @Remarks, @CompanyId, @BusinessUnitId, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, expense);
     }
 
@@ -86,7 +90,8 @@ public class ExpenseRepository : IExpenseRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             UPDATE dbo.Expenses
-            SET ExpenseDate = @ExpenseDate, Category = @Category, Amount = @Amount, Remarks = @Remarks, BusinessUnitId = @BusinessUnitId
+            SET ExpenseDate = @ExpenseDate, ExpenseCategoryId = @ExpenseCategoryId, ExpenseSubcategoryId = @ExpenseSubcategoryId,
+                Amount = @Amount, Remarks = @Remarks, BusinessUnitId = @BusinessUnitId
             WHERE ExpenseId = @ExpenseId";
         var rows = await connection.ExecuteAsync(sql, expense);
         return rows > 0;
@@ -114,12 +119,13 @@ public class ExpenseRepository : IExpenseRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            SELECT Category, SUM(Amount) AS Total
-            FROM dbo.Expenses
-            WHERE ExpenseDate >= @fromDate AND ExpenseDate < @toDateExclusive
-              AND (@companyId = 0 OR CompanyId = @companyId)
-            GROUP BY Category
-            ORDER BY SUM(Amount) DESC";
+            SELECT ec.ExpenseCategoryName AS Category, SUM(e.Amount) AS Total
+            FROM dbo.Expenses e
+            INNER JOIN dbo.ExpenseCategories ec ON ec.ExpenseCategoryId = e.ExpenseCategoryId
+            WHERE e.ExpenseDate >= @fromDate AND e.ExpenseDate < @toDateExclusive
+              AND (@companyId = 0 OR e.CompanyId = @companyId)
+            GROUP BY ec.ExpenseCategoryName
+            ORDER BY SUM(e.Amount) DESC";
         return await connection.QueryAsync<ExpenseCategoryTotal>(sql, new { fromDate, toDateExclusive, companyId });
     }
 }
