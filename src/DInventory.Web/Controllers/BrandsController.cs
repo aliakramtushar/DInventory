@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -15,31 +16,38 @@ namespace DInventory.Web.Controllers;
 public class BrandsController : Controller
 {
     private readonly IBrandService _brandService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public BrandsController(IBrandService brandService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
+    public BrandsController(IBrandService brandService, IBusinessUnitService businessUnitService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
     {
         _brandService = brandService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(string? search, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? businessUnitId, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _brandService.GetPagedAsync(request, effectiveCompanyId);
+        var result = await _brandService.GetPagedAsync(request, effectiveCompanyId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<BusinessUnit>();
 
         return View(result);
     }
@@ -96,6 +104,12 @@ public class BrandsController : Controller
             return NotFound();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && brand.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         return View(brand);
     }
 
@@ -128,8 +142,19 @@ public class BrandsController : Controller
     [PermissionAuthorize("BRANDS", PermissionAction.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _brandService.DeleteAsync(id);
+        var brand = await _brandService.GetByIdAsync(id);
+        if (brand is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && brand.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _brandService.DeleteAsync(id);
 
         if (!result.Succeeded)
         {

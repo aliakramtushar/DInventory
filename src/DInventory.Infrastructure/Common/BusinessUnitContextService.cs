@@ -52,27 +52,29 @@ public class BusinessUnitContextService : IBusinessUnitContextService
 
         var currentUser = _currentUserService.GetCurrentUser();
 
-        if (!currentUser.IsSuperCompany)
+        if (!currentUser.IsSuperCompany && currentUser.BusinessUnitId.HasValue)
         {
-            // Not a superuser - no navbar picker for them. Their own assigned business unit if it
-            // still belongs to their company, else "whole company".
-            return currentUser.BusinessUnitId.HasValue && units.Any(u => u.BusinessUnitId == currentUser.BusinessUnitId.Value)
+            // Pinned to one specific business unit on their own account - no navbar picker for them.
+            // That unit if it still belongs to their company, else "whole company".
+            return units.Any(u => u.BusinessUnitId == currentUser.BusinessUnitId.Value)
                 ? currentUser.BusinessUnitId
                 : null;
         }
 
+        // SuperAdmin, or a company-scoped user with no fixed business unit of their own: whatever
+        // was last picked from the navbar dropdown this session, or "whole company" until they pick.
         var selected = _httpContextAccessor.HttpContext?.Session.GetInt32(CompanyContextSessionKeys.SelectedBusinessUnitId);
         return selected.HasValue && units.Any(u => u.BusinessUnitId == selected.Value)
             ? selected
-            : null; // "whole company" until SuperAdmin explicitly picks one from the navbar
+            : null;
     }
 
     public async Task SetSelectedBusinessUnitIdAsync(int? businessUnitId)
     {
         var currentUser = _currentUserService.GetCurrentUser();
-        if (!currentUser.IsSuperCompany)
+        if (!currentUser.IsSuperCompany && currentUser.BusinessUnitId.HasValue)
         {
-            // Not a superuser - they don't get to change which business unit they operate on.
+            // Pinned to one specific business unit on their own account - they don't get to change it.
             return;
         }
 

@@ -15,9 +15,9 @@ public class SizeService : ISizeService
 
     public Task<Size?> GetByIdAsync(int sizeId) => _sizeRepository.GetByIdAsync(sizeId);
 
-    public Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false) => _sizeRepository.GetAllAsync(companyId, onlyActive);
+    public Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null) => _sizeRepository.GetAllAsync(companyId, onlyActive, businessUnitId);
 
-    public Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId) => _sizeRepository.GetPagedAsync(request, companyId);
+    public Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null) => _sizeRepository.GetPagedAsync(request, companyId, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Size size, int? actingUserId)
     {

@@ -1,4 +1,5 @@
 using DInventory.Application.Audit;
+using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Inventory;
@@ -18,13 +19,15 @@ public class StockController : Controller
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IProductVariantService _productVariantService;
 
-    public StockController(IStockService stockService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IAuditLogService auditLogService)
+    public StockController(IStockService stockService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IAuditLogService auditLogService, IProductVariantService productVariantService)
     {
         _stockService = stockService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _auditLogService = auditLogService;
+        _productVariantService = productVariantService;
     }
 
     public async Task<IActionResult> Index(int? maxStock = 5, string? search = null, int page = 1)
@@ -51,6 +54,18 @@ public class StockController : Controller
 
     public async Task<IActionResult> History(int productVariantId)
     {
+        var variant = await _productVariantService.GetByIdAsync(productVariantId);
+        if (variant is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && variant.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var transactions = await _stockService.GetTransactionsAsync(productVariantId);
         var stock = await _stockService.GetByVariantIdAsync(productVariantId);
         ViewBag.Stock = stock;
@@ -64,6 +79,14 @@ public class StockController : Controller
     public async Task<IActionResult> Adjust(int productVariantId, int quantity, string transactionType, string? remarks)
     {
         var currentUser = _currentUserService.GetCurrentUser();
+
+        var variant = await _productVariantService.GetByIdAsync(productVariantId);
+        if (variant is null || (!currentUser.IsSuperCompany && variant.CompanyId != currentUser.CompanyId))
+        {
+            TempData["ErrorMessage"] = "Stock item not found.";
+            return RedirectToAction(nameof(Index));
+        }
+
         var result = await _stockService.AdjustStockAsync(productVariantId, quantity, transactionType, remarks, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -88,6 +111,14 @@ public class StockController : Controller
     public async Task<IActionResult> AdjustByBarcode(string barcode, int quantity, string transactionType, string? remarks)
     {
         var currentUser = _currentUserService.GetCurrentUser();
+
+        var lookupResult = await _productVariantService.LookupByBarcodeAsync(barcode);
+        if (!lookupResult.Succeeded || (!currentUser.IsSuperCompany && lookupResult.Data!.CompanyId != currentUser.CompanyId))
+        {
+            TempData["ErrorMessage"] = "Stock item not found.";
+            return RedirectToAction(nameof(Index));
+        }
+
         var result = await _stockService.AdjustStockByBarcodeAsync(barcode, quantity, transactionType, remarks, currentUser.UserId);
 
         if (!result.Succeeded)

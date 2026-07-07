@@ -21,8 +21,8 @@ public class SupplierService : ISupplierService
 
     public Task<IEnumerable<Supplier>> GetAllAsync(int companyId = 0, bool onlyActive = false) => _supplierRepository.GetAllAsync(companyId, onlyActive);
 
-    public Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
-        => _supplierRepository.GetPagedAsync(request, companyId, onlyActive);
+    public Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
+        => _supplierRepository.GetPagedAsync(request, companyId, onlyActive, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Supplier supplier, int? actingUserId)
     {

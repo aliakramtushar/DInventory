@@ -90,6 +90,13 @@ public class PurchaseReturnsController : Controller
             return View();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && purchase.CompanyId != currentUser.CompanyId)
+        {
+            TempData["ErrorMessage"] = "Purchase invoice not found.";
+            return View();
+        }
+
         return View(purchase);
     }
 
@@ -116,6 +123,14 @@ public class PurchaseReturnsController : Controller
         }
 
         var currentUser = _currentUserService.GetCurrentUser();
+
+        var purchase = await _purchaseService.GetByIdAsync(purchaseId);
+        if (purchase is null || (!currentUser.IsSuperCompany && purchase.CompanyId != currentUser.CompanyId))
+        {
+            TempData["ErrorMessage"] = "Purchase invoice not found.";
+            return RedirectToAction(nameof(Create));
+        }
+
         var result = await _purchaseReturnService.CreateReturnAsync(request, currentUser.UserId);
 
         if (!result.Succeeded)

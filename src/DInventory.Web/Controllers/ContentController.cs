@@ -131,12 +131,23 @@ public class ContentController : Controller
             return View(model);
         }
 
+        var existingPage = await _contentPageService.GetByIdAsync(model.ContentPageId);
+        if (existingPage is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && existingPage.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         if (imageFile is { Length: > 0 })
         {
             model.ImagePath = await SaveContentImageAsync(imageFile);
         }
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _contentPageService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)

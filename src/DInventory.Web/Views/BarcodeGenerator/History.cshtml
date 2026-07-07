@@ -88,6 +88,13 @@
         barcodeHeight = l.BarcodeHeight
     })));
 
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(value);
+        return div.innerHTML;
+    }
+
     function reprintBarcodeLabel(index) {
         const data = dinvHistoryLabels[index];
         if (!data) return;
@@ -97,9 +104,9 @@
         container.innerHTML = `
             <div class="card shadow-sm print-label" style="width: 260px;">
                 <div class="card-body text-center p-2">
-                    ${data.companyName ? `<div class="fw-bold small text-truncate">${data.companyName}</div>` : ''}
-                    <div class="fw-semibold text-truncate small">${data.productName}</div>
-                    <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
+                    ${data.companyName ? `<div class="fw-bold small text-truncate">${escapeHtml(data.companyName)}</div>` : ''}
+                    <div class="fw-semibold text-truncate small">${escapeHtml(data.productName)}</div>
+                    <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).map(escapeHtml).join(' &middot; ')}</div>
                     <svg id="${svgId}" class="my-1"></svg>
                     <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
                 </div>

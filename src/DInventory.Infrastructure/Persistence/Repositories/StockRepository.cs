@@ -106,6 +106,17 @@ public class StockRepository : IStockRepository
         return rows > 0;
     }
 
+    public async Task<bool> TryDecrementQuantityAsync(int productVariantId, int quantity)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            UPDATE dbo.Stock
+            SET QuantityOnHand = QuantityOnHand - @quantity, UpdatedAt = SYSUTCDATETIME()
+            WHERE ProductVariantId = @productVariantId AND QuantityOnHand >= @quantity";
+        var rows = await connection.ExecuteAsync(sql, new { productVariantId, quantity });
+        return rows > 0;
+    }
+
     public async Task<int> CreateTransactionAsync(StockTransaction transaction)
     {
         using var connection = _connectionFactory.CreateConnection();

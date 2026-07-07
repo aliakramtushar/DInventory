@@ -146,6 +146,17 @@ public class UsersController : Controller
             model.CompanyId = currentUser.CompanyId;
         }
 
+        var existingUser = await _userService.GetByIdAsync(model.UserId);
+        if (existingUser is null)
+        {
+            return NotFound();
+        }
+
+        if (!currentUser.IsSuperCompany && existingUser.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateRolesAsync();
@@ -170,7 +181,18 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
+        var targetUser = await _userService.GetByIdAsync(id);
+        if (targetUser is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && targetUser.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _userService.DeleteAsync(id, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -190,8 +212,19 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleActive(int id, bool isActive)
     {
-        await _userService.ToggleActiveAsync(id, isActive);
+        var targetUser = await _userService.GetByIdAsync(id);
+        if (targetUser is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && targetUser.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        await _userService.ToggleActiveAsync(id, isActive);
         await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, isActive ? "ACTIVATE" : "DEACTIVATE", "Users", id.ToString(), ipAddress: currentUser.IpAddress);
         return RedirectToAction(nameof(Index));
     }
@@ -200,8 +233,19 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(int id, string newPassword)
     {
-        var result = await _userService.AdminResetPasswordAsync(id, newPassword);
+        var targetUser = await _userService.GetByIdAsync(id);
+        if (targetUser is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && targetUser.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _userService.AdminResetPasswordAsync(id, newPassword);
 
         if (!result.Succeeded)
         {
@@ -221,7 +265,18 @@ public class UsersController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RevokeSessions(int id)
     {
+        var targetUser = await _userService.GetByIdAsync(id);
+        if (targetUser is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && targetUser.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var count = await _authService.RevokeAllTokensForUserAsync(id, currentUser.IpAddress);
 
         await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "REVOKE_TOKENS", "Users", id.ToString(), ipAddress: currentUser.IpAddress);

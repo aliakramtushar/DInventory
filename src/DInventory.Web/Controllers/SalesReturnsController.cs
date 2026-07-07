@@ -92,6 +92,13 @@ public class SalesReturnsController : Controller
             return View();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && order.CompanyId != currentUser.CompanyId)
+        {
+            TempData["ErrorMessage"] = "Invoice not found.";
+            return View();
+        }
+
         if (order.Status == "CANCELLED")
         {
             TempData["ErrorMessage"] = "This sale was cancelled - its stock has already been restored, so it can't be returned.";
@@ -124,6 +131,14 @@ public class SalesReturnsController : Controller
         }
 
         var currentUser = _currentUserService.GetCurrentUser();
+
+        var order = await _salesService.GetByIdAsync(salesOrderId);
+        if (order is null || (!currentUser.IsSuperCompany && order.CompanyId != currentUser.CompanyId))
+        {
+            TempData["ErrorMessage"] = "Invoice not found.";
+            return RedirectToAction(nameof(Create));
+        }
+
         var result = await _salesReturnService.CreateReturnAsync(request, currentUser.UserId);
 
         if (!result.Succeeded)

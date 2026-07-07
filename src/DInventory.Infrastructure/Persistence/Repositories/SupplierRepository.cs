@@ -49,14 +49,15 @@ public class SupplierRepository : ISupplierRepository
         return await connection.QueryAsync<Supplier>(sql, new { companyId, onlyActive });
     }
 
-    public async Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+    public async Task<PagedResult<Supplier>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@search IS NULL OR SupplierName LIKE @pattern OR Phone LIKE @pattern)
-              AND (@onlyActive = 0 OR IsActive = 1)";
+              AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Suppliers {whereClause}";
         var pagedSql = $@"
@@ -71,6 +72,7 @@ public class SupplierRepository : ISupplierRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

@@ -20,22 +20,23 @@ public class ColorRepository : IColorRepository
         return await connection.QuerySingleOrDefaultAsync<Color>("SELECT * FROM dbo.Colors WHERE ColorId = @colorId", new { colorId });
     }
 
-    public async Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false)
+    public async Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Colors
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)
             ORDER BY DisplayOrder, ColorName";
-        return await connection.QueryAsync<Color>(sql, new { companyId, onlyActive });
+        return await connection.QueryAsync<Color>(sql, new { companyId, onlyActive, businessUnitId });
     }
 
-    public async Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId)
+    public async Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var whereClause = "WHERE (@companyId = 0 OR CompanyId = @companyId) AND (@search IS NULL OR ColorName LIKE @pattern)";
+        var whereClause = "WHERE (@companyId = 0 OR CompanyId = @companyId) AND (@search IS NULL OR ColorName LIKE @pattern) AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Colors {whereClause}";
         var pagedSql = $@"
@@ -49,6 +50,7 @@ public class ColorRepository : IColorRepository
             companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

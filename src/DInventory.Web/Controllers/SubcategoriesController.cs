@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Common.Interfaces;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -16,6 +17,7 @@ public class SubcategoriesController : Controller
 {
     private readonly ISubcategoryService _subcategoryService;
     private readonly ICategoryService _categoryService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
@@ -24,6 +26,7 @@ public class SubcategoriesController : Controller
     public SubcategoriesController(
         ISubcategoryService subcategoryService,
         ICategoryService categoryService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
@@ -31,24 +34,31 @@ public class SubcategoriesController : Controller
     {
         _subcategoryService = subcategoryService;
         _categoryService = categoryService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(int? categoryId, string? search, int page = 1)
+    public async Task<IActionResult> Index(int? categoryId, string? search, int? businessUnitId, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _subcategoryService.GetPagedAsync(request, effectiveCompanyId, categoryId);
+        var result = await _subcategoryService.GetPagedAsync(request, effectiveCompanyId, categoryId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CategoryId"] = categoryId;
         ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<BusinessUnit>();
+
         await PopulateCategoriesAsync(effectiveCompanyId);
         return View(result);
     }
@@ -108,6 +118,12 @@ public class SubcategoriesController : Controller
             return NotFound();
         }
 
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && subcategory.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         await PopulateCategoriesAsync();
         return View(subcategory);
     }
@@ -143,8 +159,19 @@ public class SubcategoriesController : Controller
     [PermissionAuthorize("SUBCATEGORIES", PermissionAction.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _subcategoryService.DeleteAsync(id);
+        var subcategory = await _subcategoryService.GetByIdAsync(id);
+        if (subcategory is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && subcategory.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _subcategoryService.DeleteAsync(id);
 
         if (!result.Succeeded)
         {

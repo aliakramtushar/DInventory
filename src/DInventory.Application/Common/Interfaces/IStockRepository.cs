@@ -12,6 +12,11 @@ public interface IStockRepository
     Task<PagedResult<Stock>> GetPagedAsync(PagedRequest request, int companyId, int? maxStock = null);
     Task EnsureStockRowExistsAsync(int productVariantId);
     Task<bool> AdjustQuantityAsync(int productVariantId, int deltaQuantity);
+    /// <summary>Atomically decrements stock only if there's enough on hand - the SQL WHERE clause
+    /// makes the check-and-decrement a single indivisible operation, closing the race window that
+    /// exists if you read quantity first and decrement separately. Returns false (no rows affected)
+    /// if there wasn't enough stock, meaning the caller made no change at all.</summary>
+    Task<bool> TryDecrementQuantityAsync(int productVariantId, int quantity);
     Task<int> CreateTransactionAsync(StockTransaction transaction);
     Task<IEnumerable<StockTransaction>> GetTransactionsForVariantAsync(int productVariantId, int take = 50);
     Task<int> GetLowStockCountAsync(int companyId = 0);

@@ -26,7 +26,7 @@ public class SubcategoryRepository : ISubcategoryRepository
         return await connection.QuerySingleOrDefaultAsync<Subcategory>($"{SelectBase} WHERE s.SubcategoryId = @subcategoryId", new { subcategoryId });
     }
 
-    public async Task<IEnumerable<Subcategory>> GetAllAsync(int companyId, int? categoryId = null, string? search = null, bool onlyActive = false)
+    public async Task<IEnumerable<Subcategory>> GetAllAsync(int companyId, int? categoryId = null, string? search = null, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         var sql = $@"{SelectBase}
@@ -34,11 +34,12 @@ public class SubcategoryRepository : ISubcategoryRepository
               AND (@categoryId IS NULL OR s.CategoryId = @categoryId)
               AND (@search IS NULL OR s.SubcategoryName LIKE @pattern)
               AND (@onlyActive = 0 OR s.IsActive = 1)
+              AND (@businessUnitId IS NULL OR s.BusinessUnitId = @businessUnitId)
             ORDER BY s.SubcategoryName";
-        return await connection.QueryAsync<Subcategory>(sql, new { companyId, categoryId, search, pattern = $"%{search}%", onlyActive });
+        return await connection.QueryAsync<Subcategory>(sql, new { companyId, categoryId, search, pattern = $"%{search}%", onlyActive, businessUnitId });
     }
 
-    public async Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, bool onlyActive = false)
+    public async Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -46,7 +47,8 @@ public class SubcategoryRepository : ISubcategoryRepository
             WHERE (@companyId = 0 OR s.CompanyId = @companyId)
               AND (@categoryId IS NULL OR s.CategoryId = @categoryId)
               AND (@search IS NULL OR s.SubcategoryName LIKE @pattern)
-              AND (@onlyActive = 0 OR s.IsActive = 1)";
+              AND (@onlyActive = 0 OR s.IsActive = 1)
+              AND (@businessUnitId IS NULL OR s.BusinessUnitId = @businessUnitId)";
 
         var countSql = $@"
             SELECT COUNT(1)
@@ -66,6 +68,7 @@ public class SubcategoryRepository : ISubcategoryRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

@@ -112,7 +112,18 @@ public class BusinessUnitsController : Controller
             return View(model);
         }
 
+        var existingBusinessUnit = await _businessUnitService.GetByIdAsync(model.BusinessUnitId);
+        if (existingBusinessUnit is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && existingBusinessUnit.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _businessUnitService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)

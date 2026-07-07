@@ -16,6 +16,7 @@ public class ProductVariant
     public int? CreatedBy { get; set; }
 
     // Populated via joins, not DB columns
+    public int CompanyId { get; set; }
     public string? ProductName { get; set; }
     public string? ProductCode { get; set; }
     public string? BrandName { get; set; }

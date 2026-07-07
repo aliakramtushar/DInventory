@@ -13,6 +13,7 @@ public class ProductService : IProductService
     private readonly IProductVariantRepository _variantRepository;
     private readonly ISizeRepository _sizeRepository;
     private readonly IColorRepository _colorRepository;
+    private readonly ISubcategoryRepository _subcategoryRepository;
     private readonly IBarcodeNumberGenerator _barcodeNumberGenerator;
     private readonly IGeneratedBarcodeLabelService _labelService;
 
@@ -23,6 +24,7 @@ public class ProductService : IProductService
         IProductVariantRepository variantRepository,
         ISizeRepository sizeRepository,
         IColorRepository colorRepository,
+        ISubcategoryRepository subcategoryRepository,
         IBarcodeNumberGenerator barcodeNumberGenerator,
         IGeneratedBarcodeLabelService labelService)
     {
@@ -32,14 +34,35 @@ public class ProductService : IProductService
         _variantRepository = variantRepository;
         _sizeRepository = sizeRepository;
         _colorRepository = colorRepository;
+        _subcategoryRepository = subcategoryRepository;
         _barcodeNumberGenerator = barcodeNumberGenerator;
         _labelService = labelService;
     }
 
+    /// <summary>Subcategory must always depend on Category - a product's SubcategoryId (if any) has
+    /// to actually belong to the CategoryId it's being saved under. Shared by CreateAsync/UpdateAsync
+    /// so a mismatched pair (e.g. a stale client-side selection, or a tampered form field) is always
+    /// rejected server-side, not just filtered out of the dropdown on the client.</summary>
+    private async Task<string?> ValidateSubcategoryBelongsToCategoryAsync(int? subcategoryId, int categoryId)
+    {
+        if (!subcategoryId.HasValue)
+        {
+            return null;
+        }
+
+        var subcategory = await _subcategoryRepository.GetByIdAsync(subcategoryId.Value);
+        if (subcategory is null || subcategory.CategoryId != categoryId)
+        {
+            return "The selected subcategory does not belong to the selected category.";
+        }
+
+        return null;
+    }
+
     public Task<Product?> GetByIdAsync(int productId) => _productRepository.GetByIdAsync(productId);
 
-    public Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
-        => _productRepository.GetPagedAsync(request, companyId, categoryId, subcategoryId, brandId, onlyActive);
+    public Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false, int? businessUnitId = null)
+        => _productRepository.GetPagedAsync(request, companyId, categoryId, subcategoryId, brandId, onlyActive, businessUnitId);
 
     public Task<PagedResult<Product>> GetPublicPagedAsync(PagedRequest request, int? categoryId = null)
         => _productRepository.GetPublicPagedAsync(request, categoryId);
@@ -77,6 +100,12 @@ public class ProductService : IProductService
         if (variants.Select(v => (v.SizeId, v.ColorId)).Distinct().Count() != variants.Count)
         {
             return Result<int>.Failure("Each size/color combination can only be added once per product.");
+        }
+
+        var subcategoryError = await ValidateSubcategoryBelongsToCategoryAsync(product.SubcategoryId, product.CategoryId);
+        if (subcategoryError is not null)
+        {
+            return Result<int>.Failure(subcategoryError);
         }
 
         // Validate any manually supplied barcodes up front so we don't partially create the product.
@@ -185,6 +214,12 @@ public class ProductService : IProductService
             && await _productRepository.CodeExistsAsync(existing.CompanyId, product.ProductCode, product.ProductId))
         {
             return Result.Failure("A product with this code already exists.");
+        }
+
+        var subcategoryError = await ValidateSubcategoryBelongsToCategoryAsync(product.SubcategoryId, product.CategoryId);
+        if (subcategoryError is not null)
+        {
+            return Result.Failure(subcategoryError);
         }
 
         existing.ProductCode = product.ProductCode;

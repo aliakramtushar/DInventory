@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -15,31 +16,38 @@ namespace DInventory.Web.Controllers;
 public class CategoriesController : Controller
 {
     private readonly ICategoryService _categoryService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
 
-    public CategoriesController(ICategoryService categoryService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
+    public CategoriesController(ICategoryService categoryService, IBusinessUnitService businessUnitService, ICurrentUserService currentUserService, ICompanyContextService companyContextService, IBusinessUnitContextService businessUnitContextService, IAuditLogService auditLogService)
     {
         _categoryService = categoryService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(string? search, int page = 1)
+    public async Task<IActionResult> Index(string? search, int? businessUnitId, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _categoryService.GetPagedAsync(request, effectiveCompanyId);
+        var result = await _categoryService.GetPagedAsync(request, effectiveCompanyId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<BusinessUnit>();
 
         return View(result);
     }
@@ -135,8 +143,19 @@ public class CategoriesController : Controller
     [PermissionAuthorize("CATEGORIES", PermissionAction.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _categoryService.DeleteAsync(id);
+        var category = await _categoryService.GetByIdAsync(id);
+        if (category is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && category.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _categoryService.DeleteAsync(id);
 
         if (!result.Succeeded)
         {

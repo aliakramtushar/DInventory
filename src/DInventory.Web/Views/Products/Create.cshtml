@@ -32,8 +32,12 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Subcategory</label>
-                    <select asp-for="SubcategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Subcategories, "SubcategoryId", "SubcategoryName"))">
+                    <select asp-for="SubcategoryId" id="subcategorySelect" class="form-select">
                         <option value="">-- None --</option>
+                        @foreach (var sub in (IEnumerable<DInventory.Domain.Entities.Subcategory>)ViewBag.Subcategories)
+                        {
+                            <option value="@sub.SubcategoryId" data-category-id="@sub.CategoryId">@sub.SubcategoryName</option>
+                        }
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -158,6 +162,42 @@
 
             // Start with one row so a brand-new product only needs one click to add a second size.
             addRow();
+
+            // Subcategory must always depend on Category: only show subcategories that belong to
+            // whichever category is currently selected, and clear the subcategory pick if it no
+            // longer matches (e.g. the user changed Category after already picking a subcategory).
+            (function () {
+                const categorySelect = document.getElementById('CategoryId');
+                const subcategorySelect = document.getElementById('subcategorySelect');
+                if (!categorySelect || !subcategorySelect) {
+                    return;
+                }
+
+                function filterSubcategories() {
+                    const categoryId = categorySelect.value;
+                    let selectedStillValid = false;
+
+                    Array.from(subcategorySelect.options).forEach((option) => {
+                        if (!option.value) {
+                            option.hidden = false;
+                            return;
+                        }
+
+                        const matches = !categoryId || option.dataset.categoryId === categoryId;
+                        option.hidden = !matches;
+                        if (matches && option.value === subcategorySelect.value) {
+                            selectedStillValid = true;
+                        }
+                    });
+
+                    if (!selectedStillValid) {
+                        subcategorySelect.value = '';
+                    }
+                }
+
+                categorySelect.addEventListener('change', filterSubcategories);
+                filterSubcategories();
+            })();
 
             document.getElementById('productForm').addEventListener('submit', function (e) {
                 // --- FIX FOR PRODUCT CODE ---

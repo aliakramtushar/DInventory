@@ -136,6 +136,13 @@
 <script src="~/js/dinv-barcode128.js" asp-append-version="true"></script>
 <script>
 (function () {
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(value);
+        return div.innerHTML;
+    }
+
     let labelSeq = 0;
     const labelsContainer = document.getElementById('labelsContainer');
     const noLabelsMsg = document.getElementById('noLabelsMsg');
@@ -173,10 +180,10 @@
                 <button type="button" class="btn btn-sm btn-outline-danger float-end no-print" onclick="document.getElementById('${cardId}').remove(); window.dinvUpdateBarcodeCounters();">
                     <i class="bi bi-x"></i>
                 </button>
-                ${data.companyName ? `<div class="fw-bold small text-truncate">${data.companyName}</div>` : ''}
-                <div class="fw-semibold text-truncate small">${data.productName}</div>
-                <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).join(' &middot; ')}</div>
-                ${data.businessUnitName ? `<div class="text-muted small">${data.businessUnitName}</div>` : ''}
+                ${data.companyName ? `<div class="fw-bold small text-truncate">${escapeHtml(data.companyName)}</div>` : ''}
+                <div class="fw-semibold text-truncate small">${escapeHtml(data.productName)}</div>
+                <div class="text-muted small">${[data.brandName, data.sizeName].filter(Boolean).map(escapeHtml).join(' &middot; ')}</div>
+                ${data.businessUnitName ? `<div class="text-muted small">${escapeHtml(data.businessUnitName)}</div>` : ''}
                 <svg id="${svgId}" class="my-1"></svg>
                 <div class="small">${data.price != null ? dinvMoney(data.price) : ''}</div>
             </div>

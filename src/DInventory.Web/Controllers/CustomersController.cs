@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Customers;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -16,6 +17,7 @@ public class CustomersController : Controller
 {
     private readonly ICustomerService _customerService;
     private readonly ILoyaltyService _loyaltyService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
@@ -24,6 +26,7 @@ public class CustomersController : Controller
     public CustomersController(
         ICustomerService customerService,
         ILoyaltyService loyaltyService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
@@ -31,23 +34,29 @@ public class CustomersController : Controller
     {
         _customerService = customerService;
         _loyaltyService = loyaltyService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(string? search, int page = 1)
+    public async Task<IActionResult> Index(int? businessUnitId, string? search, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _customerService.GetPagedAsync(request, effectiveCompanyId);
+        var result = await _customerService.GetPagedAsync(request, effectiveCompanyId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
 
         return View(result);
     }
@@ -144,7 +153,18 @@ public class CustomersController : Controller
             return View(model);
         }
 
+        var existingCustomer = await _customerService.GetByIdAsync(model.CustomerId);
+        if (existingCustomer is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && existingCustomer.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _customerService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)

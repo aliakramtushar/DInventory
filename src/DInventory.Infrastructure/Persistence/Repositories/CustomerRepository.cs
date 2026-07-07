@@ -51,14 +51,15 @@ public class CustomerRepository : ICustomerRepository
         return await connection.QueryAsync<Customer>(sql, new { search, pattern = $"%{search}%" });
     }
 
-    public async Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+    public async Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@companyId = 0 OR c.CompanyId = @companyId)
               AND (@search IS NULL OR c.CustomerName LIKE @pattern OR c.Phone LIKE @pattern OR c.Email LIKE @pattern)
-              AND (@onlyActive = 0 OR c.IsActive = 1)";
+              AND (@onlyActive = 0 OR c.IsActive = 1)
+              AND (@businessUnitId IS NULL OR c.BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Customers c {whereClause}";
         var pagedSql = $@"{StatsSelect}
@@ -72,6 +73,7 @@ public class CustomerRepository : ICustomerRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

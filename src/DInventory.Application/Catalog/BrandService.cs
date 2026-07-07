@@ -15,10 +15,10 @@ public class BrandService : IBrandService
 
     public Task<Brand?> GetByIdAsync(int brandId) => _brandRepository.GetByIdAsync(brandId);
 
-    public Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false) => _brandRepository.GetAllAsync(companyId, onlyActive);
+    public Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null) => _brandRepository.GetAllAsync(companyId, onlyActive, businessUnitId);
 
-    public Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
-        => _brandRepository.GetPagedAsync(request, companyId, onlyActive);
+    public Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
+        => _brandRepository.GetPagedAsync(request, companyId, onlyActive, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Brand brand, int? actingUserId)
     {

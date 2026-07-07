@@ -131,7 +131,18 @@ public class ExpensesController : Controller
             return View(model);
         }
 
+        var existingExpense = await _expenseService.GetByIdAsync(model.ExpenseId);
+        if (existingExpense is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && existingExpense.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _expenseService.UpdateAsync(model, currentUser.UserId);
 
         if (!result.Succeeded)

@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
 using DInventory.Application.Purchasing;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Filters;
@@ -15,6 +16,7 @@ namespace DInventory.Web.Controllers;
 public class SuppliersController : Controller
 {
     private readonly ISupplierService _supplierService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
@@ -22,29 +24,36 @@ public class SuppliersController : Controller
 
     public SuppliersController(
         ISupplierService supplierService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
         IAuditLogService auditLogService)
     {
         _supplierService = supplierService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
     }
 
-    public async Task<IActionResult> Index(string? search, int page = 1)
+    public async Task<IActionResult> Index(int? businessUnitId, string? search, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _supplierService.GetPagedAsync(request, effectiveCompanyId);
+        var result = await _supplierService.GetPagedAsync(request, effectiveCompanyId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CompanyId"] = effectiveCompanyId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
 
         return View(result);
     }

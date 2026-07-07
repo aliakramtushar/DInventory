@@ -83,8 +83,21 @@ public class UserService : IUserService
         existing.Email = user.Email;
         existing.FullName = user.FullName;
         existing.RoleId = user.RoleId;
-        existing.CompanyId = user.CompanyId;
-        existing.BusinessUnitId = user.BusinessUnitId;
+
+        // BusinessUnitId must always depend on CompanyId - it's only ever assigned at Create time
+        // (from the effective company's own business units) and is otherwise immutable, same as
+        // every other entity in the app. If the company itself isn't changing, ignore whatever
+        // BusinessUnitId came in on the posted form entirely (a company-scoped admin's hidden field
+        // could be tampered with to reference a business unit belonging to a different company) and
+        // keep the user's existing one. If a SuperAdmin *is* moving this user to a different company,
+        // their old business unit can't possibly belong to the new company, so clear it - an admin
+        // has to explicitly re-assign a business unit under the new company afterward.
+        if (user.CompanyId != existing.CompanyId)
+        {
+            existing.CompanyId = user.CompanyId;
+            existing.BusinessUnitId = null;
+        }
+
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;
 

@@ -9,9 +9,11 @@ namespace DInventory.Web.Controllers;
 /// CompanySelectorViewComponent / BusinessUnitSelectorViewComponent). SuperAdmin picks a company
 /// (and, once one is picked, optionally a business unit within it) here, and every company-scoped
 /// page in the app honors it via ICompanyContextService / IBusinessUnitContextService for the rest of
-/// the login - no page carries its own companyId/businessUnitId query string any more. Non-SuperAdmin
-/// users never see either selector and can't hit these actions in any way that changes their own
-/// company/business unit (both services no-op the setters for them).
+/// the login - no page carries its own companyId/businessUnitId query string any more. Every user sees
+/// both selectors, but Switch is a no-op for anyone but SuperAdmin (pinned to their own company), and
+/// SwitchBusinessUnit is a no-op for anyone with a fixed BusinessUnitId of their own (pinned to that
+/// unit) - a company-scoped user with no fixed unit can still use SwitchBusinessUnit freely to search
+/// or enter data under a specific business unit, or "whole company".
 /// </summary>
 [Authorize]
 public class CompanyContextController : Controller

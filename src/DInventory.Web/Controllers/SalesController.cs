@@ -24,6 +24,7 @@ public class SalesController : Controller
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
     private readonly IAuditLogService _auditLogService;
+    private readonly ICustomerService _customerService;
 
     public SalesController(
         ISalesService salesService,
@@ -33,7 +34,8 @@ public class SalesController : Controller
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        ICustomerService customerService)
     {
         _salesService = salesService;
         _productVariantService = productVariantService;
@@ -43,6 +45,7 @@ public class SalesController : Controller
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
         _auditLogService = auditLogService;
+        _customerService = customerService;
     }
 
     public async Task<IActionResult> Index(int? businessUnitId, DateTime? fromDate, DateTime? toDate, int page = 1)
@@ -189,6 +192,14 @@ public class SalesController : Controller
         }
 
         var variant = result.Data!;
+
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && variant.CompanyId != currentUser.CompanyId)
+        {
+            return BadRequest(new { message = $"No product found for barcode '{barcode}'." });
+        }
+
         return Json(new
         {
             productVariantId = variant.ProductVariantId,
@@ -206,6 +217,18 @@ public class SalesController : Controller
     [HttpGet]
     public async Task<IActionResult> GetCustomerLoyalty(int customerId)
     {
+        var customer = await _customerService.GetByIdAsync(customerId);
+        if (customer is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && customer.CompanyId != currentUser.CompanyId)
+        {
+            return NotFound();
+        }
+
         var settings = await _loyaltyService.GetSettingsAsync();
         var balance = await _loyaltyService.GetBalanceAsync(customerId);
 
@@ -224,6 +247,12 @@ public class SalesController : Controller
     {
         var variant = await _productVariantService.GetByIdAsync(productVariantId);
         if (variant is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && variant.CompanyId != currentUser.CompanyId)
         {
             return NotFound();
         }

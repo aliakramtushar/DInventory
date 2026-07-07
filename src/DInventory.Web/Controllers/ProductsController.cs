@@ -2,6 +2,7 @@ using DInventory.Application.Audit;
 using DInventory.Application.Catalog;
 using DInventory.Application.Common.Interfaces;
 using DInventory.Application.Common.Models;
+using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using DInventory.Domain.Enums;
 using DInventory.Web.Common;
@@ -22,6 +23,7 @@ public class ProductsController : Controller
     private readonly IBrandService _brandService;
     private readonly ISizeService _sizeService;
     private readonly IColorService _colorService;
+    private readonly IBusinessUnitService _businessUnitService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
@@ -36,6 +38,7 @@ public class ProductsController : Controller
         IBrandService brandService,
         ISizeService sizeService,
         IColorService colorService,
+        IBusinessUnitService businessUnitService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
@@ -49,6 +52,7 @@ public class ProductsController : Controller
         _brandService = brandService;
         _sizeService = sizeService;
         _colorService = colorService;
+        _businessUnitService = businessUnitService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
@@ -56,21 +60,26 @@ public class ProductsController : Controller
         _hostEnvironment = hostEnvironment;
     }
 
-    public async Task<IActionResult> Index(int? categoryId, int? brandId, string? search, int page = 1)
+    public async Task<IActionResult> Index(int? categoryId, int? brandId, int? businessUnitId, string? search, int page = 1)
     {
         var currentUser = _currentUserService.GetCurrentUser();
         var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
 
         var request = new PagedRequest { PageNumber = page, PageSize = 20, Search = search };
-        var result = await _productService.GetPagedAsync(request, effectiveCompanyId, categoryId, brandId: brandId);
+        var result = await _productService.GetPagedAsync(request, effectiveCompanyId, categoryId, brandId: brandId, businessUnitId: businessUnitId);
 
         ViewData["Search"] = search;
         ViewData["CategoryId"] = categoryId;
         ViewData["BrandId"] = brandId;
+        ViewData["BusinessUnitId"] = businessUnitId;
         ViewData["CompanyId"] = effectiveCompanyId;
         ViewBag.IsSuperCompany = currentUser.IsSuperCompany;
         ViewBag.Categories = await _categoryService.GetAllAsync(effectiveCompanyId, onlyActive: true);
         ViewBag.Brands = await _brandService.GetAllAsync(effectiveCompanyId, onlyActive: true);
+
+        ViewBag.BusinessUnits = effectiveCompanyId > 0
+            ? await _businessUnitService.GetAllAsync(effectiveCompanyId, onlyActive: true)
+            : Enumerable.Empty<DInventory.Domain.Entities.BusinessUnit>();
 
         return View(result);
     }
@@ -246,7 +255,18 @@ public class ProductsController : Controller
     [PermissionAuthorize("PRODUCTS", PermissionAction.Edit)]
     public async Task<IActionResult> AddVariant(int productId, int sizeId, int? colorId, string? barcode, string? sku, int reorderLevel, int initialQuantity)
     {
+        var product = await _productService.GetByIdAsync(productId);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
         var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && product.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _productVariantService.CreateAsync(productId, sizeId, colorId, barcode, sku, reorderLevel, initialQuantity, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -267,6 +287,18 @@ public class ProductsController : Controller
     [PermissionAuthorize("PRODUCTS", PermissionAction.Edit)]
     public async Task<IActionResult> UpdateVariant(int productVariantId, int productId, int sizeId, int? colorId, string barcode, string? sku, int reorderLevel, bool isActive)
     {
+        var product = await _productService.GetByIdAsync(productId);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && product.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var variant = await _productVariantService.GetByIdAsync(productVariantId);
         if (variant is null)
         {
@@ -280,7 +312,6 @@ public class ProductsController : Controller
         variant.ReorderLevel = reorderLevel;
         variant.IsActive = isActive;
 
-        var currentUser = _currentUserService.GetCurrentUser();
         var result = await _productVariantService.UpdateAsync(variant, currentUser.UserId);
 
         if (!result.Succeeded)
@@ -301,6 +332,18 @@ public class ProductsController : Controller
     [PermissionAuthorize("PRODUCTS", PermissionAction.Delete)]
     public async Task<IActionResult> DeleteVariant(int productVariantId, int productId)
     {
+        var product = await _productService.GetByIdAsync(productId);
+        if (product is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && product.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
         var result = await _productVariantService.DeleteAsync(productVariantId);
 
         if (!result.Succeeded)
@@ -309,7 +352,6 @@ public class ProductsController : Controller
         }
         else
         {
-            var currentUser = _currentUserService.GetCurrentUser();
             await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "DELETE", "ProductVariants", productVariantId.ToString(), ipAddress: currentUser.IpAddress);
             TempData["StatusMessage"] = "Size/variant removed.";
         }

@@ -15,9 +15,9 @@ public class ColorService : IColorService
 
     public Task<Color?> GetByIdAsync(int colorId) => _colorRepository.GetByIdAsync(colorId);
 
-    public Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false) => _colorRepository.GetAllAsync(companyId, onlyActive);
+    public Task<IEnumerable<Color>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null) => _colorRepository.GetAllAsync(companyId, onlyActive, businessUnitId);
 
-    public Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId) => _colorRepository.GetPagedAsync(request, companyId);
+    public Task<PagedResult<Color>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null) => _colorRepository.GetPagedAsync(request, companyId, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Color color, int? actingUserId)
     {

@@ -20,25 +20,27 @@ public class BrandRepository : IBrandRepository
         return await connection.QuerySingleOrDefaultAsync<Brand>("SELECT * FROM dbo.Brands WHERE BrandId = @brandId", new { brandId });
     }
 
-    public async Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false)
+    public async Task<IEnumerable<Brand>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Brands
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)
             ORDER BY BrandName";
-        return await connection.QueryAsync<Brand>(sql, new { companyId, onlyActive });
+        return await connection.QueryAsync<Brand>(sql, new { companyId, onlyActive, businessUnitId });
     }
 
-    public async Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+    public async Task<PagedResult<Brand>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@search IS NULL OR BrandName LIKE @pattern)
-              AND (@onlyActive = 0 OR IsActive = 1)";
+              AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Brands {whereClause}";
         var pagedSql = $@"
@@ -53,6 +55,7 @@ public class BrandRepository : IBrandRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

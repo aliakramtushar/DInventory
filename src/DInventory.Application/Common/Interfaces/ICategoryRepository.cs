@@ -6,8 +6,8 @@ namespace DInventory.Application.Common.Interfaces;
 public interface ICategoryRepository
 {
     Task<Category?> GetByIdAsync(int categoryId);
-    Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false);
-    Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false);
+    Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false, int? businessUnitId = null);
+    Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null);
     Task<int> CreateAsync(Category category);
     Task<bool> UpdateAsync(Category category);
     Task<bool> DeleteAsync(int categoryId);

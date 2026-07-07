@@ -194,11 +194,35 @@ public class SalesService : ISalesService
 
         try
         {
+            // Atomically decrement stock for every item in a single first pass, before the order
+            // (or anything else) is written. TryDecrementQuantityAsync's WHERE clause makes each
+            // item's check-and-decrement one indivisible DB operation, closing the race window that
+            // the up-front read-based check above can't fully close on its own (two concurrent sales
+            // can both pass that read before either has decremented). We only move on to creating the
+            // order/transactions/loyalty entries if every single item's decrement succeeds; if one
+            // loses the race, we give back whichever earlier items in this same pass already
+            // succeeded (nothing else has been written yet, so there's nothing else to undo).
+            var decrementedSoFar = new List<SalesOrderItem>();
+            foreach (var item in order.Items)
+            {
+                var decremented = await _stockRepository.TryDecrementQuantityAsync(item.ProductVariantId, item.Quantity);
+                if (!decremented)
+                {
+                    foreach (var undo in decrementedSoFar)
+                    {
+                        await _stockRepository.AdjustQuantityAsync(undo.ProductVariantId, undo.Quantity);
+                    }
+
+                    return Result<int>.Failure("Insufficient stock for one of the items in this sale (someone else may have just sold the last of it) - please refresh and try again.");
+                }
+
+                decrementedSoFar.Add(item);
+            }
+
             var salesOrderId = await _salesOrderRepository.CreateAsync(order);
 
             foreach (var item in order.Items)
             {
-                await _stockRepository.AdjustQuantityAsync(item.ProductVariantId, -item.Quantity);
                 await _stockRepository.CreateTransactionAsync(new StockTransaction
                 {
                     ProductVariantId = item.ProductVariantId,

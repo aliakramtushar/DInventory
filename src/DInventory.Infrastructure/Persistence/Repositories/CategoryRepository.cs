@@ -21,7 +21,7 @@ public class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>companyId = 0 (superuser) bypasses the filter and returns categories across every company.</summary>
-    public async Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false)
+    public async Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
@@ -29,18 +29,20 @@ public class CategoryRepository : ICategoryRepository
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@search IS NULL OR CategoryName LIKE @pattern)
               AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)
             ORDER BY CategoryName";
-        return await connection.QueryAsync<Category>(sql, new { companyId, search, pattern = $"%{search}%", onlyActive });
+        return await connection.QueryAsync<Category>(sql, new { companyId, search, pattern = $"%{search}%", onlyActive, businessUnitId });
     }
 
-    public async Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
+    public async Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var whereClause = @"
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@search IS NULL OR CategoryName LIKE @pattern)
-              AND (@onlyActive = 0 OR IsActive = 1)";
+              AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Categories {whereClause}";
         var pagedSql = $@"
@@ -55,6 +57,7 @@ public class CategoryRepository : ICategoryRepository
             search = request.Search,
             pattern = $"%{request.Search}%",
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

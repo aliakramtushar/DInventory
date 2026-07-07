@@ -21,8 +21,8 @@ public class CustomerService : ICustomerService
 
     public Task<IEnumerable<Customer>> GetAllAsync(string? search = null) => _customerRepository.GetAllAsync(search);
 
-    public Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
-        => _customerRepository.GetPagedAsync(request, companyId, onlyActive);
+    public Task<PagedResult<Customer>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
+        => _customerRepository.GetPagedAsync(request, companyId, onlyActive, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Customer customer, int? actingUserId)
     {

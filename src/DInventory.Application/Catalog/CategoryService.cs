@@ -15,11 +15,11 @@ public class CategoryService : ICategoryService
 
     public Task<Category?> GetByIdAsync(int categoryId) => _categoryRepository.GetByIdAsync(categoryId);
 
-    public Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false)
-        => _categoryRepository.GetAllAsync(companyId, search, onlyActive);
+    public Task<IEnumerable<Category>> GetAllAsync(int companyId, string? search = null, bool onlyActive = false, int? businessUnitId = null)
+        => _categoryRepository.GetAllAsync(companyId, search, onlyActive, businessUnitId);
 
-    public Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false)
-        => _categoryRepository.GetPagedAsync(request, companyId, onlyActive);
+    public Task<PagedResult<Category>> GetPagedAsync(PagedRequest request, int companyId, bool onlyActive = false, int? businessUnitId = null)
+        => _categoryRepository.GetPagedAsync(request, companyId, onlyActive, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Category category, int? actingUserId)
     {

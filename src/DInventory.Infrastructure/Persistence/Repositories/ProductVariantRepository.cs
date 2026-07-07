@@ -17,6 +17,7 @@ public class ProductVariantRepository : IProductVariantRepository
     private const string SelectBase = @"
         SELECT pv.ProductVariantId, pv.ProductId, pv.SizeId, pv.ColorId, pv.Barcode, pv.SKU, pv.ReorderLevel,
                pv.IsActive, pv.CreatedAt, pv.CreatedBy,
+               p.CompanyId,
                p.ProductName, p.ProductCode, b.BrandName, c.CategoryName, sz.SizeName, co.ColorName,
                pr.SellingPrice, pr.CostPrice,
                ISNULL(st.QuantityOnHand, 0) AS QuantityOnHand

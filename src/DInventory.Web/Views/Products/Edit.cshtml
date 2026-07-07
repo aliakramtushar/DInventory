@@ -27,8 +27,12 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Subcategory</label>
-                    <select asp-for="SubcategoryId" class="form-select" asp-items="@(new SelectList(ViewBag.Subcategories, "SubcategoryId", "SubcategoryName", Model.SubcategoryId))">
+                    <select asp-for="SubcategoryId" id="subcategorySelect" class="form-select">
                         <option value="">-- None --</option>
+                        @foreach (var sub in (IEnumerable<DInventory.Domain.Entities.Subcategory>)ViewBag.Subcategories)
+                        {
+                            <option value="@sub.SubcategoryId" data-category-id="@sub.CategoryId">@sub.SubcategoryName</option>
+                        }
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -203,3 +207,46 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        // Subcategory must always depend on Category: only show subcategories that belong to
+        // whichever category is currently selected, and clear the subcategory pick if it no
+        // longer matches (e.g. the user changes Category after it was already set).
+        (function () {
+            const categorySelect = document.getElementById('CategoryId');
+            const subcategorySelect = document.getElementById('subcategorySelect');
+            if (!categorySelect || !subcategorySelect) {
+                return;
+            }
+
+            function filterSubcategories(preserveInitialSelection) {
+                const categoryId = categorySelect.value;
+                const currentValue = subcategorySelect.value;
+                let selectedStillValid = false;
+
+                Array.from(subcategorySelect.options).forEach((option) => {
+                    if (!option.value) {
+                        option.hidden = false;
+                        return;
+                    }
+
+                    const matches = !categoryId || option.dataset.categoryId === categoryId;
+                    option.hidden = !matches;
+                    if (matches && option.value === currentValue) {
+                        selectedStillValid = true;
+                    }
+                });
+
+                if (!preserveInitialSelection && !selectedStillValid) {
+                    subcategorySelect.value = '';
+                }
+            }
+
+            categorySelect.addEventListener('change', function () { filterSubcategories(false); });
+            // On first load, keep whatever subcategory the product already has selected (it's
+            // guaranteed valid from the server), just hide the non-matching options around it.
+            filterSubcategories(true);
+        })();
+    </script>
+}

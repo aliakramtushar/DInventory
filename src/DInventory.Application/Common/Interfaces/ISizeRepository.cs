@@ -7,8 +7,8 @@ public interface ISizeRepository
 {
     Task<Size?> GetByIdAsync(int sizeId);
     /// <summary>companyId = 0 (superuser) bypasses the filter and returns sizes across every company.</summary>
-    Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false);
-    Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId);
+    Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null);
+    Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null);
     Task<int> CreateAsync(Size size);
     Task<bool> UpdateAsync(Size size);
     Task<bool> DeleteAsync(int sizeId);

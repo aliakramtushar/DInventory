@@ -50,7 +50,7 @@ public class ProductRepository : IProductRepository
     }
 
     /// <summary>companyId = 0 (superuser) bypasses the filter and returns products across every company.</summary>
-    public async Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false)
+    public async Task<PagedResult<Product>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, int? subcategoryId = null, int? brandId = null, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -60,7 +60,8 @@ public class ProductRepository : IProductRepository
               AND (@categoryId IS NULL OR p.CategoryId = @categoryId)
               AND (@subcategoryId IS NULL OR p.SubcategoryId = @subcategoryId)
               AND (@brandId IS NULL OR p.BrandId = @brandId)
-              AND (@onlyActive = 0 OR p.IsActive = 1)";
+              AND (@onlyActive = 0 OR p.IsActive = 1)
+              AND (@businessUnitId IS NULL OR p.BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Products p {whereClause}";
         var pagedSql = $@"{SelectBase}
@@ -77,6 +78,7 @@ public class ProductRepository : IProductRepository
             subcategoryId,
             brandId,
             onlyActive,
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

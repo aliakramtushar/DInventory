@@ -15,11 +15,11 @@ public class SubcategoryService : ISubcategoryService
 
     public Task<Subcategory?> GetByIdAsync(int subcategoryId) => _subcategoryRepository.GetByIdAsync(subcategoryId);
 
-    public Task<IEnumerable<Subcategory>> GetAllAsync(int companyId, int? categoryId = null, string? search = null, bool onlyActive = false)
-        => _subcategoryRepository.GetAllAsync(companyId, categoryId, search, onlyActive);
+    public Task<IEnumerable<Subcategory>> GetAllAsync(int companyId, int? categoryId = null, string? search = null, bool onlyActive = false, int? businessUnitId = null)
+        => _subcategoryRepository.GetAllAsync(companyId, categoryId, search, onlyActive, businessUnitId);
 
-    public Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, bool onlyActive = false)
-        => _subcategoryRepository.GetPagedAsync(request, companyId, categoryId, onlyActive);
+    public Task<PagedResult<Subcategory>> GetPagedAsync(PagedRequest request, int companyId, int? categoryId = null, bool onlyActive = false, int? businessUnitId = null)
+        => _subcategoryRepository.GetPagedAsync(request, companyId, categoryId, onlyActive, businessUnitId);
 
     public async Task<Result<int>> CreateAsync(Subcategory subcategory, int? actingUserId)
     {

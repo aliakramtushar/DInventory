@@ -20,22 +20,23 @@ public class SizeRepository : ISizeRepository
         return await connection.QuerySingleOrDefaultAsync<Size>("SELECT * FROM dbo.Sizes WHERE SizeId = @sizeId", new { sizeId });
     }
 
-    public async Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false)
+    public async Task<IEnumerable<Size>> GetAllAsync(int companyId, bool onlyActive = false, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT * FROM dbo.Sizes
             WHERE (@companyId = 0 OR CompanyId = @companyId)
               AND (@onlyActive = 0 OR IsActive = 1)
+              AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)
             ORDER BY DisplayOrder, SizeName";
-        return await connection.QueryAsync<Size>(sql, new { companyId, onlyActive });
+        return await connection.QueryAsync<Size>(sql, new { companyId, onlyActive, businessUnitId });
     }
 
-    public async Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId)
+    public async Task<PagedResult<Size>> GetPagedAsync(PagedRequest request, int companyId, int? businessUnitId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var whereClause = "WHERE (@companyId = 0 OR CompanyId = @companyId) AND (@search IS NULL OR SizeName LIKE @pattern)";
+        var whereClause = "WHERE (@companyId = 0 OR CompanyId = @companyId) AND (@search IS NULL OR SizeName LIKE @pattern) AND (@businessUnitId IS NULL OR BusinessUnitId = @businessUnitId)";
 
         var countSql = $"SELECT COUNT(1) FROM dbo.Sizes {whereClause}";
         var pagedSql = $@"
@@ -49,6 +50,7 @@ public class SizeRepository : ISizeRepository
             companyId,
             search = request.Search,
             pattern = $"%{request.Search}%",
+            businessUnitId,
             offset = (request.PageNumber - 1) * request.PageSize,
             pageSize = request.PageSize
         };

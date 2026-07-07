@@ -173,6 +173,14 @@ public class PurchasesController : Controller
         }
 
         var variant = result.Data!;
+
+        var effectiveCompanyId = _companyContextService.GetEffectiveCompanyId();
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && variant.CompanyId != currentUser.CompanyId)
+        {
+            return BadRequest(new { message = $"No product found for barcode '{barcode}'." });
+        }
+
         return Json(new
         {
             productVariantId = variant.ProductVariantId,
