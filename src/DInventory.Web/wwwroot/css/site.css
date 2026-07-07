@@ -203,7 +203,41 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
     height: 100vh;
     overflow-y: auto;
     z-index: 1030;
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, width 0.2s ease-in-out;
+}
+
+.erp-sidebar-search {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.erp-sidebar-search .input-group-text {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #93a5a2;
+}
+
+.erp-sidebar-search .form-control {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #eaf3f2;
+}
+
+.erp-sidebar-search .form-control::placeholder {
+    color: #7d8f8c;
+}
+
+.erp-sidebar-search .form-control:focus {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    box-shadow: none;
+}
+
+.erp-nav-empty {
+    padding: 1rem 1.25rem;
+    color: #7d8f8c;
+    font-size: 0.85rem;
+    text-align: center;
 }
 
 .erp-brand {
@@ -329,6 +363,45 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
 
     .erp-sidebar.show {
         transform: translateX(0);
+    }
+}
+
+/* ---------- Sidebar collapse (desktop icon rail) --------------------------------------
+   Desktop-only (lg+) - on narrower screens the sidebar is already an overlay drawer (see the
+   max-width block above), so a separate "collapsed" rail there would just be confusing. Group
+   sub-menus are intentionally suppressed rather than turned into hover-flyouts while collapsed -
+   simplest thing that still works: the group icon stays visible (with its name as a native
+   tooltip via the title attribute added in SidebarMenu/Default.cshtml), its children are one
+   click away again the moment the sidebar is expanded. ------------------------------------- */
+@media (min-width: 992px) {
+    body.dinv-sidebar-collapsed .erp-sidebar {
+        width: 76px;
+    }
+
+    body.dinv-sidebar-collapsed .erp-sidebar-search,
+    body.dinv-sidebar-collapsed .erp-brand span,
+    body.dinv-sidebar-collapsed .erp-nav-list li a span,
+    body.dinv-sidebar-collapsed .erp-nav-sublist li a span,
+    body.dinv-sidebar-collapsed .erp-nav-group-toggle span,
+    body.dinv-sidebar-collapsed .erp-nav-chevron {
+        display: none;
+    }
+
+    body.dinv-sidebar-collapsed .erp-nav-group > .collapse {
+        display: none !important;
+    }
+
+    body.dinv-sidebar-collapsed .erp-brand {
+        justify-content: center;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    body.dinv-sidebar-collapsed .erp-nav-list li a,
+    body.dinv-sidebar-collapsed .erp-nav-group-toggle {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
     }
 }
 
@@ -592,3 +665,95 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
     background: var(--erp-primary-subtle);
     color: var(--erp-primary);
 }
+
+/* ---------- Public storefront product grid (Home/Products) -------------------------------
+   Was plain stock Bootstrap cards with zero custom styling - now shares the same teal/amber
+   brand language as the rest of the public site (dinv-eyebrow, dinv-pillar-icon empty state)
+   plus its own small set of card/image treatments: a soft hover lift, a subtle image zoom, and
+   a floating category pill so the grid reads as a real storefront, not an admin list. --------- */
+.dinv-shop-toolbar {
+    border-radius: var(--erp-radius);
+}
+
+.dinv-product-card {
+    overflow: hidden;
+    transition: transform 0.18s ease-in-out, box-shadow 0.18s ease-in-out, border-color 0.18s ease-in-out;
+}
+
+.dinv-product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--erp-shadow) !important;
+    border-color: var(--erp-primary-border-subtle);
+}
+
+.dinv-product-image {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #f3f5f4;
+}
+
+.dinv-product-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease-in-out;
+}
+
+.dinv-product-card:hover .dinv-product-image img {
+    transform: scale(1.06);
+}
+
+.dinv-product-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #b6bdbc;
+    font-size: 2.25rem;
+}
+
+.dinv-product-badge {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--erp-primary-text-emphasis);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    box-shadow: var(--erp-shadow-sm);
+}
+
+.dinv-product-brand {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--erp-accent-dark);
+    margin-bottom: 0.15rem;
+}
+
+.dinv-product-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dinv-product-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dinv-product-price {
+    border-top: 1px dashed var(--erp-border);
+}
+
