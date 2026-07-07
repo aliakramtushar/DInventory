@@ -66,18 +66,29 @@
                     <label class="form-label">Description</label>
                     <textarea asp-for="Description" class="form-control" rows="2"></textarea>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-check">
-                        <input asp-for="IsShowOnWebsite" class="form-check-input" />
-                        <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                @if (ViewBag.CanSeeEcommerceFields ?? false)
+                {
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input asp-for="IsShowOnWebsite" class="form-check-input" />
+                            <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-check">
-                        <input asp-for="ShowPriceOnWebsite" class="form-check-input" checked />
-                        <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website (otherwise "Contact us for price")</label>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input asp-for="ShowPriceOnWebsite" class="form-check-input" checked />
+                            <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website (otherwise "Contact us for price")</label>
+                        </div>
                     </div>
-                </div>
+                }
+                else
+                {
+                    @* This company doesn't have e-commerce enabled - force both off. Plain
+                       name="..." hidden inputs (not asp-for) so the literal "false" always wins,
+                       regardless of whatever the model property's current value happens to be. *@
+                    <input type="hidden" name="IsShowOnWebsite" value="false" />
+                    <input type="hidden" name="ShowPriceOnWebsite" value="false" />
+                }
             </div>
 
             <hr class="my-4" />

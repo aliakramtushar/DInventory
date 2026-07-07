@@ -24,6 +24,7 @@ public class ProductsController : Controller
     private readonly ISizeService _sizeService;
     private readonly IColorService _colorService;
     private readonly IBusinessUnitService _businessUnitService;
+    private readonly ICompanyService _companyService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICompanyContextService _companyContextService;
     private readonly IBusinessUnitContextService _businessUnitContextService;
@@ -39,6 +40,7 @@ public class ProductsController : Controller
         ISizeService sizeService,
         IColorService colorService,
         IBusinessUnitService businessUnitService,
+        ICompanyService companyService,
         ICurrentUserService currentUserService,
         ICompanyContextService companyContextService,
         IBusinessUnitContextService businessUnitContextService,
@@ -53,6 +55,7 @@ public class ProductsController : Controller
         _sizeService = sizeService;
         _colorService = colorService;
         _businessUnitService = businessUnitService;
+        _companyService = companyService;
         _currentUserService = currentUserService;
         _companyContextService = companyContextService;
         _businessUnitContextService = businessUnitContextService;
@@ -427,5 +430,18 @@ public class ProductsController : Controller
         ViewBag.Brands = await _brandService.GetAllAsync(companyId, onlyActive: true);
         ViewBag.Sizes = await _sizeService.GetAllAsync(companyId, onlyActive: true);
         ViewBag.Colors = await _colorService.GetAllAsync(companyId, onlyActive: true);
+
+        // "Show on public website" / "Show price on website" are only meaningful (and only shown)
+        // for companies with e-commerce enabled - SuperAdmin always sees them regardless.
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (currentUser.IsSuperCompany)
+        {
+            ViewBag.CanSeeEcommerceFields = true;
+        }
+        else
+        {
+            var company = companyId > 0 ? await _companyService.GetByIdAsync(companyId) : null;
+            ViewBag.CanSeeEcommerceFields = company?.HasECommerce ?? false;
+        }
     }
 }

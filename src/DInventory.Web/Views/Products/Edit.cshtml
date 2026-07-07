@@ -69,18 +69,30 @@
                     <label class="form-label">Description</label>
                     <textarea asp-for="Description" class="form-control" rows="2"></textarea>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input asp-for="IsShowOnWebsite" class="form-check-input" />
-                        <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                @if (ViewBag.CanSeeEcommerceFields ?? false)
+                {
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input asp-for="IsShowOnWebsite" class="form-check-input" />
+                            <label asp-for="IsShowOnWebsite" class="form-check-label">Show on public website</label>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input asp-for="ShowPriceOnWebsite" class="form-check-input" />
-                        <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website</label>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input asp-for="ShowPriceOnWebsite" class="form-check-input" />
+                            <label asp-for="ShowPriceOnWebsite" class="form-check-label">Show price on website</label>
+                        </div>
                     </div>
-                </div>
+                }
+                else
+                {
+                    @* This company doesn't have e-commerce enabled - not editable here, but keep
+                       whatever the product's current values already are (plain name="..." hidden
+                       inputs, not asp-for, carrying the existing value explicitly) rather than
+                       silently flipping them off just because this form got saved. *@
+                    <input type="hidden" name="IsShowOnWebsite" value="@Model.IsShowOnWebsite.ToString().ToLowerInvariant()" />
+                    <input type="hidden" name="ShowPriceOnWebsite" value="@Model.ShowPriceOnWebsite.ToString().ToLowerInvariant()" />
+                }
                 <div class="col-md-4">
                     <div class="form-check">
                         <input asp-for="IsActive" class="form-check-input" />

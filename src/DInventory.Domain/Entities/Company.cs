@@ -17,6 +17,11 @@ public class Company
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Address { get; set; }
+
+    /// <summary>When true, this company's products can be marked "Show on public website" / "Show
+    /// price on website" - those two Product fields are only editable (and only ever take effect)
+    /// for companies with e-commerce enabled. SuperAdmin can always see and set both regardless.</summary>
+    public bool HasECommerce { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

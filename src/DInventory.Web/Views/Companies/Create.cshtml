@@ -27,6 +27,11 @@
                 <label class="form-label">Address</label>
                 <textarea asp-for="Address" class="form-control" rows="2"></textarea>
             </div>
+            <div class="form-check mb-3">
+                <input asp-for="HasECommerce" class="form-check-input" />
+                <label asp-for="HasECommerce" class="form-check-label">Has e-commerce</label>
+                <div class="form-text">Lets this company's products be shown (and priced) on the public website. Off by default - turn on once this company is ready to sell online.</div>
+            </div>
             <button type="submit" class="btn btn-primary">Create Company</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
         </form>

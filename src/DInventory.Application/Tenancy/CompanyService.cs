@@ -89,6 +89,7 @@ public class CompanyService : ICompanyService
         existing.Phone = company.Phone;
         existing.Email = company.Email;
         existing.Address = company.Address;
+        existing.HasECommerce = company.HasECommerce;
         existing.IsActive = company.IsActive;
         existing.UpdatedBy = actingUserId;
         existing.UpdatedAt = DateTime.UtcNow;

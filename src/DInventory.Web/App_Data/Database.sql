@@ -1283,6 +1283,7 @@ BEGIN
         Phone         NVARCHAR(30) NULL,
         Email         NVARCHAR(150) NULL,
         Address       NVARCHAR(255) NULL,
+        HasECommerce  BIT NOT NULL DEFAULT (0),
         IsActive      BIT NOT NULL DEFAULT (1),
         CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         UpdatedAt     DATETIME2 NULL,
