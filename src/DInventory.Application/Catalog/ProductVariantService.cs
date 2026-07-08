@@ -71,7 +71,9 @@ public class ProductVariantService : IProductVariantService
         var code = barcode?.Trim();
         if (string.IsNullOrWhiteSpace(code))
         {
-            code = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
+            // No company-code prefix on auto-generated barcodes anymore - a global EAN-13 series
+            // keeps them scannable on any standard POS/handheld scanner.
+            code = await _barcodeNumberGenerator.GenerateNextAsync();
         }
         else if (await _variantRepository.BarcodeExistsAsync(code))
         {

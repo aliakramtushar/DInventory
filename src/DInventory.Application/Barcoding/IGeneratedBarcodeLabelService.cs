@@ -9,9 +9,11 @@ public interface IGeneratedBarcodeLabelService
     Task<GeneratedBarcodeLabel?> GetByBarcodeAsync(string barcode);
 
     /// <summary>
-    /// Print-tag-first workflow: generate a brand-new barcode (or accept a manually supplied one) plus
-    /// product name/brand/size/price, so it can be printed and physically stuck on stock before that
-    /// stock is formally entered into the system as a product variant.
+    /// Print-tag-first workflow: generate a brand-new EAN-13 barcode (or accept a manually
+    /// supplied/scanned one) plus product name/brand/size/price, so it can be printed and physically
+    /// stuck on stock before that stock is formally entered into the system as a product variant.
+    /// The barcode is always a plain, globally scannable EAN-13/UPC-A style numeric code - no
+    /// company-code prefix is added, since that would break auto-detection on standard POS scanners.
     /// </summary>
     Task<Result<GeneratedBarcodeLabel>> GenerateAsync(
         int companyId,
@@ -22,7 +24,6 @@ public interface IGeneratedBarcodeLabelService
         string? brandName,
         string? sizeName,
         string? companyName,
-        string? companyCode,
         string? priceCode,
         decimal? price,
         int? barcodeWidth,

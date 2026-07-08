@@ -1,13 +1,14 @@
 namespace DInventory.Application.Barcoding;
 
 /// <summary>
-/// Generates the next unique barcode value in DInventory's own numbering series (used when the user
-/// doesn't scan/type an existing barcode). Keeping this behind one interface means the barcode
-/// generator page and product-variant entry never hand out the same number twice.
+/// Hands out a fresh, ready-to-use EAN-13 barcode - GS1's "20" restricted-circulation/internal-use
+/// prefix, a sequential 10-digit item number, and the standard EAN-13 check digit (13 digits total,
+/// numeric only). There's no company-code prefix: the barcode has to stay scannable by any standard
+/// POS/EAN-13 scanner regardless of which company/tenant it belongs to, so this is a single global
+/// series rather than one series per company. The result is already checked unique against both
+/// previously generated labels and live product variants, so callers can use it as-is.
 /// </summary>
 public interface IBarcodeNumberGenerator
 {
-    /// <summary>companyId selects which tenant's ShortName is used as the barcode prefix (falls
-    /// back to "DIN" if the company can't be resolved or has no short name yet).</summary>
-    Task<string> GenerateNextAsync(int companyId);
+    Task<string> GenerateNextAsync();
 }

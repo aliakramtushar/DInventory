@@ -74,7 +74,7 @@
 <div id="reprintLabelsContainer" class="d-none"></div>
 
 @section Scripts {
-<script src="~/js/dinv-barcode128.js" asp-append-version="true"></script>
+<script src="~/js/dinv-barcode-ean13.js" asp-append-version="true"></script>
 <script>
     const dinvHistoryLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(itemsList.Select(l => new
     {

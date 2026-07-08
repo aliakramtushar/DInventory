@@ -25,14 +25,8 @@
                     {
                         <input id="companyName" class="form-control" value="@ViewBag.CompanyName" readonly />
                         <div class="form-text">
-                            @if (!string.IsNullOrWhiteSpace((string?)ViewBag.CompanyCode))
-                            {
-                                <text>Company code <code>@ViewBag.CompanyCode</code> is always included in the barcode.</text>
-                            }
-                            else
-                            {
-                                <text>This company has no short code set yet - add one under Companies &gt; Edit before generating.</text>
-                            }
+                            For reference only - the barcode itself is a plain EAN-13 numeric code and
+                            never includes a company prefix, so it scans on any standard POS scanner.
                             @if (isSuperCompany)
                             {
                                 <text> Change the company any time from the selector in the top navigation bar.</text>
@@ -84,8 +78,8 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Price Code (optional)</label>
-                    <input id="priceCode" class="form-control" placeholder="000" maxlength="20" />
-                    <div class="form-text">Middle segment of the barcode (CompanyCode-PriceCode-GeneratedCode). Defaults to "000" when left blank.</div>
+                    <input id="priceCode" class="form-control" placeholder="e.g. 12345" maxlength="5" inputmode="numeric" />
+                    <div class="form-text">If set, embedded as a 5-digit segment inside the barcode. Leave blank to skip it entirely - no placeholder is added.</div>
                 </div>
                 <div class="row g-2">
                     <div class="col-md-6 mb-3">
@@ -101,10 +95,11 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Barcode</label>
-                    <input id="manualBarcode" class="form-control" placeholder="Leave blank to auto-generate, or type/scan an existing one" />
+                    <input id="manualBarcode" class="form-control" placeholder="Leave blank to auto-generate, or type/scan an existing EAN-13/UPC-A one" />
                     <div class="form-text">
-                        Scan with a barcode scanner (it types the digits and presses Enter) or type your own.
-                        Leave blank and DInventory will generate a fresh unique barcode.
+                        Scan with a barcode scanner (it types the digits and presses Enter) or type your own
+                        existing EAN-13 (13-digit) or UPC-A (12-digit) code.
+                        Leave blank and DInventory will generate a fresh, globally scannable EAN-13 barcode.
                     </div>
                 </div>
                 <button type="button" id="generateBtn" class="btn btn-primary w-100" disabled="@(!canGenerate)">
@@ -133,7 +128,7 @@
 </div>
 
 @section Scripts {
-<script src="~/js/dinv-barcode128.js" asp-append-version="true"></script>
+<script src="~/js/dinv-barcode-ean13.js" asp-append-version="true"></script>
 <script>
 (function () {
     function escapeHtml(value) {
@@ -163,9 +158,9 @@
 
     // Renders one generated label as a card. The label was already saved server-side by the time
     // this runs (the AJAX call already succeeded) - this function only draws it on screen, so any
-    // failure in here (e.g. an unencodable character) must NEVER be reported as a
-    // "network error", since the network call already worked. Instead it falls back to showing the
-    // barcode as plain printable text so the label is still usable even without the scannable graphic.
+    // failure in here (e.g. a barcode value that isn't a well-formed EAN-13) must NEVER be reported
+    // as a "network error", since the network call already worked. Instead it falls back to showing
+    // the barcode as plain printable text so the label is still usable even without the scannable graphic.
     function addLabelCard(data) {
         labelSeq++;
         const cardId = 'label-card-' + labelSeq;
@@ -194,8 +189,8 @@
         updateCounters();
     }
 
-    // Isolated on purpose: a rendering failure here (e.g. an invalid character for CODE128)
-    // falls back to plain text instead of losing the label entirely.
+    // Isolated on purpose: a rendering failure here (e.g. a barcode that isn't a well-formed
+    // 13-digit EAN-13) falls back to plain text instead of losing the label entirely.
     function renderBarcodeGraphic(svgId, barcodeValue, barcodeWidth, barcodeHeight) {
         const svgEl = document.getElementById(svgId);
         if (typeof DinvBarcode === 'undefined') {

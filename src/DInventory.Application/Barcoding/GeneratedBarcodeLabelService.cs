@@ -8,11 +8,16 @@ namespace DInventory.Application.Barcoding;
 public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
 {
     private readonly IGeneratedBarcodeLabelRepository _labelRepository;
+    private readonly IProductVariantRepository _variantRepository;
     private readonly IBarcodeNumberGenerator _barcodeNumberGenerator;
 
-    public GeneratedBarcodeLabelService(IGeneratedBarcodeLabelRepository labelRepository, IBarcodeNumberGenerator barcodeNumberGenerator)
+    public GeneratedBarcodeLabelService(
+        IGeneratedBarcodeLabelRepository labelRepository,
+        IProductVariantRepository variantRepository,
+        IBarcodeNumberGenerator barcodeNumberGenerator)
     {
         _labelRepository = labelRepository;
+        _variantRepository = variantRepository;
         _barcodeNumberGenerator = barcodeNumberGenerator;
     }
 
@@ -28,6 +33,15 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
     private const int MinBarcodeHeight = 20;
     private const int MaxBarcodeHeight = 150;
 
+    // EAN-13 is a fixed 13 digits, so the price-code segment (when one is supplied) and the plain
+    // item-number segment (when one isn't) both have to be sized to fit the same 10-digit body that
+    // follows the 2-digit internal-use prefix (see Ean13.InternalUsePrefix):
+    //   no price code:   "20" + 10-digit item number                      + check digit = 13 digits
+    //   with price code: "20" + 5-digit item number + 5-digit price code  + check digit = 13 digits
+    private const int PriceCodeDigitCount = 5;
+    private const int ItemNumberDigitCountWithPriceCode = 5;
+    private const int ItemNumberDigitCountNoPriceCode = 10;
+
     public async Task<Result<GeneratedBarcodeLabel>> GenerateAsync(
         int companyId,
         int? businessUnitId,
@@ -37,7 +51,6 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         string? brandName,
         string? sizeName,
         string? companyName,
-        string? companyCode,
         string? priceCode,
         decimal? price,
         int? barcodeWidth,
@@ -49,23 +62,36 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
             return Result<GeneratedBarcodeLabel>.Failure("Product name is required for the label.");
         }
 
-        var resolvedPriceCode = string.IsNullOrWhiteSpace(priceCode) ? "000" : priceCode.Trim();
+        // A price code is genuinely optional now: when supplied it's embedded as its own 5-digit
+        // segment of the barcode; when it isn't, the barcode's item-number segment simply uses all
+        // 10 available digits instead of padding in a meaningless placeholder. Non-digit characters
+        // are stripped because a POS/EAN-13 scanner only ever reads numerals - this keeps the final
+        // barcode globally scannable no matter what the user typed into the Price Code field.
+        var hasPriceCode = !string.IsNullOrWhiteSpace(priceCode);
+        var resolvedPriceCode = hasPriceCode ? Ean13.NormalizeDigits(priceCode, PriceCodeDigitCount) : null;
 
         var barcode = manualBarcode?.Trim();
         if (string.IsNullOrWhiteSpace(barcode))
         {
-            // The company code segment is mandatory for every auto-generated barcode - company name and
-            // business unit are the only optional pieces on this page.
-            if (string.IsNullOrWhiteSpace(companyCode))
+            barcode = await GenerateEan13BarcodeAsync(resolvedPriceCode);
+        }
+        else
+        {
+            // Accept a real supplier-printed UPC-A/EAN-13 barcode too (scanned or typed in) -
+            // normalizes a 12-digit UPC-A to its equivalent 13-digit EAN-13 form.
+            var normalized = Ean13.NormalizeManualBarcode(barcode);
+            if (normalized is null)
             {
-                return Result<GeneratedBarcodeLabel>.Failure("Could not resolve this company's short code, which is required for barcode generation. Set one under Companies > Edit.");
+                return Result<GeneratedBarcodeLabel>.Failure(
+                    $"'{barcode}' is not a valid EAN-13/UPC-A barcode (13 digits, or 12 for UPC-A, with a correct check digit). " +
+                    "Scan/type an existing barcode, or leave the field blank to auto-generate one.");
             }
 
-            barcode = await GenerateComposedBarcodeAsync(companyId, resolvedPriceCode, companyCode);
-        }
-        else if (await _labelRepository.BarcodeExistsAsync(barcode))
-        {
-            return Result<GeneratedBarcodeLabel>.Failure($"Barcode '{barcode}' has already been generated.");
+            barcode = normalized;
+            if (await _labelRepository.BarcodeExistsAsync(barcode))
+            {
+                return Result<GeneratedBarcodeLabel>.Failure($"Barcode '{barcode}' has already been generated.");
+            }
         }
 
         var width = Math.Clamp(barcodeWidth ?? 2, MinBarcodeWidth, MaxBarcodeWidth);
@@ -78,10 +104,10 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
                 CompanyId = companyId,
                 BusinessUnitId = businessUnitId,
                 BusinessUnitName = string.IsNullOrWhiteSpace(businessUnitName) ? null : businessUnitName.Trim(),
-                PriceCode = resolvedPriceCode,
-                // The company code is now always part of the barcode - this flag exists purely for
-                // historical/audit reference on older rows and is always true going forward.
-                IncludeCompanyCode = true,
+                PriceCode = resolvedPriceCode ?? string.Empty,
+                // The barcode text no longer carries a company-code segment - kept false going
+                // forward so it's clear (here and in History) which labels predate this change.
+                IncludeCompanyCode = false,
                 Barcode = barcode,
                 ProductName = productName.Trim(),
                 BrandName = brandName,
@@ -106,35 +132,42 @@ public class GeneratedBarcodeLabelService : IGeneratedBarcodeLabelService
         }
     }
 
-    /// <summary>Builds the mandatory "CompanyCode-PriceCode-GeneratedCode" barcode. Reuses
-    /// IBarcodeNumberGenerator only to obtain a fresh, collision-free numeric sequence (checked against
-    /// both existing labels and live product variants) - the prefix that generator applies internally is
-    /// discarded and just the digits are kept, since this format re-composes its own dash-separated
-    /// prefix instead. The fully composed candidate is then re-checked for uniqueness on its own
-    /// (composed strings differ from the plain "PREFIX000000123" style the raw sequence uses, so
-    /// collisions here are effectively only possible if this exact composed value was already generated
-    /// before), bumping the numeric tail until a free one is found.</summary>
-    private async Task<string> GenerateComposedBarcodeAsync(int companyId, string priceCode, string companyCode)
+    /// <summary>
+    /// Builds a fresh, checksummed EAN-13 barcode: GS1's "20" internal-use prefix, then either a
+    /// plain 10-digit sequential item number (no price code - IBarcodeNumberGenerator's result is
+    /// already a complete, unique barcode in this shape, so it's returned as-is), or a 5-digit item
+    /// number followed by the 5-digit price code when one was supplied. In the price-code case the
+    /// body differs from what IBarcodeNumberGenerator checked, so the composed candidate is
+    /// re-checked for uniqueness against both existing labels and live product variants here,
+    /// bumping the item number until a free one is found.
+    /// </summary>
+    private async Task<string> GenerateEan13BarcodeAsync(string? priceCode)
     {
-        var raw = await _barcodeNumberGenerator.GenerateNextAsync(companyId);
-        var digits = new string(raw.Where(char.IsDigit).ToArray());
-        if (string.IsNullOrEmpty(digits))
+        // Already a complete, checksummed, and unique (against both labels and live variants)
+        // EAN-13 barcode - use it as-is when no price code needs to be embedded.
+        var seedBarcode = await _barcodeNumberGenerator.GenerateNextAsync();
+        if (priceCode is null)
         {
-            digits = "000000001";
+            return seedBarcode;
         }
 
-        var numberLength = digits.Length;
-        var baseNumber = long.Parse(digits);
+        // Embedding a price code replaces part of the item-number segment, which changes the body
+        // and therefore the check digit - re-derive a numeric starting point from that same seed and
+        // re-check uniqueness against both existing labels and live product variants, bumping
+        // further if needed.
+        var seedNumber = long.Parse(seedBarcode.Substring(Ean13.InternalUsePrefix.Length, ItemNumberDigitCountNoPriceCode));
+        var itemModulus = (long)Math.Pow(10, ItemNumberDigitCountWithPriceCode);
 
         string candidate;
         long bump = 0;
         do
         {
-            var number = (baseNumber + bump).ToString().PadLeft(numberLength, '0');
-            candidate = string.Join("-", new[] { companyCode.Trim().ToUpperInvariant(), priceCode, number });
+            var itemNumber = ((seedNumber + bump) % itemModulus).ToString().PadLeft(ItemNumberDigitCountWithPriceCode, '0');
+            var body = Ean13.InternalUsePrefix + itemNumber + priceCode;
+            candidate = Ean13.Compose(body);
             bump++;
         }
-        while (await _labelRepository.BarcodeExistsAsync(candidate));
+        while (await _labelRepository.BarcodeExistsAsync(candidate) || await _variantRepository.BarcodeExistsAsync(candidate));
 
         return candidate;
     }

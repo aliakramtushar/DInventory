@@ -61,18 +61,18 @@ public class BarcodeGeneratorController : Controller
 
         if (!currentUser.IsSuperCompany)
         {
-            var ownCompany = await _companyService.GetByIdAsync(currentUser.CompanyId);
             ViewBag.CompanyName = currentUser.CompanyName;
-            ViewBag.CompanyCode = ownCompany?.ShortName;
         }
         else if (effectiveCompanyId > 0)
         {
             var company = await _companyService.GetByIdAsync(effectiveCompanyId);
             ViewBag.CompanyName = company?.CompanyName;
-            ViewBag.CompanyCode = company?.ShortName;
         }
         // else: SuperAdmin still has "All Companies" selected in the navbar - the view shows a
         // prompt to pick a real company there before the Generate button is usable.
+        // Note: the company is only used for the optional "include company name on the label" text
+        // and for scoping this label to a tenant - it's never encoded into the barcode itself, since
+        // a company-code prefix would break auto-detection on standard POS/EAN-13 scanners.
 
         // Business unit is entirely optional metadata on a label (never part of the barcode text
         // itself) - offered as a plain dropdown so the user can tag a label with one if they want to.
@@ -122,7 +122,6 @@ public class BarcodeGeneratorController : Controller
         try
         {
             string? companyName;
-            string? companyCode;
             int? effectiveBusinessUnitId;
 
             if (currentUser.IsSuperCompany)
@@ -134,13 +133,10 @@ public class BarcodeGeneratorController : Controller
                 }
 
                 companyName = company.CompanyName;
-                companyCode = company.ShortName;
             }
             else
             {
-                var ownCompany = await _companyService.GetByIdAsync(currentUser.CompanyId);
                 companyName = currentUser.CompanyName;
-                companyCode = ownCompany?.ShortName;
             }
 
             // The user can explicitly pick a business unit on the form; fall back to whatever the
@@ -148,8 +144,9 @@ public class BarcodeGeneratorController : Controller
             effectiveBusinessUnitId = request.BusinessUnitId ?? await _businessUnitContextService.GetEffectiveBusinessUnitIdAsync();
 
             // Company name is optional and only stored/shown on the label if the user opted in via the
-            // "Include company name on the label" checkbox - the company CODE segment of the barcode
-            // itself is always mandatory and resolved above regardless of that checkbox.
+            // "Include company name on the label" checkbox. Note there's no company CODE segment
+            // anymore - the barcode itself is a plain EAN-13 numeric code so it scans on any
+            // standard POS/handheld scanner without extra configuration.
             var companyNameForLabel = request.IncludeCompanyName ? companyName : null;
 
             var result = await _labelService.GenerateAsync(
@@ -161,7 +158,6 @@ public class BarcodeGeneratorController : Controller
                 request.BrandName,
                 request.SizeName,
                 companyNameForLabel,
-                companyCode,
                 request.PriceCode,
                 request.Price,
                 request.BarcodeWidth,
@@ -212,7 +208,7 @@ public class BarcodeGeneratorController : Controller
         public string? CompanyName { get; set; }
         public decimal? Price { get; set; }
 
-        /// <summary>CODE128 module width in px. Null falls back to the service default (2).</summary>
+        /// <summary>EAN-13 barcode module width in px. Null falls back to the service default (2).</summary>
         public int? BarcodeWidth { get; set; }
 
         /// <summary>Barcode height in px. Null falls back to the service default (50).</summary>
@@ -223,13 +219,15 @@ public class BarcodeGeneratorController : Controller
         public int? BusinessUnitId { get; set; }
         public string? BusinessUnitName { get; set; }
 
-        /// <summary>Optional middle segment of the barcode (CompanyCode-PriceCode-GeneratedCode).
-        /// Defaults to "000" server-side when left blank. Ignored when a manual barcode is supplied.</summary>
+        /// <summary>Optional price code embedded as a 5-digit segment of the generated EAN-13 barcode.
+        /// Left out entirely (not padded with a placeholder) when left blank - the barcode's
+        /// item-number segment just uses all available digits instead. Ignored when a manual barcode
+        /// is supplied.</summary>
         public string? PriceCode { get; set; }
 
         /// <summary>Whether to store/print the company name on the label. Optional - defaults to false
-        /// (not shown) unless the user checks the "Include company name on the label" box. Unrelated to
-        /// the company CODE, which is always included in the barcode and is not user-controllable.</summary>
+        /// (not shown) unless the user checks the "Include company name on the label" box. The barcode
+        /// itself never carries a company code - only this optional display name.</summary>
         public bool IncludeCompanyName { get; set; }
     }
 }

@@ -3,37 +3,36 @@ using DInventory.Application.Common.Interfaces;
 namespace DInventory.Application.Barcoding;
 
 /// <summary>
-/// Sequential "DIN" + 9-digit series (e.g. DIN000000123), checked against both the printed-label log
-/// and live product variants so a freshly generated number can never collide with one already in use.
+/// Sequential "20" + 10-digit series (e.g. 2000000001238) - the complete, ready-to-use EAN-13
+/// barcode this app hands out directly wherever a product/variant needs an auto-assigned barcode
+/// (ProductService/ProductVariantService), and the numeric base GeneratedBarcodeLabelService
+/// re-derives from when a price code needs to be embedded instead. Checked against both the
+/// printed-label log and live product variants so a freshly generated barcode can never collide
+/// with one already in use.
 /// </summary>
 public class BarcodeNumberGenerator : IBarcodeNumberGenerator
 {
-    /// <summary>Used only if a company can't be resolved or hasn't set a ShortName yet - every real
-    /// company should have its own prefix via Companies.ShortName instead.</summary>
-    private const string FallbackPrefix = "DIN";
+    private const int ItemDigitCount = 10;
+
     private readonly IGeneratedBarcodeLabelRepository _labelRepository;
     private readonly IProductVariantRepository _variantRepository;
-    private readonly ICompanyRepository _companyRepository;
 
     public BarcodeNumberGenerator(
         IGeneratedBarcodeLabelRepository labelRepository,
-        IProductVariantRepository variantRepository,
-        ICompanyRepository companyRepository)
+        IProductVariantRepository variantRepository)
     {
         _labelRepository = labelRepository;
         _variantRepository = variantRepository;
-        _companyRepository = companyRepository;
     }
 
-    public async Task<string> GenerateNextAsync(int companyId)
+    public async Task<string> GenerateNextAsync()
     {
-        var company = await _companyRepository.GetByIdAsync(companyId);
-        var prefix = !string.IsNullOrWhiteSpace(company?.ShortName) ? company.ShortName : FallbackPrefix;
+        var last = await _labelRepository.GetLastBarcodeAsync(Ean13.InternalUsePrefix);
 
-        var last = await _labelRepository.GetLastBarcodeAsync(prefix);
-        var next = 1;
-        if (!string.IsNullOrWhiteSpace(last) && last.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            && int.TryParse(last[prefix.Length..], out var lastNumber))
+        var next = 1L;
+        if (!string.IsNullOrWhiteSpace(last)
+            && last.Length >= Ean13.InternalUsePrefix.Length + ItemDigitCount
+            && long.TryParse(last.AsSpan(Ean13.InternalUsePrefix.Length, ItemDigitCount), out var lastNumber))
         {
             next = lastNumber + 1;
         }
@@ -41,7 +40,8 @@ public class BarcodeNumberGenerator : IBarcodeNumberGenerator
         string candidate;
         do
         {
-            candidate = $"{prefix}{next:D6}";
+            var itemNumber = next.ToString().PadLeft(ItemDigitCount, '0');
+            candidate = Ean13.Compose(Ean13.InternalUsePrefix + itemNumber);
             next++;
         }
         while (await _labelRepository.BarcodeExistsAsync(candidate) || await _variantRepository.BarcodeExistsAsync(candidate));
