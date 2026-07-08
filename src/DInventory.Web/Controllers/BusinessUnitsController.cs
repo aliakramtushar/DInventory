@@ -4,6 +4,7 @@ using DInventory.Application.Common.Models;
 using DInventory.Application.Tenancy;
 using DInventory.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DInventory.Web.Controllers;
@@ -157,4 +158,81 @@ public class BusinessUnitsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>Uploads/replaces this business unit's logo. Same company-ownership check as Edit -
+    /// class-level [Authorize(Roles = "SuperAdmin,Admin")] already restricts who can reach this at
+    /// all; this additionally stops an Admin from one company touching another company's unit.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateLogo(int id, IFormFile? logo)
+    {
+        var businessUnit = await _businessUnitService.GetByIdAsync(id);
+        if (businessUnit is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && businessUnit.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        if (logo is null || logo.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Please choose a JPG or PNG file to upload.";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+
+        byte[] data;
+        using (var memoryStream = new MemoryStream())
+        {
+            await logo.CopyToAsync(memoryStream);
+            data = memoryStream.ToArray();
+        }
+
+        var result = await _businessUnitService.UpdateLogoAsync(id, data, logo.ContentType, currentUser.UserId);
+
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error;
+        }
+        else
+        {
+            await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "UPDATE", "BusinessUnits", $"{id}:Logo", ipAddress: currentUser.IpAddress);
+            TempData["StatusMessage"] = "Logo updated.";
+        }
+
+        return RedirectToAction(nameof(Edit), new { id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveLogo(int id)
+    {
+        var businessUnit = await _businessUnitService.GetByIdAsync(id);
+        if (businessUnit is null)
+        {
+            return NotFound();
+        }
+
+        var currentUser = _currentUserService.GetCurrentUser();
+        if (!currentUser.IsSuperCompany && businessUnit.CompanyId != currentUser.CompanyId)
+        {
+            return Forbid();
+        }
+
+        var result = await _businessUnitService.UpdateLogoAsync(id, null, null, currentUser.UserId);
+
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error;
+        }
+        else
+        {
+            await _auditLogService.LogAsync(currentUser.UserId, currentUser.Username, "UPDATE", "BusinessUnits", $"{id}:LogoRemoved", ipAddress: currentUser.IpAddress);
+            TempData["StatusMessage"] = "Logo removed.";
+        }
+
+        return RedirectToAction(nameof(Edit), new { id });
+    }
 }

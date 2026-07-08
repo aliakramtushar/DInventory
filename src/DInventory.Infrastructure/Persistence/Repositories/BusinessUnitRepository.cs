@@ -17,7 +17,8 @@ public class BusinessUnitRepository : IBusinessUnitRepository
     private const string SelectBase = @"
         SELECT bu.BusinessUnitId, bu.CompanyId, bu.BusinessUnitName, bu.Address, bu.IsActive,
                bu.CreatedAt, bu.UpdatedAt, bu.CreatedBy, bu.UpdatedBy,
-               c.CompanyName
+               c.CompanyName,
+               CASE WHEN bu.Logo IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasLogo
         FROM dbo.BusinessUnits bu
         INNER JOIN dbo.Companies c ON c.CompanyId = bu.CompanyId";
 
@@ -126,5 +127,24 @@ public class BusinessUnitRepository : IBusinessUnitRepository
             WHERE CompanyId = @companyId AND BusinessUnitName = @name AND (@excludeId IS NULL OR BusinessUnitId <> @excludeId)";
         var count = await connection.ExecuteScalarAsync<int>(sql, new { companyId, name, excludeId });
         return count > 0;
+    }
+
+    public async Task<(byte[] Data, string ContentType)?> GetLogoAsync(int businessUnitId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = "SELECT Logo, LogoContentType FROM dbo.BusinessUnits WHERE BusinessUnitId = @businessUnitId";
+        var row = await connection.QuerySingleOrDefaultAsync<(byte[]? Logo, string? LogoContentType)>(sql, new { businessUnitId });
+        return row.Logo is null || row.LogoContentType is null ? null : (row.Logo, row.LogoContentType);
+    }
+
+    public async Task<bool> UpdateLogoAsync(int businessUnitId, byte[]? logo, string? contentType, int? actingUserId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            UPDATE dbo.BusinessUnits
+            SET Logo = @logo, LogoContentType = @contentType, UpdatedAt = @updatedAt, UpdatedBy = @actingUserId
+            WHERE BusinessUnitId = @businessUnitId";
+        var rows = await connection.ExecuteAsync(sql, new { businessUnitId, logo, contentType, updatedAt = DateTime.UtcNow, actingUserId });
+        return rows > 0;
     }
 }

@@ -1,3 +1,5 @@
+using DInventory.Domain.Enums;
+
 namespace DInventory.Domain.Entities;
 
 /// <summary>A tenant using this installation. CompanyId 0 is the built-in "Super Admin / All
@@ -9,6 +11,10 @@ public class Company
 {
     public int CompanyId { get; set; }
     public string CompanyName { get; set; } = string.Empty;
+
+    /// <summary>Fixed two-value language tag for this company (English or Bangla). Just a label -
+    /// no translation/localization behavior is driven by this anywhere else in the app.</summary>
+    public CompanyLanguage Language { get; set; } = CompanyLanguage.English;
 
     /// <summary>Short, all-caps mnemonic (min 3 chars) used as the barcode prefix for every code
     /// generated under this company, e.g. "ABC" -> ABC000000123. Must be unique across companies so

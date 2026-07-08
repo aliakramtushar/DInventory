@@ -71,9 +71,9 @@ public class CompanyRepository : ICompanyRepository
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO dbo.Companies (CompanyName, ShortName, Phone, Email, Address, HasECommerce, IsActive, CreatedAt, CreatedBy)
+            INSERT INTO dbo.Companies (CompanyName, ShortName, Phone, Email, Address, HasECommerce, Language, IsActive, CreatedAt, CreatedBy)
             OUTPUT INSERTED.CompanyId
-            VALUES (@CompanyName, @ShortName, @Phone, @Email, @Address, @HasECommerce, @IsActive, @CreatedAt, @CreatedBy)";
+            VALUES (@CompanyName, @ShortName, @Phone, @Email, @Address, @HasECommerce, @Language, @IsActive, @CreatedAt, @CreatedBy)";
         return await connection.ExecuteScalarAsync<int>(sql, company);
     }
 
@@ -83,7 +83,7 @@ public class CompanyRepository : ICompanyRepository
         const string sql = @"
             UPDATE dbo.Companies
             SET CompanyName = @CompanyName, ShortName = @ShortName, Phone = @Phone, Email = @Email, Address = @Address,
-                HasECommerce = @HasECommerce, IsActive = @IsActive,
+                HasECommerce = @HasECommerce, Language = @Language, IsActive = @IsActive,
                 UpdatedAt = @UpdatedAt, UpdatedBy = @UpdatedBy
             WHERE CompanyId = @CompanyId";
         var rows = await connection.ExecuteAsync(sql, company);

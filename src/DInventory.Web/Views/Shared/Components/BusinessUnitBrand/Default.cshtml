@@ -1,0 +1,16 @@
+@model DInventory.Web.Models.BusinessUnitBrandViewModel
+@if (Model.BusinessUnitId.HasValue && Model.HasLogo)
+{
+    <img src="@Url.Action("Get", "BusinessUnitLogo", new { id = Model.BusinessUnitId })" alt="@Model.BusinessUnitName logo" class="erp-brand-logo" />
+    <span>@Model.BusinessUnitName</span>
+}
+else if (Model.BusinessUnitId.HasValue)
+{
+    <i class="bi bi-shop"></i>
+    <span>@Model.BusinessUnitName</span>
+}
+else
+{
+    <i class="bi bi-boxes"></i>
+    <span>DInventory</span>
+}

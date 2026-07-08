@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Edit Business Unit";
 }
-<div class="card shadow-sm">
+<div class="card shadow-sm mb-3">
     <div class="card-body">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
         <form method="post">
@@ -27,5 +27,35 @@
             <button type="submit" class="btn btn-primary">Save Changes</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
         </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">Logo</div>
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            @if (Model.HasLogo)
+            {
+                <img src="@Url.Action("Get", "BusinessUnitLogo", new { id = Model.BusinessUnitId })" alt="@Model.BusinessUnitName logo" style="max-height:64px;max-width:160px;object-fit:contain;" class="border rounded p-1 bg-white" />
+            }
+            else
+            {
+                <div class="text-muted small">No logo uploaded yet.</div>
+            }
+        </div>
+        @* asp-action/asp-route-id trigger FormTagHelper, which auto-injects the antiforgery hidden
+           field for a POST form - no explicit @@Html.AntiForgeryToken() needed (and adding one here
+           too would render a duplicate token field, which the antiforgery validator rejects). *@
+        <form method="post" asp-action="UpdateLogo" asp-route-id="@Model.BusinessUnitId" enctype="multipart/form-data" class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="file" name="logo" accept="image/jpeg,image/png" class="form-control" style="max-width:320px;" required />
+            <button type="submit" class="btn btn-primary btn-sm">Upload Logo</button>
+        </form>
+        <div class="form-text">JPG or PNG only, 50KB max.</div>
+        @if (Model.HasLogo)
+        {
+            <form method="post" asp-action="RemoveLogo" asp-route-id="@Model.BusinessUnitId" class="mt-2">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Remove Logo</button>
+            </form>
+        }
     </div>
 </div>

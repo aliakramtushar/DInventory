@@ -13,4 +13,12 @@ public interface IBusinessUnitRepository
     Task<bool> DeleteAsync(int businessUnitId);
     Task<bool> HasDependentDataAsync(int businessUnitId);
     Task<bool> NameExistsAsync(int companyId, string name, int? excludeId = null);
+
+    /// <summary>Fetches just the logo bytes + content type for serving as an image response - kept
+    /// separate from GetByIdAsync/GetAllAsync/GetPagedAsync so ordinary list/edit queries never load
+    /// the blob. Null if the business unit doesn't exist or has no logo.</summary>
+    Task<(byte[] Data, string ContentType)?> GetLogoAsync(int businessUnitId);
+
+    /// <summary>Sets (logo/contentType both non-null) or clears (both null) the stored logo.</summary>
+    Task<bool> UpdateLogoAsync(int businessUnitId, byte[]? logo, string? contentType, int? actingUserId);
 }

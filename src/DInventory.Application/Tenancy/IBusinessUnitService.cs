@@ -11,4 +11,12 @@ public interface IBusinessUnitService
     Task<Result<int>> CreateAsync(BusinessUnit businessUnit, int? actingUserId);
     Task<Result> UpdateAsync(BusinessUnit businessUnit, int? actingUserId);
     Task<Result> DeleteAsync(int businessUnitId);
+
+    /// <summary>Fetches the raw logo bytes + content type for serving as an image response. Null if
+    /// the business unit doesn't exist or has no logo.</summary>
+    Task<(byte[] Data, string ContentType)?> GetLogoAsync(int businessUnitId);
+
+    /// <summary>Validates (jpg/jpeg/png only, 50KB max) and stores a new logo, or clears it when
+    /// <paramref name="logoData"/> is null.</summary>
+    Task<Result> UpdateLogoAsync(int businessUnitId, byte[]? logoData, string? contentType, int? actingUserId);
 }
