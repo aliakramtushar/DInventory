@@ -8,15 +8,36 @@
     <link rel="stylesheet" href="~/css/bootstrap-icons.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head> 
-<body> 
+<body>
+    @* Anti-flash: apply the persisted sidebar-collapsed state before the shell below ever paints.
+       This has to be a plain synchronous inline script (not site.js, which loads at the bottom of
+       the page) - by the time an external, deferred-by-position script at the end of <body> would
+       run, the sidebar has already been visible full-width for a moment, causing a visible "snap"
+       on every page load for anyone who collapsed it. Running inline, before .erp-shell is parsed,
+       means the class is already present the instant the shell paints. *@
+    <script>
+        (function () {
+            if (window.localStorage && localStorage.getItem('dinv-sidebar-collapsed') === 'true') {
+                document.body.classList.add('dinv-sidebar-collapsed');
+            }
+        })();
+    </script>
     <div class="erp-shell">
         <aside class="erp-sidebar" id="erpSidebar">
             <div class="erp-brand">
-                <i class="bi bi-boxes"></i>
-                <span>DInventory</span>
+                @await Component.InvokeAsync("BusinessUnitBrand")
+            </div>
+            <div class="erp-sidebar-search">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="sidebarMenuSearch" class="form-control" placeholder="Search menu..." autocomplete="off" aria-label="Search menu" />
+                </div>
             </div>
             <nav class="erp-nav">
                 @await Component.InvokeAsync("SidebarMenu")
+                <div class="erp-nav-empty" id="sidebarMenuNoResults" style="display:none;">
+                    <i class="bi bi-search"></i> No matching menu items.
+                </div>
             </nav>
         </aside>
 
@@ -24,6 +45,9 @@
             <header class="erp-topbar">
                 <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button">
                     <i class="bi bi-list"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary d-none d-lg-inline-flex" id="sidebarCollapseToggle" type="button" title="Collapse sidebar">
+                    <i class="bi bi-layout-sidebar-inset"></i>
                 </button>
                 <div class="erp-topbar-title">@ViewData["Title"]</div>
                 <div class="erp-topbar-actions">

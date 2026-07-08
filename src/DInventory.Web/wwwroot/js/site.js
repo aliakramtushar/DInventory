@@ -21,6 +21,108 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ---- Sidebar collapse (desktop icon rail) ---------------------------------
+// Persisted via localStorage so it survives full page loads (this is a traditional
+// server-rendered MVC app, not an SPA) - the matching anti-flash inline script in _Layout.cshtml
+// applies the class before the shell paints on every subsequent page.
+document.addEventListener('DOMContentLoaded', () => {
+    const collapseToggle = document.getElementById('sidebarCollapseToggle');
+    if (!collapseToggle) {
+        return;
+    }
+
+    function updateToggleIcon() {
+        const collapsed = document.body.classList.contains('dinv-sidebar-collapsed');
+        collapseToggle.querySelector('i').className = collapsed ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-inset';
+        collapseToggle.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    }
+
+    updateToggleIcon();
+
+    collapseToggle.addEventListener('click', () => {
+        const collapsed = document.body.classList.toggle('dinv-sidebar-collapsed');
+        if (window.localStorage) {
+            localStorage.setItem('dinv-sidebar-collapsed', collapsed ? 'true' : 'false');
+        }
+        updateToggleIcon();
+    });
+});
+
+// ---- Sidebar menu search ---------------------------------------------------
+// Client-side filter over the already-rendered sidebar tree (SidebarMenu view component) - matches
+// each link's visible text against the query. Any group with at least one matching child is
+// force-expanded while searching, and restored to whatever it was showing before once the search
+// box is cleared.
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('sidebarMenuSearch');
+    const sidebar = document.getElementById('erpSidebar');
+    const noResults = document.getElementById('sidebarMenuNoResults');
+    if (!searchInput || !sidebar) {
+        return;
+    }
+
+    const groups = Array.from(sidebar.querySelectorAll('.erp-nav-group'));
+    const topLevelLeaves = Array.from(sidebar.querySelectorAll('.erp-nav-list > li:not(.erp-nav-group)'));
+
+    // Remember each group's initial expand/collapse state once, before any searching happens, so
+    // clearing the search box restores exactly what the page rendered rather than always collapsing.
+    groups.forEach((group) => {
+        const toggle = group.querySelector('.erp-nav-group-toggle');
+        const target = toggle && document.getElementById(toggle.getAttribute('data-nav-target'));
+        group.dataset.defaultExpanded = target && target.classList.contains('show') ? 'true' : 'false';
+    });
+
+    function setGroupExpanded(group, expanded) {
+        const toggle = group.querySelector('.erp-nav-group-toggle');
+        const target = toggle && document.getElementById(toggle.getAttribute('data-nav-target'));
+        if (!toggle || !target) {
+            return;
+        }
+        target.classList.toggle('show', expanded);
+        toggle.classList.toggle('collapsed', !expanded);
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+
+        if (!query) {
+            topLevelLeaves.forEach((li) => { li.style.display = ''; });
+            groups.forEach((group) => {
+                group.style.display = '';
+                group.querySelectorAll('.erp-nav-sublist li').forEach((li) => { li.style.display = ''; });
+                setGroupExpanded(group, group.dataset.defaultExpanded === 'true');
+            });
+            if (noResults) noResults.style.display = 'none';
+            return;
+        }
+
+        let anyMatch = false;
+
+        topLevelLeaves.forEach((li) => {
+            const matches = li.textContent.trim().toLowerCase().includes(query);
+            li.style.display = matches ? '' : 'none';
+            if (matches) anyMatch = true;
+        });
+
+        groups.forEach((group) => {
+            let groupHasMatch = false;
+            group.querySelectorAll('.erp-nav-sublist li').forEach((li) => {
+                const matches = li.textContent.trim().toLowerCase().includes(query);
+                li.style.display = matches ? '' : 'none';
+                if (matches) groupHasMatch = true;
+            });
+            group.style.display = groupHasMatch ? '' : 'none';
+            setGroupExpanded(group, groupHasMatch);
+            if (groupHasMatch) anyMatch = true;
+        });
+
+        if (noResults) {
+            noResults.style.display = anyMatch ? 'none' : '';
+        }
+    });
+});
+
 // ---- Grouped sidebar nav (Admin / Sales / Reports / Catalog collapse) -----
 // Implemented with plain DOM APIs instead of Bootstrap's data-bs-toggle="collapse" component, so the
 // group headers always expand/collapse even if the Bootstrap JS bundle is slow, blocked, or fails to

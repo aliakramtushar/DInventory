@@ -150,7 +150,9 @@ public class ProductService : IProductService
                 var barcode = v.Barcode?.Trim();
                 if (string.IsNullOrWhiteSpace(barcode))
                 {
-                    barcode = await _barcodeNumberGenerator.GenerateNextAsync(product.CompanyId);
+                    // No company-code prefix on auto-generated barcodes anymore - a global EAN-13
+                    // series keeps them scannable on any standard POS/handheld scanner.
+                    barcode = await _barcodeNumberGenerator.GenerateNextAsync();
                 }
 
                 var sku = string.IsNullOrWhiteSpace(v.SKU) ? await BuildAutoSkuAsync(product.ProductCode, v.SizeId, v.ColorId) : v.SKU.Trim();

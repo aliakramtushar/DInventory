@@ -3,29 +3,55 @@
     ViewData["Title"] = "Our Products";
     Layout = "_PublicLayout";
 }
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-    <div>
-        <h1 class="display-6 mb-1">Our Products</h1>
-        <p class="text-muted mb-0">Browse our latest styles.</p>
+
+<div class="mb-4">
+    <div class="dinv-eyebrow text-primary mb-2">
+        <span class="dinv-eyebrow-rule"></span> OUR CATALOG
     </div>
-    <form class="d-flex gap-2" method="get">
-        <select name="categoryId" class="form-select" onchange="this.form.submit()">
-            <option value="">All Categories</option>
-            @foreach (var cat in (IEnumerable<DInventory.Domain.Entities.Category>)ViewBag.Categories)
-            {
-                <option value="@cat.CategoryId" selected="@(ViewData["CategoryId"]?.ToString() == cat.CategoryId.ToString())">@cat.CategoryName</option>
-            }
-        </select>
-        <input type="text" name="search" value="@ViewData["Search"]" class="form-control" placeholder="Search products..." />
-        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-    </form>
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-3">
+        <div>
+            <h1 class="display-6 mb-1">Our Products</h1>
+            <p class="text-muted mb-0">Browse our latest styles and find what suits you.</p>
+        </div>
+    </div>
+</div>
+
+<div class="dinv-shop-toolbar card shadow-sm mb-4">
+    <div class="card-body">
+        <form class="row g-2 align-items-center" method="get">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="search" value="@ViewData["Search"]" class="form-control border-start-0 ps-0" placeholder="Search products..." />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select name="categoryId" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in (IEnumerable<DInventory.Domain.Entities.Category>)ViewBag.Categories)
+                    {
+                        <option value="@cat.CategoryId" selected="@(ViewData["CategoryId"]?.ToString() == cat.CategoryId.ToString())">@cat.CategoryName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" type="submit"><i class="bi bi-funnel me-1"></i>Filter</button>
+            </div>
+            <div class="col-md-2 text-md-end">
+                <span class="text-muted small">@Model.TotalCount product@(Model.TotalCount == 1 ? "" : "s")</span>
+            </div>
+        </form>
+    </div>
 </div>
 
 @if (!Model.Items.Any())
 {
-    <div class="text-center text-muted py-5">
-        <i class="bi bi-box-seam display-1 d-block mb-3"></i>
-        No products found.
+    <div class="text-center py-5">
+        <div class="dinv-pillar-icon">
+            <i class="bi bi-box-seam"></i>
+        </div>
+        <h5 class="mb-1">No products found</h5>
+        <p class="text-muted mb-0">Try a different search term or category.</p>
     </div>
 }
 else
@@ -34,35 +60,43 @@ else
         @foreach (var product in Model.Items)
         {
             <div class="col-sm-6 col-lg-4 col-xl-3">
-                <div class="card h-100 shadow-sm">
-                    <div class="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center">
+                <div class="dinv-product-card card h-100 shadow-sm">
+                    <div class="dinv-product-image">
                         @if (!string.IsNullOrWhiteSpace(product.ImagePath))
                         {
-                            <img src="@product.ImagePath" class="w-100 h-100" style="object-fit:cover;" alt="@product.ProductName" />
+                            <img src="@product.ImagePath" alt="@product.ProductName" loading="lazy" />
                         }
                         else
                         {
-                            <i class="bi bi-image text-muted display-4"></i>
+                            <div class="dinv-product-image-placeholder">
+                                <i class="bi bi-image"></i>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(product.CategoryName))
+                        {
+                            <span class="dinv-product-badge">@product.CategoryName</span>
                         }
                     </div>
-                    <div class="card-body">
-                        <h6 class="mb-1">@product.ProductName</h6>
-                        <p class="text-muted small mb-2">
-                            @product.BrandName
-                            @if (!string.IsNullOrWhiteSpace(product.BrandName) && !string.IsNullOrWhiteSpace(product.CategoryName))
+                    <div class="card-body d-flex flex-column">
+                        @if (!string.IsNullOrWhiteSpace(product.BrandName))
+                        {
+                            <div class="dinv-product-brand">@product.BrandName</div>
+                        }
+                        <h6 class="dinv-product-name mb-1" title="@product.ProductName">@product.ProductName</h6>
+                        @if (!string.IsNullOrWhiteSpace(product.Description))
+                        {
+                            <p class="dinv-product-desc text-muted small mb-2">@product.Description</p>
+                        }
+                        <div class="dinv-product-price mt-auto pt-2">
+                            @if (product.ShowPriceOnWebsite)
                             {
-                                @:&middot;
+                                <span class="fw-bold text-primary fs-5">@((product.SellingPrice ?? 0).ToMoney())</span>
                             }
-                            @product.CategoryName
-                        </p>
-                        @if (product.ShowPriceOnWebsite)
-                        {
-                            <div class="fw-bold text-primary">@((product.SellingPrice ?? 0).ToMoney())</div>
-                        }
-                        else
-                        {
-                            <div class="fw-semibold text-muted small"><i class="bi bi-telephone me-1"></i>Contact us for price</div>
-                        }
+                            else
+                            {
+                                <span class="fw-semibold text-muted small"><i class="bi bi-telephone me-1"></i>Contact us for price</span>
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
@@ -71,8 +105,12 @@ else
 
     @if (Model.TotalPages > 1)
     {
-        <nav class="mt-4">
+        <nav class="mt-5">
             <ul class="pagination justify-content-center">
+                <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                    <a class="page-link" asp-action="Products" asp-route-page="@(Model.PageNumber - 1)"
+                       asp-route-categoryId="@ViewData["CategoryId"]" asp-route-search="@ViewData["Search"]"><i class="bi bi-chevron-left"></i></a>
+                </li>
                 @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
                 {
                     <li class="page-item @(pageNumber == Model.PageNumber ? "active" : "")">
@@ -80,6 +118,10 @@ else
                            asp-route-categoryId="@ViewData["CategoryId"]" asp-route-search="@ViewData["Search"]">@pageNumber</a>
                     </li>
                 }
+                <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                    <a class="page-link" asp-action="Products" asp-route-page="@(Model.PageNumber + 1)"
+                       asp-route-categoryId="@ViewData["CategoryId"]" asp-route-search="@ViewData["Search"]"><i class="bi bi-chevron-right"></i></a>
+                </li>
             </ul>
         </nav>
     }

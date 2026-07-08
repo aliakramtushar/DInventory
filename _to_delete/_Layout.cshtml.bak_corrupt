@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - DInventory</title>
+    <link rel="stylesheet" href="~/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bootstrap-icons.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head> 
+<body>
+    @* Anti-flash: apply the persisted sidebar-collapsed state before the shell below ever paints.
+       This has to be a plain synchronous inline script (not site.js, which loads at the bottom of
+       the page) - by the time an external, deferred-by-position script at the end of <body> would
+       run, the sidebar has already been visible full-width for a moment, causing a visible "snap"
+       on every page load for anyone who collapsed it. Running inline, before .erp-shell is parsed,
+       means the class is already present the instant the shell paints. *@
+    <script>
+        (function () {
+            if (window.localStorage && localStorage.getItem('dinv-sidebar-collapsed') === 'true') {
+                document.body.classList.add('dinv-sidebar-collapsed');
+            }
+        })();
+    </script>
+    <div class="erp-shell">
+        <aside class="erp-sidebar" id="erpSidebar">
+            <div class="erp-brand">
+                @await Component.InvokeAsync("BusinessUnitBrand")
+            </div>
+            <div class="erp-sidebar-search">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="sidebarMenuSearch" class="form-control" placeholder="Search menu..." autocomplete="off" aria-label="Search menu" />
+                </div>
+            </div>
+            <nav class="erp-nav">
+                @await Component.InvokeAsync("SidebarMenu")
+                <div class="erp-nav-empty" id="sidebarMenuNoResults" style="display:none;">
+                    <i class="bi bi-search"></i> No matching menu items.
+                </div>
+            </nav>
+        </aside>
+
+        <div class="erp-main">
+            <header class="erp-topbar">
+                <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button">
+                    <i class="bi bi-list"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary d-none d-lg-inline-flex" id="sidebarCollapseToggle" type="button" title="Collapse sidebar">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+                <div class="erp-topbar-title">@ViewData["Title"]</div>
+                <div class="erp-topbar-actions">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+ ]ØZ]ÛÛ\Û™[’[›ÚÙP\Ş[˜ÊÛÛ\[TÙ[XİÜˆŠBˆ]ØZ]ÛÛ\Û™[’[›ÚÙP\Ş[˜Ê\Ú[™\ÜÕ[š]Ù[XİÜˆŠBˆ]ˆÛ\ÜÏH™›ÜİÛˆ‚ˆ]ÛˆÛ\ÜÏH˜ˆ‹[YÚ›ÜİÛ‹]ÙÙÛHY›^[YÛ‹Z][\ËXÙ[\ˆØ\Lˆˆ\OH˜]Ûˆˆ]KXœË]ÙÙÛOH™›ÜİÛˆ‚ˆHÛ\ÜÏH˜šHšK\\œÛÛ‹XÚ\˜ÛHœËMHÚO‚ˆÜ[ˆÛ\ÜÏH™[›Û™H\ÛKZ[›[™H\Ù\‹‘š[™š\œİ
+™[˜[YHŠOË•˜[YOÜÜ[‚ˆÜ[ˆÛ\ÜÏH˜˜YÙH^X™Ë\š[X\H\Ù\‹‘š[™š\œİ
+Ş\İ[K”ÙXİ\š]KÛZ[\ËÛZ[U\\Ë”›ÛJOË•˜[YOÜÜ[‚ˆØ]Û‚ˆ[Û\ÜÏH™›ÜİÛ‹[Y[H›ÜİÛ‹[Y[KY[™‚ˆOHÛ\ÜÏH™›ÜİÛ‹Z][Hˆ\ÜXÛÛ›Û\HXØÛİ[ˆ\ÜXXİ[ÛHÚ[™ÙT\ÜİÛÜ™HÛ\ÜÏH˜šHšKZÙ^HYKLˆÚOÚ[™ÙH\ÜİÛÜ™ØOÛO‚ˆOˆÛ\ÜÏH™›ÜİÛ‹Y]šY\ˆˆÏÛO‚ˆO‚ˆ›Ü›H\ÜXÛÛ›Û\HXØÛİ[ˆ\ÜXXİ[ÛH“ÙÛİ]ˆY]ÙHœÜİ‚ˆ]Ûˆ\OHœİX›Z]ˆÛ\ÜÏH™›ÜİÛ‹Z][H^Y[™Ù\ˆHÛ\ÜÏH˜šHšKX›ŞX\œ›İË\šYÚYKLˆÚO“ÙÛİ]Ø]Û‚ˆÙ›Ü›O‚ˆÛO‚ˆİ[‚ˆÙ]‚ˆBˆ[ÙBˆÂˆHÛ\ÜÏH˜ˆ‹\š[X\H‹\ÛHˆ\ÜXÛÛ›Û\HXØÛİ[ˆ\ÜXXİ[ÛH“ÙÚ[ˆHÛ\ÜÏH˜šHšKX›ŞX\œ›İËZ[‹\šYÚYKLHÚO“ÙÚ[ØO‚ˆBˆÙ]‚ˆÚXY\‚‚ˆXZ[ˆÛ\ÜÏH™\œXÛÛ[‚ˆYˆ
+[\]VÈ”İ]\ÓY\ÜØYÙH—H\Èİš[™Èİ]\ÓY\ÜØYÙH	‰ˆ\İš[™Ë’\Ó[Ü•Ú]TÜXÙJİ]\ÓY\ÜØYÙJJBˆÂˆ]ˆÛ\ÜÏH˜[\[\\İXØÙ\ÜÈ[\Y\ÛZ\ÜÚX›H˜YHÚİÈˆ›ÛOH˜[\‚ˆİ]\ÓY\ÜØYÙBˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÏH˜‹XÛÜÙHˆ]KXœËY\ÛZ\ÜÏH˜[\Ø]Û‚ˆÙ]‚ˆBˆYˆ
+[\]VÈ‘\œ›Ü“Y\ÜØYÙH—H\Èİš[™È\œ›Ü“Y\ÜØYÙH	‰ˆ\İš[™Ë’\Ó[Ü•Ú]TÜXÙJ\œ›Ü“Y\ÜØYÙJJBˆÂˆ]ˆÛ\ÜÏH˜[\[\Y[™Ù\ˆ[\Y\ÛZ\ÜÚX›H˜YHÚİÈˆ›ÛOH˜[\‚ˆ\œ›Ü“Y\ÜØYÙBˆ]Ûˆ\OH˜]ÛˆˆÛ\ÜÏH˜‹XÛÜÙHˆ]KXœËY\ÛZ\ÜÏH˜[\Ø]Û‚ˆÙ]‚ˆBˆ™[™\›ÙJ
+BˆÛXZ[‚ˆÙ]‚ˆÙ]‚‚ˆØÜš\Ü˜ÏHŸ‹ÚœËØ›Ûİİ˜\˜[™K›Z[‹šœÈˆ\ÜX\[™]™\œÚ[ÛHYHÜØÜš\‚ˆØÜš\Ü˜ÏHŸ‹ÚœËÜÚ]KšœÈˆ\ÜX\[™]™\œÚ[ÛHYHÜØÜš\‚ˆ]ØZ]™[™\”ÙXİ[Û\Ş[˜Ê”ØÜš\È‹™\]Z\™Yˆ˜[ÙJBØ›ÙO‚Ú[‚

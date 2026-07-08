@@ -322,10 +322,7 @@ BEGIN
         ProductName             NVARCHAR(150) NOT NULL,
         BrandName               NVARCHAR(100) NULL,
         SizeName                NVARCHAR(30) NULL,
-        CompanyName             NVARCHAR(150) NULL,
         Price                   DECIMAL(18,2) NULL,
-        BarcodeWidth            INT NOT NULL DEFAULT (2),
-        BarcodeHeight           INT NOT NULL DEFAULT (50),
         IsLinked                BIT NOT NULL DEFAULT (0),
         LinkedProductVariantId  INT NULL,
         CreatedAt               DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
@@ -335,23 +332,8 @@ BEGIN
 END
 GO
 
--- Safe additive upgrade path for an existing GeneratedBarcodeLabels table created before the
--- Company Name / configurable barcode size fields existed.
-IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'CompanyName') IS NULL
-BEGIN
-    ALTER TABLE dbo.GeneratedBarcodeLabels ADD CompanyName NVARCHAR(150) NULL;
-END
-GO
-
-IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BarcodeWidth') IS NULL
-BEGIN
-    ALTER TABLE dbo.GeneratedBarcodeLabels ADD BarcodeWidth INT NOT NULL CONSTRAINT DF_GBL_BarcodeWidth DEFAULT (2);
-    ALTER TABLE dbo.GeneratedBarcodeLabels ADD BarcodeHeight INT NOT NULL CONSTRAINT DF_GBL_BarcodeHeight DEFAULT (50);
-END
-GO
-
--- Safe additive upgrade path for the optional Business Unit tag, Price Code segment, and the
--- "was the company code included in the barcode text" flag (Barcode Generator page enhancement).
+-- Safe additive upgrade path for the optional Business Unit tag and Price Code display tag
+-- (Barcode Generator page enhancement).
 IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BusinessUnitName') IS NULL
 BEGIN
     ALTER TABLE dbo.GeneratedBarcodeLabels ADD BusinessUnitName NVARCHAR(150) NULL;
@@ -364,9 +346,91 @@ BEGIN
 END
 GO
 
-IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'IncludeCompanyCode') IS NULL
+-- Barcode Generator simplification: printed labels no longer carry a configurable bar
+-- width/height, an optional company name, or the legacy "was a company code included" flag - a
+-- price code (when set) is now shown as "ProductName (PriceCode)" instead. Drop these columns
+-- (and their default constraints, which must go first) from any table created by an older
+-- version of this script; a brand-new install never has them since they're gone from the
+-- CREATE TABLE above.
+IF OBJECT_ID('dbo.DF_GBL_BarcodeWidth', 'D') IS NOT NULL
 BEGIN
-    ALTER TABLE dbo.GeneratedBarcodeLabels ADD IncludeCompanyCode BIT NOT NULL CONSTRAINT DF_GBL_IncludeCompanyCode DEFAULT (1);
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP CONSTRAINT DF_GBL_BarcodeWidth;
+END
+GO
+
+IF OBJECT_ID('dbo.DF_GBL_BarcodeHeight', 'D') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP CONSTRAINT DF_GBL_BarcodeHeight;
+END
+GO
+
+IF OBJECT_ID('dbo.DF_GBL_IncludeCompanyCode', 'D') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP CONSTRAINT DF_GBL_IncludeCompanyCode;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BarcodeWidth') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP COLUMN BarcodeWidth;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'BarcodeHeight') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP COLUMN BarcodeHeight;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'CompanyName') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP COLUMN CompanyName;
+END
+GO
+
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL AND COL_LENGTH('dbo.GeneratedBarcodeLabels', 'IncludeCompanyCode') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.GeneratedBarcodeLabels DROP COLUMN IncludeCompanyCode;
+END
+GO
+
+-- Every barcode must be unique - GeneratedBarcodeLabels.Barcode and ProductVariants.Barcode both
+-- already declare NOT NULL UNIQUE in their CREATE TABLE above for brand-new installs; this adds a
+-- matching UNIQUE constraint to an existing table created before that constraint existed. Wrapped
+-- in TRY/CATCH because an existing table that somehow already has duplicate barcodes would fail
+-- the ALTER - in that case this prints a warning instead of aborting the rest of the script, and
+-- the duplicates need to be resolved by hand before the constraint can be added.
+IF OBJECT_ID('dbo.GeneratedBarcodeLabels', 'U') IS NOT NULL
+   AND NOT EXISTS (
+        SELECT 1 FROM sys.indexes i
+        INNER JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        INNER JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE i.object_id = OBJECT_ID('dbo.GeneratedBarcodeLabels') AND i.is_unique = 1 AND c.name = 'Barcode'
+   )
+BEGIN
+    BEGIN TRY
+        ALTER TABLE dbo.GeneratedBarcodeLabels ADD CONSTRAINT UQ_GBL_Barcode UNIQUE (Barcode);
+    END TRY
+    BEGIN CATCH
+        PRINT 'WARNING: Could not add a UNIQUE constraint on GeneratedBarcodeLabels.Barcode (likely duplicate barcodes already exist). Resolve duplicates manually, then re-run this script. Error: ' + ERROR_MESSAGE();
+    END CATCH
+END
+GO
+
+IF OBJECT_ID('dbo.ProductVariants', 'U') IS NOT NULL
+   AND NOT EXISTS (
+        SELECT 1 FROM sys.indexes i
+        INNER JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        INNER JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE i.object_id = OBJECT_ID('dbo.ProductVariants') AND i.is_unique = 1 AND c.name = 'Barcode'
+   )
+BEGIN
+    BEGIN TRY
+        ALTER TABLE dbo.ProductVariants ADD CONSTRAINT UQ_PV_Barcode UNIQUE (Barcode);
+    END TRY
+    BEGIN CATCH
+        PRINT 'WARNING: Could not add a UNIQUE constraint on ProductVariants.Barcode (likely duplicate barcodes already exist). Resolve duplicates manually, then re-run this script. Error: ' + ERROR_MESSAGE();
+    END CATCH
 END
 GO
 
@@ -1359,6 +1423,9 @@ BEGIN
         Email         NVARCHAR(150) NULL,
         Address       NVARCHAR(255) NULL,
         HasECommerce  BIT NOT NULL DEFAULT (0),
+        -- Fixed two-value language tag (0 = English, 1 = Bangla - see CompanyLanguage enum). Just a
+        -- label - no translation/localization behavior is driven by this anywhere else in the app.
+        Language      TINYINT NOT NULL DEFAULT (0),
         IsActive      BIT NOT NULL DEFAULT (1),
         CreatedAt     DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         UpdatedAt     DATETIME2 NULL,
@@ -1366,6 +1433,13 @@ BEGIN
         UpdatedBy     INT NULL,
         CONSTRAINT UQ_Companies_ShortName UNIQUE (ShortName)
     );
+END
+GO
+
+-- Safe additive upgrade path for an existing Companies table created before Language existed.
+IF OBJECT_ID('dbo.Companies', 'U') IS NOT NULL AND COL_LENGTH('dbo.Companies', 'Language') IS NULL
+BEGIN
+    ALTER TABLE dbo.Companies ADD Language TINYINT NOT NULL CONSTRAINT DF_Companies_Language DEFAULT (0);
 END
 GO
 
@@ -1377,6 +1451,11 @@ BEGIN
         CompanyId         INT NOT NULL,
         BusinessUnitName  NVARCHAR(150) NOT NULL,
         Address           NVARCHAR(255) NULL,
+        -- Uploaded logo (JPG/PNG only, 50KB max - enforced in BusinessUnitService, not here).
+        -- LogoContentType is the MIME type ("image/jpeg" or "image/png") needed to serve Logo back
+        -- correctly; both are NULL until a logo is uploaded.
+        Logo              VARBINARY(MAX) NULL,
+        LogoContentType   NVARCHAR(50) NULL,
         IsActive          BIT NOT NULL DEFAULT (1),
         CreatedAt         DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
         UpdatedAt         DATETIME2 NULL,
@@ -1392,6 +1471,13 @@ GO
 IF OBJECT_ID('dbo.BusinessUnits', 'U') IS NOT NULL AND COL_LENGTH('dbo.BusinessUnits', 'Address') IS NULL
 BEGIN
     ALTER TABLE dbo.BusinessUnits ADD Address NVARCHAR(255) NULL;
+END
+GO
+
+-- Safe additive upgrade path for an existing BusinessUnits table created before Logo existed.
+IF OBJECT_ID('dbo.BusinessUnits', 'U') IS NOT NULL AND COL_LENGTH('dbo.BusinessUnits', 'Logo') IS NULL
+BEGIN
+    ALTER TABLE dbo.BusinessUnits ADD Logo VARBINARY(MAX) NULL, LogoContentType NVARCHAR(50) NULL;
 END
 GO
 

@@ -213,7 +213,7 @@ public class ProductRepository : IProductRepository
         string candidate;
         do
         {
-            candidate = $"PRD-{next:D4}";
+            candidate = $"PRD-{companyId:D3}{next:D4}";
             next++;
         }
         while (await CodeExistsAsync(companyId, candidate));
